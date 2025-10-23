@@ -1,0 +1,240 @@
+electricity-billing-system/
+├── 📁 public/
+│   ├── index.html
+│   ├── favicon.ico
+│   └── assets/
+│       ├── images/
+│       └── icons/
+├── 📁 src/
+│   ├── 📁 apps/
+│   │   ├── 📁 admin/                    # Admin Portal
+│   │   │   ├── pages/
+│   │   │   │   ├── Dashboard/
+│   │   │   │   │   ├── components/
+│   │   │   │   │   │   ├── SystemMetrics.tsx
+│   │   │   │   │   │   ├── QuickAccessCards.tsx
+│   │   │   │   │   │   └── RevenueCharts.tsx
+│   │   │   │   │   └── AdminDashboard.tsx
+│   │   │   │   ├── CustomerManagement/
+│   │   │   │   │   ├── components/
+│   │   │   │   │   │   ├── CustomerSearch.tsx
+│   │   │   │   │   │   ├── CustomerTable.tsx
+│   │   │   │   │   │   └── CustomerActions.tsx
+│   │   │   │   │   └── CustomerManagement.tsx
+│   │   │   │   ├── OfficerManagement/
+│   │   │   │   │   ├── components/
+│   │   │   │   │   │   ├── OfficerSearch.tsx
+│   │   │   │   │   │   ├── OfficerTable.tsx
+│   │   │   │   │   │   └── OfficerActions.tsx
+│   │   │   │   │   └── OfficerManagement.tsx
+│   │   │   │   └── SystemLogs/
+│   │   │   │       └── SystemLogs.tsx
+│   │   │   ├── components/
+│   │   │   │   ├── AdminSidebar.tsx
+│   │   │   │   └── AdminHeader.tsx
+│   │   │   └── hooks/
+│   │   │       ├── useAdminDashboard.ts
+│   │   │       └── useUserManagement.ts
+│   │   ├── 📁 officer/                  # Officer Portal
+│   │   │   ├── pages/
+│   │   │   │   ├── Dashboard/
+│   │   │   │   │   ├── components/
+│   │   │   │   │   │   ├── OfficerMetrics.tsx
+│   │   │   │   │   │   ├── QuickActions.tsx
+│   │   │   │   │   │   └── PendingTasks.tsx
+│   │   │   │   │   └── OfficerDashboard.tsx
+│   │   │   │   ├── CustomerRegistration/
+│   │   │   │   │   ├── components/
+│   │   │   │   │   │   ├── CustomerForm.tsx
+│   │   │   │   │   │   ├── FormValidation.tsx
+│   │   │   │   │   │   └── SuccessModal.tsx
+│   │   │   │   │   └── CustomerRegistration.tsx
+│   │   │   │   ├── MeterReadings/
+│   │   │   │   │   ├── components/
+│   │   │   │   │   │   ├── MeterSearch.tsx
+│   │   │   │   │   │   ├── ReadingsTable.tsx
+│   │   │   │   │   │   ├── AnomalyStatus.tsx
+│   │   │   │   │   │   └── ReadingDetails.tsx
+│   │   │   │   │   └── MeterReadings.tsx
+│   │   │   │   ├── ComplaintManagement/
+│   │   │   │   │   ├── components/
+│   │   │   │   │   │   ├── ComplaintsTable.tsx
+│   │   │   │   │   │   ├── ComplaintDetails.tsx
+│   │   │   │   │   │   └── StatusBadge.tsx
+│   │   │   │   │   └── ComplaintManagement.tsx
+│   │   │   │   └── Reports/
+│   │   │   │       ├── components/
+│   │   │   │       │   ├── ReportFilters.tsx
+│   │   │   │       │   ├── ReportGenerator.tsx
+│   │   │   │       │   └── ExportButtons.tsx
+│   │   │   │       └── Reports.tsx
+│   │   │   ├── components/
+│   │   │   │   ├── OfficerSidebar.tsx
+│   │   │   │   └── OfficerHeader.tsx
+│   │   │   └── hooks/
+│   │   │       ├── useOfficerDashboard.ts
+│   │   │       ├── useCustomerRegistration.ts
+│   │   │       └── useMeterReadings.ts
+│   │   └── 📁 customer/                 # Customer Portal
+│   │       ├── pages/
+│   │       │   ├── Dashboard/
+│   │       │   │   ├── components/
+│   │       │   │   │   ├── CurrentBillCard.tsx
+│   │       │   │   │   ├── QuickActions.tsx
+│   │       │   │   │   └── PaymentButton.tsx
+│   │       │   │   └── CustomerDashboard.tsx
+│   │       │   ├── MeterReading/
+│   │       │   │   ├── components/
+│   │       │   │   │   ├── PhotoUpload.tsx
+│   │       │   │   │   ├── UploadProgress.tsx
+│   │       │   │   │   └── SuccessMessage.tsx
+│   │       │   │   └── MeterReading.tsx
+│   │       │   ├── BillsPayment/
+│   │       │   │   ├── components/
+│   │       │   │   │   ├── BillsTable.tsx
+│   │       │   │   │   ├── PaymentGateway.tsx
+│   │       │   │   │   ├── PaymentHistory.tsx
+│   │       │   │   │   └── BillDownload.tsx
+│   │       │   │   └── BillsPayment.tsx
+│   │       │   ├── ConsumptionAnalytics/
+│   │       │   │   ├── components/
+│   │       │   │   │   ├── ConsumptionChart.tsx
+│   │       │   │   │   ├── AIInsights.tsx
+│   │       │   │   │   └── UsageAlerts.tsx
+│   │       │   │   └── ConsumptionAnalytics.tsx
+│   │       │   └── SupportComplaints/
+│   │       │       ├── components/
+│   │       │       │   ├── ComplaintForm.tsx
+│   │       │       │   ├── ComplaintHistory.tsx
+│   │       │       │   └── PhotoAttachment.tsx
+│   │       │       └── SupportComplaints.tsx
+│   │       ├── components/
+│   │       │   ├── CustomerSidebar.tsx
+│   │       │   └── CustomerHeader.tsx
+│   │       └── hooks/
+│   │           ├── useCustomerDashboard.ts
+│   │           ├── useBilling.ts
+│   │           └── useConsumption.ts
+│   ├── 📁 shared/
+│   │   ├── 📁 components/
+│   │   │   ├── 📁 ui/
+│   │   │   │   ├── Button/
+│   │   │   │   │   ├── Button.tsx
+│   │   │   │   │   └── variants/
+│   │   │   │   ├── Input/
+│   │   │   │   │   ├── TextInput.tsx
+│   │   │   │   │   ├── SearchInput.tsx
+│   │   │   │   │   └── FileInput.tsx
+│   │   │   │   ├── Table/
+│   │   │   │   │   ├── DataTable.tsx
+│   │   │   │   │   └── TablePagination.tsx
+│   │   │   │   ├── Modal/
+│   │   │   │   │   ├── Modal.tsx
+│   │   │   │   │   └── ConfirmationModal.tsx
+│   │   │   │   ├── Cards/
+│   │   │   │   │   ├── MetricCard.tsx
+│   │   │   │   │   └── InfoCard.tsx
+│   │   │   │   ├── Charts/
+│   │   │   │   │   ├── LineChart.tsx
+│   │   │   │   │   └── BarChart.tsx
+│   │   │   │   └── index.ts
+│   │   │   ├── 📁 layout/
+│   │   │   │   ├── AppLayout.tsx
+│   │   │   │   ├── Sidebar/
+│   │   │   │   │   ├── Sidebar.tsx
+│   │   │   │   │   └── SidebarItem.tsx
+│   │   │   │   ├── Header/
+│   │   │   │   │   ├── Header.tsx
+│   │   │   │   │   ├── Notifications.tsx
+│   │   │   │   │   └── UserMenu.tsx
+│   │   │   │   └── Breadcrumb.tsx
+│   │   │   └── 📁 forms/
+│   │   │       ├── FormInput.tsx
+│   │   │       ├── FormSelect.tsx
+│   │   │       ├── FormTextarea.tsx
+│   │   │       └── validation/
+│   │   │           ├── schemas.ts
+│   │   │           └── patterns.ts
+│   │   ├── 📁 hooks/
+│   │   │   ├── useAuth.ts
+│   │   │   ├── useLocalStorage.ts
+│   │   │   ├── useApi.ts
+│   │   │   ├── useNotifications.ts
+│   │   │   ├── useExport.ts
+│   │   │   └── usePagination.ts
+│   │   ├── 📁 contexts/
+│   │   │   ├── AuthContext.tsx
+│   │   │   ├── AppContext.tsx
+│   │   │   └── NotificationContext.tsx
+│   │   ├── 📁 services/
+│   │   │   ├── 📁 api/
+│   │   │   │   ├── auth.api.ts
+│   │   │   │   ├── customers.api.ts
+│   │   │   │   ├── officers.api.ts
+│   │   │   │   ├── billing.api.ts
+│   │   │   │   ├── meters.api.ts
+│   │   │   │   ├── complaints.api.ts
+│   │   │   │   └── reports.api.ts
+│   │   │   ├── 📁 mock-data/
+│   │   │   │   ├── customers.data.ts
+│   │   │   │   ├── bills.data.ts
+│   │   │   │   ├── meters.data.ts
+│   │   │   │   ├── officers.data.ts
+│   │   │   │   └── complaints.data.ts
+│   │   │   └── 📁 utils/
+│   │   │       ├── api-client.ts
+│   │   │       ├── error-handler.ts
+│   │   │       └── request-interceptors.ts
+│   │   ├── 📁 types/
+│   │   │   ├── auth.types.ts
+│   │   │   ├── customer.types.ts
+│   │   │   ├── billing.types.ts
+│   │   │   ├── meter.types.ts
+│   │   │   ├── officer.types.ts
+│   │   │   └── complaint.types.ts
+│   │   ├── 📁 utils/
+│   │   │   ├── constants.ts
+│   │   │   ├── helpers.ts
+│   │   │   ├── formatters.ts
+│   │   │   ├── validators.ts
+│   │   │   ├── generators.ts
+│   │   │   └── date-utils.ts
+│   │   └── 📁 styles/
+│   │       ├── globals.css
+│   │       ├── tailwind.css
+│   │       └── components/
+│   ├── 📁 auth/
+│   │   ├── components/
+│   │   │   ├── LoginForm.tsx
+│   │   │   ├── RoleSelector.tsx
+│   │   │   └── ForgotPassword.tsx
+│   │   ├── pages/
+│   │   │   ├── Login.tsx
+│   │   │   └── ForgotPassword.tsx
+│   │   └── utils/
+│   │       ├── auth-guard.ts
+│   │       └── token-manager.ts
+│   ├── 📁 public-pages/                # Public homepage
+│   │   ├── components/
+│   │   │   ├── Navbar.tsx
+│   │   │   ├── HeroSection.tsx
+│   │   │   ├── Features.tsx
+│   │   │   └── Footer.tsx
+│   │   └── pages/
+│   │       ├── HomePage.tsx
+│   │       └── LandingPage.tsx
+│   ├── 📁 routes/
+│   │   ├── AppRouter.tsx
+│   │   ├── ProtectedRoute.tsx
+│   │   ├── PublicRoutes.tsx
+│   │   └── route-config.ts
+│   └── App.tsx
+├── 📁 docs/
+│   ├── api/
+│   └── user-guides/
+├── package.json
+├── tailwind.config.js
+├── tsconfig.json
+├── vite.config.ts
+├── .env
+└── README.md
