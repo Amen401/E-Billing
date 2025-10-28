@@ -16,7 +16,11 @@ const officerSchema = mongoose.Schema({
       password: {
         type: String,
         required: true
+    },
+    isActive: {
+      type: Boolean,
+      required: true
     }
 });
 
-export const Officer = mongoose.Schema("OfficerModel", officerSchema);
+export const Officer = mongoose.model("OfficerModel", officerSchema);
