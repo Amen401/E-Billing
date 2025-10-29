@@ -1,14 +1,25 @@
-import express from "express"
-import { activateDeactivateOfficer, createAdmin, searchOfficer, updateName, updateUsernameOrPassword } from "../controllers/adminController.js"
+import express from "express";
+import {
+  activateDeactivateOfficer,
+  adminLogin,
+  createAdmin,
+  customerResetPassword,
+  officerResetPassword,
+  searchOfficer,
+  updateName,
+  updateUsernameOrPassword,
+} from "../controllers/adminController.js";
+import { verifyToken } from "../Util/tokenVerify.js";
 
 const adminRouter = express.Router();
 
-adminRouter.post("/add-admin", createAdmin)
-adminRouter.post("/search-officer", searchOfficer)
-adminRouter.post("/ad-officer", activateDeactivateOfficer)
-adminRouter.post("/update-name", updateName)
-adminRouter.post("/update-up", updateUsernameOrPassword)
-
-
+adminRouter.post("/add-admin", verifyToken, createAdmin);
+adminRouter.post("/search-officer", verifyToken, searchOfficer);
+adminRouter.post("/ad-officer", verifyToken, activateDeactivateOfficer);
+adminRouter.post("/update-name", verifyToken, updateName);
+adminRouter.post("/update-up", verifyToken, updateUsernameOrPassword);
+adminRouter.post("/orp", verifyToken, officerResetPassword);
+adminRouter.post("/crp", verifyToken, customerResetPassword);
+adminRouter.post("/login", adminLogin);
 
 export default adminRouter;
