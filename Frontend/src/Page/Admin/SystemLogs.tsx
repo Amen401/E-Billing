@@ -27,7 +27,6 @@ const SystemLogs = () => {
     }
   };
 
-  // Fetch activities from backend
   const fetchActivities = async () => {
     setIsLoading(true);
     try {
@@ -55,6 +54,35 @@ const SystemLogs = () => {
     log.timestamp.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Function to export logs as CSV
+  const exportLogs = () => {
+    if (systemActivities.length === 0) {
+      toast.error("No logs to export");
+      return;
+    }
+
+    const header = ["Event", "User", "Timestamp", "IP Address", "Status"];
+    const rows = systemActivities.map((log) => [
+      `"${log.event}"`,
+      `"${log.user}"`,
+      `"${log.timestamp}"`,
+      `"${log.ipAddress}"`,
+      `"${log.status}"`,
+    ]);
+
+    const csvContent =
+      [header, ...rows].map((row) => row.join(",")).join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `system_logs_${new Date().toISOString()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -63,7 +91,7 @@ const SystemLogs = () => {
           <h1 className="text-2xl font-bold text-slate-900">System Logs</h1>
           <p className="text-sm text-slate-600 mt-1">Monitor all system activities and events</p>
         </div>
-        <Button variant="outline" className="gap-2">
+        <Button variant="outline" className="gap-2" onClick={exportLogs}>
           <Download className="h-4 w-4" />
           Export Logs
         </Button>
