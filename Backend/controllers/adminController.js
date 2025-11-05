@@ -7,7 +7,6 @@ import { Officer } from "../models/OfficerModel.js";
 import { passwordResetHistory } from "../models/PasswordResetHistory.js";
 import { comparePassword, endcodePassword } from "../Util/passwordEncDec.js";
 import { generateToken } from "../Util/tokenGenrator.js";
-
 export const createAdmin = async (req, res) => {
   try {
     const newAdmin = req.body;
@@ -68,10 +67,11 @@ export const activateDeactivateOfficer = async (req, res) => {
     res.status(200).json(updatedResult);
   } catch (error) {
     console.error("Activate/Deactivate Error:", error);
-    res.status(500).json({ message: "Internal server error", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
   }
 };
-
 
 export const updateUsernameOrPassword = async (req, res) => {
   try {
@@ -190,7 +190,6 @@ export const officerResetPassword = async (req, res) => {
     password: "12345678",
   });
 };
-
 
 export const customerResetPassword = async (req, res) => {
   const id = req.body.id;
