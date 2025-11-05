@@ -40,17 +40,33 @@ export const createAdmin = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: "Internal server error", error: error });
   }
-}; //will be removed after adding one admin!!
+};
 
 export const searchOfficer = async (req, res) => {
   try {
+    const { query } = req.query;
+    const searchRegex = new RegExp(query || "", "i");
+
     const searchResult = await Officer.find({
-      name: new RegExp(req.body.name, "i"),
+      $or: [{ name: searchRegex }, { department: searchRegex }],
     });
 
     res.status(200).json(searchResult);
   } catch (error) {
-    res.status(500).json({ message: "Internal server error", error: error });
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getOfficerStats = async (req, res) => {
+  try {
+    const total = await Officer.countDocuments();
+    const active = await Officer.countDocuments({ isActive: true });
+    const inactive = await Officer.countDocuments({ isActive: false });
+
+    res.status(200).json({ total, active, inactive });
+  } catch (error) {
+    console.error("Officer Stats Error:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -87,7 +103,10 @@ export const activateDeactivateOfficer = async (req, res) => {
     );
     res.status(200).json(updatedResult);
   } catch (error) {
-    res.status(500).json({ message: "Internal server error", error: error });
+    console.error("Activate/Deactivate Error:", error);
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
   }
 };
 

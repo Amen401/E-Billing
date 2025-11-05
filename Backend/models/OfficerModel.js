@@ -1,26 +1,25 @@
 import mongoose from "mongoose";
 
-const officerSchema = mongoose.Schema({
-    name: {
-        type: String,
-        required: true
+const officerSchema = new mongoose.Schema(
+  {
+    name: String,
+    username: { type: String, unique: true },
+    email: { type: String, unique: true },
+    department: {
+      type: String,
+      enum: ["Customer Support", "Meter Reading", "Maintenance"],
+      required: true,
     },
-      role: {
-        type: String,
-        required: true
+    assignedArea: {
+      type: String,
+      required: true,
     },
-      username: {
-        type: String,
-        required: true
-    },
-      password: {
-        type: String,
-        required: true
-    },
-    isActive: {
-      type: Boolean,
-      required: true
-    }
-});
+    password: String,
+    isActive: { type: Boolean, default: true },
+    deactivatedAt: { type: Date },
+    lastPasswordReset: { type: Date },
+  },
+  { timestamps: true }
+);
 
 export const Officer = mongoose.model("OfficerModel", officerSchema);
