@@ -11,6 +11,17 @@ interface OfficerStats {
   active: number;
   inactive: number;
 }
+interface MeterReading {
+  _id: string;
+  account_number: string;
+  meter_number: string;
+  reading_kwh: number;
+  reading_date: string;
+  ai_status: "Normal" | "Anomaly" | "Need Investigation";
+  customer_id?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 
 class ApiService {
@@ -84,8 +95,15 @@ const ENDPOINTS = {
   customerResetPassword: "/admin/crp",
   createAdmin: "/admin/add-admin",
   createOfficer: "/admin/create-officer",
+  officerLogin: "/officer/login",
+  customerLogin: "/customer/login",
   getstatus:"/admin/officers/stats",
     systemActivities: "/admin/system-activities",
+      officerProfile: "/officer/profile",
+  updateOfficerProfile: "/officer/update-profile",
+   officerMeterReadings: "/officer/meter-readings",
+  officerMeterReadingDetail: "/officer/meter-readings/:id",
+  createCustomer:"/officer/add-customer"
 };
 
 export const adminApi = {
@@ -153,5 +171,59 @@ getOfficerStats: async () => {
     const response = await api.get(ENDPOINTS.systemActivities);
     return response; 
   },
+
+};
+export const customerApi = {
+  login: async (username: string, password: string) => {
+    const response = await api.post(ENDPOINTS.customerLogin, { username, password });
+    return response;
+  },
+};
+export const officerApi = {
+  login: async (username: string, password: string) => {
+    const response = await api.post(ENDPOINTS.officerLogin, { username, password });
+    return response;
+  },
+   getProfile: async () => {
+    const response = await api.get(ENDPOINTS.officerProfile);
+    return response;
+  },
+
+  updateProfile: async (data: { name: string }) => {
+    const response = await api.put(ENDPOINTS.updateOfficerProfile, data);
+    return response;
+  },
+   getMeterReadings: async () => {
+    const response = await api.get<{ data: MeterReading[] }>(ENDPOINTS.officerMeterReadings);
+    return response;
+  },
+
+  getMeterReadingDetail: async (id: string) => {
+    const response = await api.get(`${ENDPOINTS.officerMeterReadingDetail.replace(':id', id)}`);
+    return response;
+  },
+createCustomer: async (data: any) => {
+const token = localStorage.getItem("officerToken");
+if (!token) throw new Error("No officer token found, please login");
+
+  const response = await fetch(`${API_BASE_URL}${ENDPOINTS.createCustomer}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+
+  const resData = await response.json();
+
+  if (!response.ok) {
+    throw new Error(resData.message || "Failed to create customer");
+  }
+
+  return resData;
+},
+
+
 
 };

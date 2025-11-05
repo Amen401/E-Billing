@@ -20,7 +20,6 @@ const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefin
 export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AdminUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
   useEffect(() => {
     const storedUser = localStorage.getItem('adminUser');
     const token = localStorage.getItem('authToken');

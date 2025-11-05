@@ -15,7 +15,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '../Context/AuthContext';
+import { useAdminAuth } from '../Context/AdminContext';
 
 const menuItems = [
   { title: 'Dashboard', url: '/admin/dashboard', icon: LayoutDashboard },
@@ -26,7 +26,7 @@ const menuItems = [
 
 export function AdminSidebar() {
   const { state } = useSidebar();
-  const { logout, user } = useAuth();
+  const { logout, user } = useAdminAuth();
   const isCollapsed = state === 'collapsed';
 
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
