@@ -9,7 +9,6 @@ import {
   searchCustomer,
   searchOfficer,
   updateName,
-  createOfficer,
   getOfficerStats,
   updateUsernameOrPassword,
 } from "../controllers/adminController.js";

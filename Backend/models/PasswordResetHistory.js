@@ -13,5 +13,5 @@ const passwordResetHistorySchema = mongoose.Schema({
 
 export const passwordResetHistory = mongoose.model(
   "PasswordResetHistory",
-  passwordResetHistory
+  passwordResetHistorySchema
 );
