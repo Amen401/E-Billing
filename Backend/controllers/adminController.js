@@ -1,9 +1,33 @@
+import { adminAT } from "../models/AdminActivityTracker.js";
 import { admin } from "../models/AdminModel.js";
 import { CustomerAccount } from "../models/customerAccount.js";
+import { customerADHistory } from "../models/CustomerActivationDeactivationHistory.js";
+import { officerADHistory } from "../models/OfficerActivationDeactivationHistory.js";
 import { Officer } from "../models/OfficerModel.js";
+import { passwordResetHistory } from "../models/PasswordResetHistory.js";
 import { comparePassword, endcodePassword } from "../Util/passwordEncDec.js";
 import { generateToken } from "../Util/tokenGenrator.js";
-import { addSystemActivity } from "../controllers/systemActivityController.js";
+const date = new Date();
+export const createOfficer = async (req, res) => {
+  try {
+    const newOfficer = req.body;
+    newOfficer.password = await endcodePassword(newOfficer.password);
+    const newOfficerSchema = new Officer(newOfficer);
+
+    const saveOfficer = await newOfficerSchema.save();
+    await saveActivity(
+      req.userAuth.id,
+      `created an officer account called name: ${saveOfficer.name} with username: ${saveOfficer.username}`
+    );
+    res.status(200).json({
+      message: "New Officer added successfully",
+      newOfficer: saveOfficer,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 export const createAdmin = async (req, res) => {
   try {
     const newAdmin = req.body;
@@ -46,39 +70,45 @@ export const getOfficerStats = async (req, res) => {
   }
 };
 
-export const activateDeactivateOfficer = async (req, res) => {
+export const searchCustomer = async (req, res) => {
   try {
-    const { id, isActive } = req.body;
-
-
-    const updateData = { isActive };
-    if (!isActive) {
-      updateData.deactivatedAt = new Date();
-    } else {
-      updateData.deactivatedAt = null;
-    }
-
-    const updatedOfficer = await Officer.findByIdAndUpdate(id, updateData, { new: true });
-
-    if (!updatedOfficer) {
-      return res.status(404).json({ message: "Officer not found" });
-    }
-
-    await addSystemActivity({
-      event: `Officer "${updatedOfficer.name}" was ${isActive ? "activated" : "deactivated"}`,
-      user: "Admin",
-      status: "success",
-      req,
-    });
-
-    res.status(200).json(updatedOfficer);
-
-  } catch (error) {
-    console.error("Activate/Deactivate Error:", error);
-    res.status(500).json({ message: "Internal server error", error: error.message });
-  }
+    const { searchBy, value } = req.body;
+  } catch (error) {}
 };
 
+export const activateDeactivateOfficer = async (req, res) => {
+  try {
+    const isActive = req.body.isActive;
+    const id = req.body.id;
+    const updatedResult = await Officer.findByIdAndUpdate(
+      id,
+      { isActive },
+      { new: true }
+    );
+
+    const saveHistory = new officerADHistory({
+      officerId: id,
+      date: date.getDate(),
+      action: isActive ? "Activate" : "Deactivate",
+    });
+
+    await saveHistory.save();
+    await saveActivity(
+      req.userAuth.id,
+      `${
+        updatedResult.isActive ? "Activated " : "Deactivated "
+      } an officer account called name: ${updatedResult.name} with username: ${
+        updatedResult.username
+      }`
+    );
+    res.status(200).json(updatedResult);
+  } catch (error) {
+    console.error("Activate/Deactivate Error:", error);
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
+  }
+};
 
 export const updateUsernameOrPassword = async (req, res) => {
   try {
@@ -89,6 +119,9 @@ export const updateUsernameOrPassword = async (req, res) => {
     let result;
     if (oldPassword == "" && newPass == "" && username != "") {
       result = await admin.findByIdAndUpdate(id, { username }, { new: true });
+
+      await saveActivity(id, `Updated your username to ${username}`);
+
       res.status(200).json({
         message: "Username updated Successfully!!",
         result: {
@@ -104,6 +137,9 @@ export const updateUsernameOrPassword = async (req, res) => {
 
       if (await comparePassword(oldPassword, myProfile.password)) {
         result = await admin.findByIdAndUpdate(id, update, { new: true });
+
+        await saveActivity(id, `Updated your username  and password`);
+
         res.status(200).json({
           message: "Username and password updated Successfully!!",
           result: {
@@ -131,6 +167,8 @@ export const updateName = async (req, res) => {
       { new: true }
     );
 
+    await saveActivity(id, `Updated your name to ${name}`);
+
     res.status(200).json({
       message: "Name updated successfully",
       result: {
@@ -148,166 +186,190 @@ export const adminLogin = async (req, res) => {
   try {
     const { username, password } = req.body;
     console.log(username, password);
-
-    const user = await admin.findOne({ username });
-
-    if (!user) {
-      return res.status(400).json({ message: "Invalid credentials" });
-    }
-
-    const isPasswordCorrect = await comparePassword(password, user.password);
-
-    if (!isPasswordCorrect) {
-      return res.status(400).json({ message: "Invalid credentials" });
-    }
-
-    const token = generateToken(user._id, user.username);
-
-    return res.status(200).json({
-      message: "Login successful",
-      userInfo: {
-        name: user.name,
-        username: user.username,
-      },
-      token,
+    const compareUsername = await admin.findOne({
+      username,
     });
+
+    if (compareUsername) {
+      const comarePass = await comparePassword(
+        password,
+        compareUsername.password
+      );
+
+      if (comarePass) {
+        const token = generateToken(
+          compareUsername._id,
+          compareUsername.username
+        );
+
+        await saveActivity(compareUsername._id, `loged in to the system`);
+
+        res.status(200).json({
+          message: "Login successful",
+          userInfo: {
+            name: compareUsername.name,
+            username: compareUsername.username,
+          },
+          token,
+        });
+      }
+      res.status(200).json({ message: "bad credentials" });
+    }
+    res.status(200).json({ message: "bad credentials" });
   } catch (error) {
-    console.error("Login Error:", error);
-    return res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ message: "Internal server error", error: error });
   }
 };
 
 export const officerResetPassword = async (req, res) => {
   try {
     const id = req.body.id;
-    const defaultPassword = "12345678";
-    const hashedPassword = await endcodePassword(defaultPassword);
-
+    const password = await endcodePassword("12345678");
     const officer = await Officer.findByIdAndUpdate(
       id,
-      { password: hashedPassword },
+      { password },
       { new: true }
     );
 
-    if (!officer) {
-      return res.status(404).json({ message: "Officer not found" });
-    }
-
-
-    await addSystemActivity({
-      event: `Officer "${officer.name}" password was reset`,
-      user: "Admin",
-      status: "success",
-      req, 
+    await saveActivity(
+      id,
+      `Password reset for username: ${officer.username}, name: ${officer.name}`
+    );
+    const passwordHistory = new passwordResetHistory({
+      userId: id,
+      date: date.getDate(),
     });
-
+    await passwordHistory.save();
     res.status(200).json({
-      message: "Officer password reset successfully",
-      resetTo: defaultPassword,
-      officer: {
-        id: officer._id,
-        name: officer.name,
-        username: officer.username,
-        email: officer.email,
-        lastPasswordReset: officer.lastPasswordReset,
-      },
+      message: "Officer password reseted successfully",
+      password: "12345678",
     });
   } catch (error) {
-    console.error("Reset Password Error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ message: "Internal server error", error: error });
   }
 };
-
 
 export const customerResetPassword = async (req, res) => {
   try {
     const id = req.body.id;
-    const defaultPassword = "12345678";
-    const hashedPassword = await endcodePassword(defaultPassword);
-    const customer = await CustomerAccount.findByIdAndUpdate(
+    const password = await endcodePassword("12345678");
+    const customer = await CustomerAccount.findOneAndUpdate(
       { customerInfo: id },
       { password },
       { new: true }
     );
-    if (!customer) {
-      return res.status(404).json({ message: "Customer not found" });
+
+    await saveActivity(
+      id,
+      `Password reset for accountNumber: ${customer.accountNumber}`
+    );
+    const passwordHistory = new passwordResetHistory({
+      userId: id,
+      date: date.getDate(),
+    });
+    await passwordHistory.save();
+    res.status(200).json({
+      message: "Officer password reseted successfully",
+      password: "12345678",
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error", error: error });
+  }
+};
+
+export const officersInformationAndList = async (req, res) => {
+  try {
+    const allOfficers = await Officer.find();
+    const numberOfOfficers = allOfficers.length;
+    const activeOfficers = allOfficers.filter(
+      (officer) => officer.isActive == true
+    );
+    const inactiveOfficers = numberOfOfficers - activeOfficers.length;
+
+    res.status(200).json({
+      allOfficers,
+      numberOfOfficers,
+      activeOfficers: activeOfficers.length,
+      inactiveOfficers,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error", error: error });
+  }
+};
+
+export const customerInformationAndList = async (req, res) => {
+  try {
+    const allCustomers = await CustomerAccount.find().populate("Customer");
+    const numberOfCustomers = allCustomers.length;
+    const activeCustomers = allCustomers.filter(
+      (customer) => customer.isActive
+    );
+    const inactiveCustomers = allCustomers.filter(
+      (customer) => !customer.isActive
+    );
+    let customerList = [];
+    if (allCustomers.length > 10) {
+      for (let index = 0; index < 10; index++) {
+        customerList.push(allCustomers[index]);
+      }
+    } else {
+      customerList = allCustomers;
     }
     res.status(200).json({
-      message: "Customer password reset successfully",
-      resetTo: defaultPassword,
-      customer: {
-        id: customer._id,
-        name: customer.name,
-        accountnumber: customer.accountNumber,
-        region: customer.region,
-      },
+      customerList,
+      numberOfCustomers,
+      activeCustomers: activeCustomers.length,
+      inactiveCustomers: inactiveCustomers.length,
     });
   } catch (error) {
-    console.error("Reset Password Error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ message: "Internal server error", error: error });
   }
 };
 
-export const createOfficer = async (req, res) => {
+export const myActivities = async (req, res) => {
   try {
-    const { name, username, email, department, assignedArea } = req.body;
-
-    const validDepartments = [
-      "Customer Support",
-      "Meter Reading",
-      "Maintenance",
-    ];
-    if (!validDepartments.includes(department)) {
-      return res.status(400).json({
-        message: "Invalid department selection",
-        allowed: validDepartments,
-      });
-    }
-
-    const existingOfficer = await Officer.findOne({
-      $or: [{ username }, { email }],
-    });
-
-    if (existingOfficer) {
-      return res.status(400).json({
-        message: "Username or Email already in use",
-      });
-    }
-
-    const defaultPassword = "12345678";
-    const hashedPassword = await endcodePassword(defaultPassword);
-
-    const newOfficer = new Officer({
-      name,
-      username,
-      email,
-      department,
-      assignedArea,
-      password: hashedPassword,
-      isActive: true,
-    });
-
-    const savedOfficer = await newOfficer.save();
-
-    res.status(201).json({
-      message: "Officer created successfully",
-      officer: {
-        _id: savedOfficer._id,
-        name: savedOfficer.name,
-        username: savedOfficer.username,
-        email: savedOfficer.email,
-        department: savedOfficer.department,
-        assignedArea: savedOfficer.assignedArea,
-        isActive: savedOfficer.isActive,
-        createdAt: savedOfficer.createdAt,
-      },
-      defaultPassword,
-    });
+    const myActivities = await adminAT.find({ adminId: req.userAuth.id });
+    res.status(200).json(myActivities);
   } catch (error) {
-    console.error("Create Officer Error:", error);
-    res.status(500).json({
-      message: "Internal server error",
-      error: error.message,
-    });
+    res.status(500).json({ message: "Internal server error", error: error });
   }
 };
+
+export const activateDeactivateCustomer = async (req, res) => {
+  try {
+    const id = req.body.id;
+    const isActive = req.body.isActive;
+
+    const getCustomerAndUPdate = await CustomerAccount.findByIdAndUpdate(
+      id,
+      { isActive },
+      { new: true }
+    );
+
+    const history = new customerADHistory({
+      customerId: id,
+      action: isActive ? "Activate" : "Deactivate",
+      date: date.getDate(),
+    });
+    await history.save();
+    await saveActivity(
+      req.userAuth.id,
+      `${isActive ? "Activated " : "Deactivated "} ${
+        getCustomerAndUPdate.accountNumber
+      }  account number`
+    );
+    re;
+    res.status(200).json(getCustomerAndUPdate);
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error", error: error });
+  }
+};
+
+async function saveActivity(id, activity) {
+  const AdminActivity = new adminAT({
+    adminId: id,
+    activity: activity,
+    date: date.getDate(),
+  });
+  await AdminActivity.save();
+}

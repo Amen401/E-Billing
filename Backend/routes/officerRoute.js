@@ -1,14 +1,10 @@
 import express from "express";
-import {
-  createOfficer,
-  officerLogin,
-} from "../controllers/officerController.js";
+import { officerLogin } from "../controllers/officerController.js";
 import { addCustomer } from "../controllers/customerController.js";
 import { verifyToken } from "../Util/tokenVerify.js";
 
 const officerRouter = express.Router();
 
-officerRouter.post("/add-officer", verifyToken, createOfficer);
 officerRouter.post("/add-customer", verifyToken, addCustomer);
 officerRouter.post("/login", officerLogin);
 
