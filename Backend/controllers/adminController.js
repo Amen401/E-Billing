@@ -48,15 +48,12 @@ export const createAdmin = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: "Internal server error", error: error });
   }
-};
+}; //will be removed after adding one admin!!
 
 export const searchOfficer = async (req, res) => {
   try {
-    const { query } = req.query;
-    const searchRegex = new RegExp(query || "", "i");
-
     const searchResult = await Officer.find({
-      $or: [{ name: searchRegex }, { department: searchRegex }],
+      name: new RegExp(req.body.name, "i"),
     });
 
     res.status(200).json(searchResult);
@@ -111,10 +108,7 @@ export const activateDeactivateOfficer = async (req, res) => {
     );
     res.status(200).json(updatedResult);
   } catch (error) {
-    console.error("Activate/Deactivate Error:", error);
-    res
-      .status(500)
-      .json({ message: "Internal server error", error: error.message });
+    res.status(500).json({ message: "Internal server error", error: error });
   }
 };
 
