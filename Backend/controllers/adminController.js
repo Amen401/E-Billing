@@ -53,7 +53,7 @@ export const createAdmin = async (req, res) => {
 export const searchOfficer = async (req, res) => {
   try {
     const searchResult = await Officer.find({
-      name: new RegExp(req.body.name, "i"),
+      name: new RegExp(req.query, "i"),
     });
 
     res.status(200).json(searchResult);
@@ -107,13 +107,11 @@ export const activateDeactivateOfficer = async (req, res) => {
         updatedResult.username
       }`
     );
-    res
-      .status(200)
-      .json({
-        message: `Officer ${
-          updatedResult.isActive ? "Activated " : "Deactivated "
-        } Successfully!!`,
-      });
+    res.status(200).json({
+      message: `Officer ${
+        updatedResult.isActive ? "Activated " : "Deactivated "
+      } Successfully!!`,
+    });
   } catch (error) {
     res.status(500).json({ message: "Internal server error", error: error });
   }
