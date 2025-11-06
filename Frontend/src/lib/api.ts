@@ -94,7 +94,7 @@ const ENDPOINTS = {
   officerResetPassword: "/admin/orp",
   customerResetPassword: "/admin/crp",
   createAdmin: "/admin/add-admin",
-  createOfficer: "/admin/create-officer",
+  createOfficer: "/admin/add-officer",
   officerLogin: "/officer/login",
   customerLogin: "/customer/login",
   getstatus:"/admin/officers/stats",
