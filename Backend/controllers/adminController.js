@@ -85,6 +85,7 @@ export const activateDeactivateOfficer = async (req, res) => {
   try {
     const isActive = req.body.isActive;
     const id = req.body.id;
+    const adminId = req.body.adminId;
     const updatedResult = await Officer.findByIdAndUpdate(
       id,
       { isActive },
@@ -99,7 +100,7 @@ export const activateDeactivateOfficer = async (req, res) => {
 
     await saveHistory.save();
     await saveActivity(
-      req.userAuth.id,
+      adminId,
       `${
         updatedResult.isActive ? "Activated " : "Deactivated "
       } an officer account called name: ${updatedResult.name} with username: ${
