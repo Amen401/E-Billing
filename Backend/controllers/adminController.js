@@ -107,7 +107,13 @@ export const activateDeactivateOfficer = async (req, res) => {
         updatedResult.username
       }`
     );
-    res.status(200).json(updatedResult);
+    res
+      .status(200)
+      .json({
+        message: `Officer ${
+          updatedResult.isActive ? "Activated " : "Deactivated "
+        } Successfully!!`,
+      });
   } catch (error) {
     res.status(500).json({ message: "Internal server error", error: error });
   }
