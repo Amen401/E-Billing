@@ -10,21 +10,29 @@ import { generateToken } from "../Util/tokenGenrator.js";
 const date = new Date();
 export const createOfficer = async (req, res) => {
   try {
-    const newOfficer = req.body;
+    const { newOfficer, adminId } = req.body;
+
     newOfficer.password = await endcodePassword(newOfficer.password);
     const newOfficerSchema = new Officer(newOfficer);
 
     const saveOfficer = await newOfficerSchema.save();
     await saveActivity(
-      req.userAuth.id,
+      adminId,
       `created an officer account called name: ${saveOfficer.name} with username: ${saveOfficer.username}`
     );
     res.status(200).json({
       message: "New Officer added successfully",
-      newOfficer: saveOfficer,
+      newOfficer: {
+        fullName: saveOfficer.name,
+        username: saveOfficer.username,
+        email: saveOfficer.email,
+        role: saveOfficer.role,
+        department: saveOfficer.department,
+        password: "12345678",
+      },
     });
   } catch (error) {
-    res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ message: "Internal server error", error });
   }
 };
 
@@ -57,18 +65,18 @@ export const searchOfficer = async (req, res) => {
   }
 };
 
-export const getOfficerStats = async (req, res) => {
-  try {
-    const total = await Officer.countDocuments();
-    const active = await Officer.countDocuments({ isActive: true });
-    const inactive = await Officer.countDocuments({ isActive: false });
+// export const getOfficerStats = async (req, res) => {
+//   try {
+//     const total = await Officer.countDocuments();
+//     const active = await Officer.countDocuments({ isActive: true });
+//     const inactive = await Officer.countDocuments({ isActive: false });
 
-    res.status(200).json({ total, active, inactive });
-  } catch (error) {
-    console.error("Officer Stats Error:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+//     res.status(200).json({ total, active, inactive });
+//   } catch (error) {
+//     console.error("Officer Stats Error:", error);
+//     res.status(500).json({ message: "Internal server error" });
+//   }
+// };
 
 export const searchCustomer = async (req, res) => {
   try {
@@ -207,6 +215,7 @@ export const adminLogin = async (req, res) => {
         res.status(200).json({
           message: "Login successful",
           userInfo: {
+            id: compareUsername._id,
             name: compareUsername.name,
             username: compareUsername.username,
           },
