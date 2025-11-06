@@ -3,8 +3,8 @@ import mongoose from "mongoose";
 const officerSchema = new mongoose.Schema(
   {
     name: String,
-    username: { type: String, unique: true },
-    email: { type: String, unique: true },
+    username: { type: String, unique: true, required: true },
+    email: { type: String, unique: true, required: true },
     department: {
       type: String,
       enum: ["Customer Support", "Meter Reading", "Maintenance"],
@@ -14,10 +14,8 @@ const officerSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    password: String,
+    password: { type: String, required: true },
     isActive: { type: Boolean, default: true },
-    deactivatedAt: { type: Date },
-    lastPasswordReset: { type: Date },
   },
   { timestamps: true }
 );

@@ -1,20 +1,21 @@
 import express from "express";
 import {
+  activateDeactivateCustomer,
   activateDeactivateOfficer,
   adminLogin,
   createAdmin,
   createOfficer,
+  customerInformationAndList,
   customerResetPassword,
+  myActivities,
   officerResetPassword,
+  officersInformationAndList,
   searchCustomer,
   searchOfficer,
   updateName,
-  createOfficer,
-  getOfficerStats,
   updateUsernameOrPassword,
 } from "../controllers/adminController.js";
 import { verifyToken } from "../Util/tokenVerify.js";
-import { getSystemActivities } from "../controllers/systemActivityController.js";
 
 const adminRouter = express.Router();
 
@@ -28,7 +29,10 @@ adminRouter.post("/orp", verifyToken, officerResetPassword);
 adminRouter.post("/crp", verifyToken, customerResetPassword);
 adminRouter.post("/add-officer", verifyToken, createOfficer);
 adminRouter.post("/login", adminLogin);
-adminRouter.get("/officers/stats", getOfficerStats);
-adminRouter.get("/system-activities", verifyToken, getSystemActivities);
+adminRouter.get("/my-activities", verifyToken, myActivities);
+adminRouter.get("/customer-info", verifyToken, customerInformationAndList);
+adminRouter.get("/officer-info", verifyToken, officersInformationAndList);
+
+adminRouter.post("/ad-customer", verifyToken, activateDeactivateCustomer);
 
 export default adminRouter;
