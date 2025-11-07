@@ -334,8 +334,30 @@ export const customerInformationAndList = async (req, res) => {
 
 export const myActivities = async (req, res) => {
   try {
-    const myActivities = await adminAT.find({ adminId: req.userAuth.id });
-    res.status(200).json(myActivities);
+    const myActivities = await adminAT.find({ adminId: req.authUser.id });
+    let result = [];
+
+    if (myActivities.length <= 10) {
+      result = myActivities;
+    } else {
+      for (let index = 1; index < 10; index++) {
+        result.push(myActivities[myActivities.length - index]);
+      }
+    }
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error", error: error });
+  }
+};
+
+export const searchMyActivities = async (req, res) => {
+  try {
+    const { filter, value } = req.query;
+    const result = await adminAT.find({
+      [filter]: new RegExp(value, "i"),
+      adminId: req.authUser.id,
+    });
+    res.status(200).json(result);
   } catch (error) {
     res.status(500).json({ message: "Internal server error", error: error });
   }

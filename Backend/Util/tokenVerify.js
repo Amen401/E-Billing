@@ -11,7 +11,7 @@ export const verifyToken = (req, res, next) => {
 
   try {
     const verify = jwt.verify(token, process.env.SECRET_KEY);
-    // req.authUser = verify;
+    req.authUser = verify;
     next();
   } catch (error) {
     res.status(400).json({ message: "Invalid token!" });
