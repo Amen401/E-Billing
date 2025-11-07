@@ -19,7 +19,7 @@ import { verifyToken } from "../Util/tokenVerify.js";
 
 const adminRouter = express.Router();
 
-adminRouter.post("/add-admin", verifyToken, createAdmin);
+adminRouter.post("/add-admin", createAdmin);
 adminRouter.get("/search-officer", verifyToken, searchOfficer);
 adminRouter.post("/search-customer", verifyToken, searchCustomer);
 adminRouter.post("/ad-officer", verifyToken, activateDeactivateOfficer);
