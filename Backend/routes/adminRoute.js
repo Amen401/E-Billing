@@ -11,6 +11,7 @@ import {
   officerResetPassword,
   officersInformationAndList,
   searchCustomer,
+  searchMyActivities,
   searchOfficer,
   updateName,
   updateUsernameOrPassword,
@@ -32,6 +33,7 @@ adminRouter.post("/login", adminLogin);
 adminRouter.get("/my-activities", verifyToken, myActivities);
 adminRouter.get("/customer-info", verifyToken, customerInformationAndList);
 adminRouter.get("/officer-info", verifyToken, officersInformationAndList);
+adminRouter.get("/search-my-activities", verifyToken, searchMyActivities);
 
 adminRouter.post("/ad-customer", verifyToken, activateDeactivateCustomer);
 
