@@ -15,6 +15,6 @@ officerRouter.post("/add-customer", verifyToken, addCustomer);
 officerRouter.post("/login", officerLogin);
 officerRouter.get("/my-activities", verifyToken, myActivities);
 officerRouter.get("/search-my-activities", verifyToken, searchMyActivities);
-adminRouter.post("/search-customer", verifyToken, searchCustomer);
+officerRouter.post("/search-customer", verifyToken, searchCustomer);
 
 export default officerRouter;

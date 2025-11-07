@@ -63,6 +63,11 @@ const customerSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    meterReaderSN: {
+      type: String,
+      required: true,
+      unique: true,
+    },
     isActive: {
       type: Boolean,
       required: true,
