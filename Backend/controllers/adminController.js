@@ -1,7 +1,8 @@
 import { adminAT } from "../models/AdminActivityTracker.js";
 import { admin } from "../models/AdminModel.js";
-import { CustomerAccount } from "../models/customerAccount.js";
+
 import { customerADHistory } from "../models/CustomerActivationDeactivationHistory.js";
+import { Customer } from "../models/CustomerModel.js";
 import { officerADHistory } from "../models/OfficerActivationDeactivationHistory.js";
 import { Officer } from "../models/OfficerModel.js";
 import { passwordResetHistory } from "../models/PasswordResetHistory.js";
@@ -86,7 +87,13 @@ export const searchOfficer = async (req, res) => {
 export const searchCustomer = async (req, res) => {
   try {
     const { searchBy, value } = req.body;
-  } catch (error) {}
+    const searchResult = await Customer.find({
+      [searchBy]: new RegExp(value, "i"),
+    });
+    res.status(200).json(searchResult);
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
 };
 
 export const activateDeactivateOfficer = async (req, res) => {
@@ -246,7 +253,7 @@ export const officerResetPassword = async (req, res) => {
     );
 
     await saveActivity(
-      id,
+      req.authUser.id,
       `Password reset for username: ${officer.username}, name: ${officer.name}`
     );
     const passwordHistory = new passwordResetHistory({
@@ -267,14 +274,14 @@ export const customerResetPassword = async (req, res) => {
   try {
     const id = req.body.id;
     const password = await endcodePassword("12345678");
-    const customer = await CustomerAccount.findOneAndUpdate(
-      { customerInfo: id },
+    const customer = await Customer.findOneAndUpdate(
+      id,
       { password },
       { new: true }
     );
 
     await saveActivity(
-      id,
+      req.authUser.id,
       `Password reset for accountNumber: ${customer.accountNumber}`
     );
     const passwordHistory = new passwordResetHistory({
@@ -313,7 +320,7 @@ export const officersInformationAndList = async (req, res) => {
 
 export const customerInformationAndList = async (req, res) => {
   try {
-    const allCustomers = await CustomerAccount.find().populate("Customer");
+    const allCustomers = await Customer.find();
     const numberOfCustomers = allCustomers.length;
     const activeCustomers = allCustomers.filter(
       (customer) => customer.isActive
@@ -378,7 +385,7 @@ export const activateDeactivateCustomer = async (req, res) => {
     const id = req.body.id;
     const isActive = req.body.isActive;
 
-    const getCustomerAndUPdate = await CustomerAccount.findByIdAndUpdate(
+    const getCustomerAndUPdate = await Customer.findByIdAndUpdate(
       id,
       { isActive },
       { new: true }
