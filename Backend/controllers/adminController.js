@@ -53,7 +53,7 @@ export const createAdmin = async (req, res) => {
 export const searchOfficer = async (req, res) => {
   try {
     const searchResult = await Officer.find({
-      name: new RegExp(req.query, "i"),
+      name: new RegExp(req.query.q, "i"),
     });
 
     res.status(200).json(searchResult);
