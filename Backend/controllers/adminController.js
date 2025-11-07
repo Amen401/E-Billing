@@ -8,6 +8,14 @@ import { passwordResetHistory } from "../models/PasswordResetHistory.js";
 import { comparePassword, endcodePassword } from "../Util/passwordEncDec.js";
 import { generateToken } from "../Util/tokenGenrator.js";
 const date = new Date();
+const formatted = date.toLocaleString("en-US", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
 export const createOfficer = async (req, res) => {
   try {
     const { newOfficer, adminId } = req.body;
@@ -94,7 +102,7 @@ export const activateDeactivateOfficer = async (req, res) => {
 
     const saveHistory = new officerADHistory({
       officerId: id,
-      date: date.getDate(),
+      date: formatted,
       action: isActive ? "Activate" : "Deactivate",
     });
 
@@ -243,7 +251,7 @@ export const officerResetPassword = async (req, res) => {
     );
     const passwordHistory = new passwordResetHistory({
       userId: id,
-      date: date.getDate(),
+      date: formatted,
     });
     await passwordHistory.save();
     res.status(200).json({
@@ -271,7 +279,7 @@ export const customerResetPassword = async (req, res) => {
     );
     const passwordHistory = new passwordResetHistory({
       userId: id,
-      date: date.getDate(),
+      date: formatted,
     });
     await passwordHistory.save();
     res.status(200).json({
@@ -358,6 +366,7 @@ export const searchMyActivities = async (req, res) => {
       [filter]: new RegExp(value, "i"),
       adminId: req.authUser.id,
     });
+    console.log(filter, value, result);
     res.status(200).json(result);
   } catch (error) {
     res.status(500).json({ message: "Internal server error", error: error });
@@ -378,7 +387,7 @@ export const activateDeactivateCustomer = async (req, res) => {
     const history = new customerADHistory({
       customerId: id,
       action: isActive ? "Activate" : "Deactivate",
-      date: date.getDate(),
+      date: formatted,
     });
     await history.save();
     await saveActivity(
@@ -398,7 +407,7 @@ async function saveActivity(id, activity) {
   const AdminActivity = new adminAT({
     adminId: id,
     activity: activity,
-    date: date.getDate(),
+    date: formatted,
   });
   await AdminActivity.save();
 }
