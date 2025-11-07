@@ -138,12 +138,10 @@ export const updateUsernameOrPassword = async (req, res) => {
         },
       });
     } else if ((oldPassword != "" && newPass != "") || username != "") {
-      const update = { username, password: newPass };
-
       const myProfile = await admin.findById(id);
-
+      const password = await endcodePassword(newPass);
       if (await comparePassword(oldPassword, myProfile.password)) {
-        result = await admin.findByIdAndUpdate(id, update, { new: true });
+        result = await admin.findByIdAndUpdate(id, { password }, { new: true });
 
         await saveActivity(id, `Updated your username  and password`);
 
