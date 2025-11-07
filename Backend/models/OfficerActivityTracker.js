@@ -1,11 +1,12 @@
 import mongoose from "mongoose";
-const customerADH = mongoose.Schema({
-  customerId: {
+
+const officerATSchema = mongoose.Schema({
+  officerId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Customer",
+    ref: "OfficerModel",
     required: true,
   },
-  action: {
+  activity: {
     type: String,
     required: true,
   },
@@ -15,7 +16,7 @@ const customerADH = mongoose.Schema({
   },
 });
 
-export const customerADHistory = mongoose.model(
-  "CustomerADHistory",
-  customerADH
+export const officerAT = mongoose.model(
+  "OfficerActivityTracker",
+  officerATSchema
 );
