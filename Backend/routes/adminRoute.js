@@ -3,6 +3,7 @@ import {
   activateDeactivateCustomer,
   activateDeactivateOfficer,
   adminLogin,
+  adminlogout,
   createAdmin,
   createOfficer,
   customerInformationAndList,
@@ -36,5 +37,6 @@ adminRouter.get("/officer-info", verifyToken, officersInformationAndList);
 adminRouter.get("/search-my-activities", verifyToken, searchMyActivities);
 
 adminRouter.post("/ad-customer", verifyToken, activateDeactivateCustomer);
+adminRouter.post("/admin-logout", verifyToken, adminlogout);
 
 export default adminRouter;

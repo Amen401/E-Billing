@@ -403,6 +403,15 @@ export const activateDeactivateCustomer = async (req, res) => {
   }
 };
 
+export const adminlogout = async (req, res) => {
+  try {
+    await saveActivity(req.authUser.id, `You logged out from the system!!`);
+    res.status(200).json({ message: "Bye!!!!" });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error", error: error });
+  }
+};
+
 async function saveActivity(id, activity) {
   const AdminActivity = new adminAT({
     adminId: id,
