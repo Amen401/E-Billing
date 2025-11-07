@@ -338,10 +338,11 @@ export const myActivities = async (req, res) => {
     let result = [];
 
     if (myActivities.length <= 10) {
-      result = myActivities;
+      result = myActivities.slice().reverse();
     } else {
-      for (let index = 1; index < 10; index++) {
-        result.push(myActivities[myActivities.length - index]);
+      const recentActivities = myActivities.slice().reverse();
+      for (let index = 0; index < 10; index++) {
+        result.push(recentActivities[index]);
       }
     }
     res.status(200).json(result);
