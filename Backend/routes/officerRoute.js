@@ -1,6 +1,7 @@
 import express from "express";
 import {
   addCustomer,
+  getCustomer,
   myActivities,
   officerLogin,
   searchMyActivities,
@@ -16,5 +17,6 @@ officerRouter.post("/login", officerLogin);
 officerRouter.get("/my-activities", verifyToken, myActivities);
 officerRouter.get("/search-my-activities", verifyToken, searchMyActivities);
 officerRouter.post("/search-customer", verifyToken, searchCustomer);
+officerRouter.get("/get-customers", verifyToken, getCustomer);
 
 export default officerRouter;

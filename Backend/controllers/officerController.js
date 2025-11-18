@@ -34,7 +34,7 @@ export const officerLogin = async (req, res) => {
   if (!checkUsername.isActive) {
     res
       .status(200)
-      .json({ message: "Account deactivated!! Contact your system admin" });
+      .json({ message: "Account deactivated!! Contact your system Officer" });
   }
   await saveActivity(checkUsername._id, `You logged in to the system`);
   res.status(200).json({
@@ -82,7 +82,7 @@ export const addCustomer = async (req, res) => {
 
 export const myActivities = async (req, res) => {
   try {
-    const myActivities = await officerAT.find({ adminId: req.authUser.id });
+    const myActivities = await officerAT.find({ OfficerId: req.authUser.id });
     let result = [];
 
     if (myActivities.length <= 10) {
@@ -112,12 +112,76 @@ export const searchMyActivities = async (req, res) => {
     res.status(500).json({ message: "Internal server error", error: error });
   }
 };
+export const updateUsernameOrPassword = async (req, res) => {
+  try {
+    const username = req.body.username;
+    const oldPassword = req.body.oldPass;
+    const newPass = req.body.newPass;
+    const id = req.body.id;
+    let result;
+    if (oldPassword == "" && newPass == "" && username != "") {
+      result = await Officer.findByIdAndUpdate(id, { username }, { new: true });
 
+      await saveActivity(id, `Updated your username to ${username}`);
+
+      res.status(200).json({
+        message: "Username updated Successfully!!",
+        result: {
+          _id: result._id,
+          name: result.name,
+          username: result.username,
+        },
+      });
+    } else if ((oldPassword != "" && newPass != "") || username != "") {
+      const myProfile = await Officer.findById(id);
+      const password = await endcodePassword(newPass);
+      if (await comparePassword(oldPassword, myProfile.password)) {
+        result = await Officer.findByIdAndUpdate(
+          id,
+          { password },
+          { new: true }
+        );
+
+        await saveActivity(id, `Updated your username  and password`);
+
+        res.status(200).json({
+          message: "Username and password updated Successfully!!",
+          result: {
+            _id: result._id,
+            name: result.name,
+            username: result.username,
+          },
+        });
+      } else {
+        res.status(200).json({ message: "your old password is incorrect!!" });
+      }
+    }
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error", error: error });
+  }
+};
+
+export const getCustomer = async (req, res) => {
+  try {
+    const allCustomers = await Customer.find();
+    let customerList = [];
+    if (allCustomers.length > 10) {
+      for (let index = 0; index < 10; index++) {
+        customerList.push(allCustomers[index]);
+      }
+    } else {
+      customerList = allCustomers;
+    }
+    res.status(200).json(customerList);
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
 async function saveActivity(id, activity) {
-  const AdminActivity = new officerAT({
+  const OfficerActivity = new officerAT({
     officerId: id,
     activity: activity,
     date: formatted,
   });
-  await AdminActivity.save();
+  await OfficerActivity.save();
 }
