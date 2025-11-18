@@ -33,6 +33,7 @@ import OfficerProtectedRoute from "./Components/auth/OfficerProtectedRoute";
 import AdminProtectedRoute from "./Components/auth/AdminProtectedRoute";
 import Reports from "./Page/Officer/Report";
 import Customers from "./Page/Officer/Customers";
+import AdminProfile from "./Page/Admin/AdminProfile";
 
 const queryClient = new QueryClient();
 
@@ -69,6 +70,7 @@ const App = () => (
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="customers" element={<ManageCustomers />} />
               <Route path="officers" element={<ManageOfficers />} />
+              <Route path="profile" element={<AdminProfile/>}/>
               <Route path="logs" element={<SystemLogs />} />
             </Route>
 

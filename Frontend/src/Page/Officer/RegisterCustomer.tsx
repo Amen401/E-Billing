@@ -18,25 +18,36 @@ import { officerApi } from "@/lib/api";
 const RegisterCustomer = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    region: "",
-    service_center: "",
-    address_region: "",
-    zone: "",
-    woreda: "",
-    town: "",
-    purpose: "",
-    power_approved: "",
-    killowat: "",
-    applicable_tarif: "",
-    volt: "",
-    deposit_birr: "",
-  });
+const [formData, setFormData] = useState({
+  name: "",
+  region: "",
+  serviceCenter: "",
+  addressRegion: "",
+  zone: "",
+  woreda: "",
+  town: "",
+  purpose: "",
+  powerApproved: 0,
+  killowat: 0,
+  applicableTarif: 0,
+  volt: 0,
+  depositBirr: 0,
+  accountNumber: "",
+  isActive: true,
+  meterReaderSN: "",
+  password: "12345678",
+});
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+
+
+const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const { name, value, type } = e.target;
+  setFormData({
+    ...formData,
+    [name]: type === "number" ? Number(value) : value,
+  });
+};
+
  const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   setLoading(true);
@@ -119,11 +130,11 @@ const RegisterCustomer = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="service_center">Service Center *</Label>
+                <Label htmlFor="serviceCenter">Service Center *</Label>
                 <Input
-                  id="service_center"
-                  name="service_center"
-                  value={formData.service_center}
+                  id="serviceCenter"
+                  name="serviceCenter"
+                  value={formData.serviceCenter}
                   onChange={handleChange}
                   placeholder="e.g., Bole Service Center"
                   required
@@ -131,11 +142,11 @@ const RegisterCustomer = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="address_region">Address Region *</Label>
+                <Label htmlFor="addressRegion">Address Region *</Label>
                 <Input
-                  id="address_region"
-                  name="address_region"
-                  value={formData.address_region}
+                  id="addressRegion"
+                  name="addressRegion"
+                  value={formData.addressRegion}
                   onChange={handleChange}
                   placeholder="Customer's address region"
                   required
@@ -227,7 +238,7 @@ const RegisterCustomer = () => {
                   step="0.01"
                   value={formData.applicable_tarif}
                   onChange={handleChange}
-                  placeholder="0.00"
+                  placeholder="00 Kw"
                   required
                 />
               </div>
@@ -241,7 +252,19 @@ const RegisterCustomer = () => {
                   step="0.01"
                   value={formData.volt}
                   onChange={handleChange}
-                  placeholder="0.00"
+                  placeholder="000"
+                  required
+                />
+              </div>
+                <div className="space-y-2">
+                <Label htmlFor="meterReaderSN">Meter Reader Serial Number</Label>
+                <Input
+                  id="meterReaderSN"
+                  name="meterReaderSN"
+                  step="0000000"
+                  value={formData.meterReaderSN}
+                  onChange={handleChange}
+                  placeholder="0000000"
                   required
                 />
               </div>

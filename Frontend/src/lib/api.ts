@@ -1,3 +1,5 @@
+import { useAdminAuth } from "@/Components/Context/AdminContext";
+
 const API_BASE_URL = "http://localhost:3000";
 
 interface ApiResponse<T = any> {
@@ -94,16 +96,19 @@ const ENDPOINTS = {
   officerResetPassword: "/admin/orp",
   customerResetPassword: "/admin/crp",
   createAdmin: "/admin/add-admin",
-  createOfficer: "/admin/create-officer",
+  createOfficer: "/admin/add-officer",
   officerLogin: "/officer/login",
   customerLogin: "/customer/login",
-  getstatus:"/admin/officers/stats",
-    systemActivities: "/admin/system-activities",
+  getstatus:"/admin/officer-info",
+    systemActivities: "/admin/my-activities",
+    searchmyactities:"/admin/search-my-activities",
       officerProfile: "/officer/profile",
   updateOfficerProfile: "/officer/update-profile",
    officerMeterReadings: "/officer/meter-readings",
   officerMeterReadingDetail: "/officer/meter-readings/:id",
-  createCustomer:"/officer/add-customer"
+  createCustomer:"/officer/add-customer",
+  adminlogout:"/admin/admin-logout",
+  searchCustomers:"officer/search-customer"
 };
 
 export const adminApi = {
@@ -111,37 +116,52 @@ export const adminApi = {
     const response = await api.post(ENDPOINTS.login, { username, password });
     return response;
   },
+  adminlogout:async()=>{
+    const response=await api.post(ENDPOINTS.adminlogout);
+    return response
+  },
 
 searchOfficer: async (query: string) => {
-  const response = await api.get(`${ENDPOINTS.searchOfficer}?query=${encodeURIComponent(query)}`);
+  const response = await api.get(`${ENDPOINTS.searchOfficer}?q=${encodeURIComponent(query)}`);
   return response;
+},
+updateAdminProfile:async()=> {
+  const response=await api.put(`${ENDPOINTS.updateUsernameOrPassword}`);
+  return response;
+  
+},
+searchMyActivities:async(query:string, filter: string)=>{
+const response=await api.get(`${ENDPOINTS.searchmyactities}?filter=activity&value=${encodeURIComponent(query)}`);
+return response
 },
 
 
-  activateDeactivateOfficer: async (id: string, isActive: boolean) => {
-    const response = await api.post(ENDPOINTS.activateDeactivateOfficer, { id, isActive });
+  activateDeactivateOfficer: async (id: string, isActive: boolean ,adminId:string) => {
+    const response = await api.post(ENDPOINTS.activateDeactivateOfficer, { id, isActive ,adminId});
     return response;
   },
 
-  updateName: async (id: string, name: string) => {
-    const response = await api.post(ENDPOINTS.updateName, { id, name });
-    return response;
-  },
+ updateName: async (id: string, name: string) => {
+  const response = await api.put(ENDPOINTS.updateName, { id, name });
+  return response;
+},
 
-  updateUsernameOrPassword: async (
-    id: string,
-    username: string,
-    oldPass: string,
-    newPass: string
-  ) => {
-    const response = await api.post(ENDPOINTS.updateUsernameOrPassword, {
-      id,
-      username,
-      oldPass,
-      newPass,
-    });
-    return response;
-  },
+updateUsernameOrPassword: async (
+  id: string,
+  username: string,
+  oldPass: string,
+  newPass: string
+) => {
+const response = await api.put(ENDPOINTS.updateUsernameOrPassword, {
+  id,
+  username,
+  oldPass,
+  newPass,
+});
+
+  return response;
+},
+
 
   officerResetPassword: async (id: string) => {
     const response = await api.post(ENDPOINTS.officerResetPassword, { id });
@@ -223,6 +243,11 @@ if (!token) throw new Error("No officer token found, please login");
 
   return resData;
 },
+searchCustomers: async (query: string) => {
+  const response = await api.get(`${ENDPOINTS.searchCustomers}?q=${encodeURIComponent(query)}`);
+  return response;
+},
+
 
 
 

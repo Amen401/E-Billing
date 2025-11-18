@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -47,19 +47,21 @@ import {
 } from "@/components/ui/select";
 import { getStatusBadgeVariant } from "@/lib/bage-utils";
 import type { Officer } from "../Types/type";
+import { useAdminAuth } from "@/Components/Context/AdminContext";
 
 const ManageOfficers = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [officers, setOfficers] = useState<Officer[]>([]);
+  const [allOfficers, setAllOfficers] = useState<Officer[]>([]);
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] =
-    useState(false);
+  const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedOfficer, setSelectedOfficer] = useState<Officer | null>(null);
   const [resetPasswordResult, setResetPasswordResult] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
-  const [stats, setStats] = useState({ total: 0, active: 0, inactive: 0 });
+  const { user } = useAdminAuth();
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [newOfficer, setNewOfficer] = useState({
     name: "",
@@ -71,27 +73,53 @@ const ManageOfficers = () => {
     assignedArea: "",
   });
 
+  const stats = useMemo(() => {
+    const active = allOfficers.filter((o) => o.isActive).length;
+    return {
+      total: allOfficers.length,
+      active,
+      inactive: allOfficers.length - active,
+    };
+  }, [allOfficers]);
 
-useEffect(() => {
-  const params = new URLSearchParams();
-  if (searchQuery.trim()) {
-    params.set("q", searchQuery.trim());
-  }
-  setSearchParams(params, { replace: true }); 
-}, [searchQuery, setSearchParams]);
 
-
-  const handleSearch = () => {
-    const trimmedQuery = searchQuery.trim();
-    if (trimmedQuery) {
-      setSearchParams({ q: trimmedQuery });
-    } else {
-      setSearchParams({});
-      setOfficers([]);
+  const fetchOfficerStats = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res: any = await adminApi.getOfficerStats();
+      if (res.allOfficers) {
+        const normalized: Officer[] = res.allOfficers.map((o: any) => ({
+          _id: o._id,
+          name: o.name || "N/A",
+          username: o.username || "N/A",
+          email: o.email || "N/A",
+          department: o.department || "N/A",
+          isActive: o.isActive ?? true,
+          assignedArea: o.assignedArea || "N/A",
+          createdAt: o.createdAt || new Date().toISOString(),
+          deactivatedAt: o.deactivatedAt,
+          lastPasswordReset: o.lastPasswordReset,
+        }));
+        setAllOfficers(normalized);
+        setOfficers(normalized);
+      } else {
+        setAllOfficers([]);
+        setOfficers([]);
+        toast.error("No officers found");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to fetch officers");
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, []);
 
-  const performSearch = async (query: string) => {
+  const performSearch = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setOfficers(allOfficers);
+      return;
+    }
+
     setIsLoading(true);
     try {
       const result = await adminApi.searchOfficer(query);
@@ -106,30 +134,73 @@ useEffect(() => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [allOfficers]);
 
-  const handleSearchInputChange = (value: string) => {
+
+  const handleSearchInputChange = useCallback((value: string) => {
     setSearchQuery(value);
-    if (!value.trim()) {
-      setSearchParams({});
-    }
-  };
+    
 
-  const handleToggleStatus = async (officer: Officer) => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    if (value.trim()) {
+      setSearchParams({ q: value.trim() }, { replace: true });
+    } else {
+      setSearchParams({}, { replace: true });
+      setOfficers(allOfficers);
+      return;
+    }
+
+    // Debounce search by 500ms
+    searchTimeoutRef.current = setTimeout(() => {
+      performSearch(value);
+    }, 500);
+  }, [setSearchParams, performSearch, allOfficers]);
+
+  const handleSearch = useCallback(() => {
+    const trimmedQuery = searchQuery.trim();
+    if (trimmedQuery) {
+      performSearch(trimmedQuery);
+    } else {
+      setOfficers(allOfficers);
+    }
+  }, [searchQuery, performSearch, allOfficers]);
+
+  const handleToggleStatus = useCallback(async (officer: Officer) => {
+    if (!user?.id) {
+      toast.error("Admin information missing");
+      return;
+    }
+    
     try {
-      await adminApi.activateDeactivateOfficer(officer._id, !officer.isActive);
-      toast.success(
-        `Officer ${
-          !officer.isActive ? "activated" : "deactivated"
-        } successfully`
+      await adminApi.activateDeactivateOfficer(
+        officer._id,
+        !officer.isActive,
+        user.id
       );
-      performSearch(searchParams.get("q") || "");
+      
+      const updatedOfficers = allOfficers.map((o) =>
+        o._id === officer._id ? { ...o, isActive: !o.isActive } : o
+      );
+      
+      setAllOfficers(updatedOfficers);
+      setOfficers((prev) =>
+        prev.map((o) =>
+          o._id === officer._id ? { ...o, isActive: !o.isActive } : o
+        )
+      );
+
+      toast.success(
+        `Officer ${!officer.isActive ? "activated" : "deactivated"} successfully`
+      );
     } catch (error) {
       toast.error("Failed to update officer status");
     }
-  };
+  }, [user?.id, allOfficers]);
 
-  const handleResetPassword = async (officer: Officer) => {
+  const handleResetPassword = useCallback(async (officer: Officer) => {
     setSelectedOfficer(officer);
     try {
       const response: any = await adminApi.officerResetPassword(officer._id);
@@ -139,14 +210,14 @@ useEffect(() => {
     } catch (error) {
       toast.error("Failed to reset password");
     }
-  };
+  }, []);
 
-  const handleViewDetails = (officer: Officer) => {
+  const handleViewDetails = useCallback((officer: Officer) => {
     setSelectedOfficer(officer);
     setIsDetailsDialogOpen(true);
-  };
+  }, []);
 
-  const handleAddOfficer = async (e: React.FormEvent) => {
+  const handleAddOfficer = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!newOfficer.role) {
@@ -158,13 +229,21 @@ useEffect(() => {
 
     try {
       const payload = {
-        ...newOfficer,
-        password: "12345678",
+        newOfficer: {
+          name: newOfficer.name,
+          username: newOfficer.username,
+          password: newOfficer.password,
+          email: newOfficer.email,
+          assignedArea: newOfficer.assignedArea,
+          department: newOfficer.department,
+          role: newOfficer.role,
+        },
+        adminId: user?.id,
       };
 
-      await adminApi.createOfficer(payload);
+      const response: any = await adminApi.createOfficer(payload);
 
-      toast.success("Officer created successfully!");
+      toast.success(response.message || "Officer added successfully!");
       setIsAddDialogOpen(false);
 
       setNewOfficer({
@@ -177,28 +256,53 @@ useEffect(() => {
         assignedArea: "",
       });
 
-      performSearch(searchParams.get("q") || "");
+      const createdOfficer: Officer = {
+        _id: response.newOfficer._id || Math.random().toString(),
+        name: response.newOfficer.fullName || "N/A",
+        username: response.newOfficer.username || "N/A",
+        email: response.newOfficer.email || "N/A",
+        department: response.newOfficer.department || "N/A",
+        isActive: true,
+        assignedArea: response.newOfficer.assignedArea || "N/A",
+        createdAt: new Date().toISOString(),
+        deactivatedAt: undefined,
+        lastPasswordReset: undefined,
+      };
+
+      setAllOfficers((prev) => [createdOfficer, ...prev]);
+      setOfficers((prev) => [createdOfficer, ...prev]);
     } catch (error: any) {
       toast.error(error.message || "Failed to add officer");
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [newOfficer, user?.id]);
 
-  const fetchOfficerStats = async () => {
-    try {
-      const data = await adminApi.getOfficerStats();
-      setStats(data);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to load officer stats");
-    }
-  };
+  useEffect(() => {
+    fetchOfficerStats();
+  }, [fetchOfficerStats]);
+
   useEffect(() => {
     const query = searchParams.get("q") || "";
-    setSearchQuery(query);
-    performSearch(query);
-    fetchOfficerStats();
+    if (query !== searchQuery) {
+      setSearchQuery(query);
+      if (query.trim()) {
+        performSearch(query);
+      } else {
+        setOfficers(allOfficers);
+      }
+    }
   }, [searchParams]);
+
+
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
+
 
   return (
     <div className="space-y-6 p-6">
@@ -269,7 +373,7 @@ useEffect(() => {
             </Button>
           </div>
 
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-auto max-h-[300px]">
             <Table>
               <TableHeader>
                 <TableRow>

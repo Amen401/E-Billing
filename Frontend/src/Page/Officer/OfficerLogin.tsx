@@ -14,7 +14,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Loader2, UserCheck } from "lucide-react";
-import { officerApi } from "@/lib/api";
 import { useOfficerAuth } from "@/Components/Context/OfficerContext";
 
 const loginSchema = z.object({
