@@ -71,19 +71,6 @@ export const searchOfficer = async (req, res) => {
   }
 };
 
-// export const getOfficerStats = async (req, res) => {
-//   try {
-//     const total = await Officer.countDocuments();
-//     const active = await Officer.countDocuments({ isActive: true });
-//     const inactive = await Officer.countDocuments({ isActive: false });
-
-//     res.status(200).json({ total, active, inactive });
-//   } catch (error) {
-//     console.error("Officer Stats Error:", error);
-//     res.status(500).json({ message: "Internal server error" });
-//   }
-// };
-
 export const searchCustomer = async (req, res) => {
   try {
     const { searchBy, value } = req.body;
