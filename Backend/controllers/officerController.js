@@ -49,7 +49,7 @@ export const officerLogin = async (req, res) => {
 export const addCustomer = async (req, res) => {
   try {
     const regForm = req.body;
-    regForm.password = endcodePassword(regForm.password);
+    regForm.password = await endcodePassword(regForm.password);
 
     let isAccountExists = true;
 
