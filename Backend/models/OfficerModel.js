@@ -16,7 +16,21 @@ const officerSchema = new mongoose.Schema(
     },
     password: { type: String, required: true },
     isActive: { type: Boolean, default: true },
+
+    photo: {
+      secure_url: {
+        type: String,
+        required: true,
+        default: "",
+      },
+      public_id: {
+        type: String,
+        required: true,
+        default: "",
+      },
+    },
   },
+
   { timestamps: true }
 );
 
