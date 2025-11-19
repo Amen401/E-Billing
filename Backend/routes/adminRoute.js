@@ -25,6 +25,7 @@ adminRouter.post("/add-admin", createAdmin);
 adminRouter.get("/search-officer", verifyToken, searchOfficer);
 adminRouter.post("/search-customer", verifyToken, searchCustomer);
 adminRouter.post("/ad-officer", verifyToken, activateDeactivateOfficer);
+// adminRouter.post("/ad-officer", verifyToken, activateDeactivateOfficer);
 adminRouter.post("/update-name", verifyToken, updateName);
 adminRouter.post("/update-up", verifyToken, updateUsernameOrPassword);
 adminRouter.post("/orp", verifyToken, officerResetPassword);
