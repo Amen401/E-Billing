@@ -1,13 +1,13 @@
-import { CustomerAccount } from "../models/customerAccount.js";
+import { Customer } from "../models/CustomerModel.js";
 import { comparePassword } from "../Util/passwordEncDec.js";
 import { generateToken } from "../Util/tokenGenrator.js";
 
 export const customerLogin = async (req, res) => {
   const { username, password } = req.body;
 
-  const checkUsername = await CustomerAccount.findOne({
+  const checkUsername = await Customer.findOne({
     accountNumber: username,
-  }).populate("customerInfo");
+  });
 
   if (!checkUsername) {
     res.status(200).json({ message: "bad credentials" });
@@ -19,11 +19,16 @@ export const customerLogin = async (req, res) => {
     res.status(200).json({ message: "bad credentials" });
   }
 
+  if (!checkUsername.isActive) {
+    res
+      .status(200)
+      .json({ message: "Account deactivated. Please contact the district" });
+  }
   res.status(200).json({
     message: "login successful",
-    customerInfo: checkUsername.customerInfo,
-    id: checkUsername._id,
-    accountNumber: checkUsername.accountNumber,
+    customerInfo: checkUsername,
     token: generateToken(checkUsername._id, username),
   });
 };
+
+export const changePassword = async (req, res) => {};
