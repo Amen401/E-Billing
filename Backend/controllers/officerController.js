@@ -5,6 +5,7 @@ import { createAccountNumberForCustomer } from "../Util/accountNumberGeneratorUt
 import { comparePassword, endcodePassword } from "../Util/passwordEncDec.js";
 import { generateToken } from "../Util/tokenGenrator.js";
 import { cloud } from "../Util/Cloundnary.js";
+import { CustomerComplient } from "../models/CustomerComplient.js";
 
 const date = new Date();
 const formatted = date.toLocaleString("en-US", {
@@ -118,7 +119,7 @@ export const updateUsernameOrPassword = async (req, res) => {
     const username = req.body.username;
     const oldPassword = req.body.oldPass;
     const newPass = req.body.newPass;
-    const id = req.body.id;
+    const id = req.authUser.id;
     let result;
     if (oldPassword == "" && newPass == "" && username != "") {
       result = await Officer.findByIdAndUpdate(id, { username }, { new: true });
@@ -188,7 +189,7 @@ export const changeProfilePicture = async (req, res) => {
     const officer = await Officer.findByIdAndUpdate(req.authUser.id, data, {
       new: true,
     });
-    console.log(officer);
+    //console.log(officer);
     await saveActivity(req.authUser.id, `Updated your profile picture`);
     res.status(200).json({ message: "Profile updated successfully" });
   } catch (error) {
@@ -239,6 +240,89 @@ export const officerLogout = async (req, res) => {
   }
 };
 
+export const searchCustomerComplients = async (req, res) => {
+  try {
+    const { filter, value } = req.param;
+    const complients = await CustomerComplient.find({
+      [filter]: value,
+    }).populate("resolvedBy");
+
+    if (!complients) {
+      res.status(200).json(complients);
+    }
+
+    res.status(200).json(complientCustomDto(complients));
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const customerComplientInformations = async (req, res) => {
+  try {
+    const complientsData = await CustomerComplient.find();
+    const complients = complientsData.reverse();
+    const allComplients = complients.length;
+    const urgentComplients = complients.filter(
+      (comp) => comp.status == "urgent"
+    ).length;
+    const pendingComplients = complients.filter(
+      (comp) => comp.status == "pending"
+    ).length;
+    const resolvedComplients = complients.filter(
+      (comp) => comp.status == "resolved"
+    ).length;
+
+    if (complients.length <= 10) {
+      res.status(200).json({
+        complients: complientCustomDto(complients),
+        allComplients,
+        urgentComplients,
+        pendingComplients,
+        resolvedComplients,
+      });
+    }
+
+    let someComplients = [];
+
+    for (let index = 0; index < 10; index++) {
+      someComplients.push(complients[index]);
+    }
+
+    res.status(200).json({
+      someComplients: complientCustomDto(someComplients),
+      allComplients,
+      urgentComplients,
+      pendingComplients,
+      resolvedComplients,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const updateComplientStatus = async (req, res) => {
+  try {
+    const { cId, status } = req.body;
+    const updatedStatus = {
+      status,
+      resolvedBy: status == "resolved" ? req.authUser.id : null,
+    };
+    const complient = await CustomerComplient.findByIdAndUpdate(
+      cId,
+      updatedStatus,
+      { new: true }
+    );
+    saveActivity(
+      req.authUser.id,
+      `updated complient status to ${status} raised by ${complient.customerAccNumber} account number`
+    );
+    res
+      .status(200)
+      .json({ message: "Complient status updated successfully!!" });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
 async function saveActivity(id, activity) {
   const OfficerActivity = new officerAT({
     officerId: id,
@@ -246,4 +330,25 @@ async function saveActivity(id, activity) {
     date: formatted,
   });
   await OfficerActivity.save();
+}
+
+function complientCustomDto(complients) {
+  let complientsDto = [];
+  for (let index = 0; index < complients.length; index++) {
+    let complient = {
+      id: complients[index]._id,
+      customerName: complients[index].customerName,
+      customerAccNumber: complients[index].customerAccNumber,
+      subject: complients[index].subject,
+      date: complients[index].date,
+      status: complients[index].status,
+      description: complients[index].description,
+      resolvedBy:
+        complients[index].status == "resolved"
+          ? complients[index].resolvedBy.name
+          : "",
+    };
+    complientsDto.push(complient);
+  }
+  return complientsDto;
 }

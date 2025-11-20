@@ -2,12 +2,16 @@ import express from "express";
 import {
   addCustomer,
   changeProfilePicture,
+  customerComplientInformations,
   getCustomer,
   myActivities,
   officerLogin,
   officerLogout,
+  searchCustomerComplients,
   searchMyActivities,
+  updateComplientStatus,
   updateNameOrEmail,
+  updateUsernameOrPassword,
 } from "../controllers/officerController.js";
 
 import { verifyToken } from "../Util/tokenVerify.js";
@@ -29,5 +33,17 @@ officerRouter.post(
   changeProfilePicture
 );
 officerRouter.post("/update-name-or-email", verifyToken, updateNameOrEmail);
+officerRouter.post("/update-up", verifyToken, updateUsernameOrPassword);
+officerRouter.get(
+  "/search-customer-comp",
+  verifyToken,
+  searchCustomerComplients
+);
+officerRouter.get(
+  "/get-customer-comp-info",
+  verifyToken,
+  customerComplientInformations
+);
+officerRouter.post("/update-comp-status", verifyToken, updateComplientStatus);
 
 export default officerRouter;
