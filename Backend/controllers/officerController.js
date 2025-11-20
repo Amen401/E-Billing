@@ -41,10 +41,7 @@ export const officerLogin = async (req, res) => {
   await saveActivity(checkUsername._id, `You logged in to the system`);
   res.status(200).json({
     message: "login successful",
-    OfficerInfo: {
-      username: checkUsername.username,
-      name: checkUsername.name,
-    },
+    OfficerInfo: checkUsername,
     token: generateToken(checkUsername._id, checkUsername.username),
   });
 };
