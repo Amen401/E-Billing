@@ -239,9 +239,9 @@ export const officerLogout = async (req, res) => {
 
 export const searchCustomerComplients = async (req, res) => {
   try {
-    const { filter, value } = req.param;
+    const { filter, value } = req.query;
     const complients = await CustomerComplient.find({
-      [filter]: value,
+      [filter]: new RegExp(value, "i"),
     }).populate("resolvedBy");
 
     if (!complients) {
@@ -329,7 +329,7 @@ async function saveActivity(id, activity) {
   await OfficerActivity.save();
 }
 
-function complientCustomDto(complients) {
+export function complientCustomDto(complients) {
   let complientsDto = [];
   for (let index = 0; index < complients.length; index++) {
     let complient = {

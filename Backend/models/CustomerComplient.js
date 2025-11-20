@@ -27,7 +27,6 @@ const customerComp = mongoose.Schema({
   },
   resolvedBy: {
     type: Schema.Types.ObjectId,
-    required: true,
     ref: "OfficerModel",
     default: null,
   },
