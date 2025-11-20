@@ -1,34 +1,58 @@
 import { Customer } from "../models/CustomerModel.js";
-import { comparePassword } from "../Util/passwordEncDec.js";
+import { comparePassword, endcodePassword } from "../Util/passwordEncDec.js";
 import { generateToken } from "../Util/tokenGenrator.js";
 
 export const customerLogin = async (req, res) => {
-  const { username, password } = req.body;
+  try {
+    const { username, password } = req.body;
 
-  const checkUsername = await Customer.findOne({
-    accountNumber: username,
-  });
+    const checkUsername = await Customer.findOne({
+      accountNumber: username,
+    });
 
-  if (!checkUsername) {
-    res.status(200).json({ message: "bad credentials" });
+    if (!checkUsername) {
+      res.status(200).json({ message: "bad credentials" });
+    }
+
+    const checkPassword = await comparePassword(
+      password,
+      checkUsername.password
+    );
+
+    if (!checkPassword) {
+      res.status(200).json({ message: "bad credentials" });
+    }
+
+    if (!checkUsername.isActive) {
+      res
+        .status(200)
+        .json({ message: "Account deactivated. Please contact the district" });
+    }
+    res.status(200).json({
+      message: "login successful",
+      customerInfo: checkUsername,
+      token: generateToken(checkUsername._id, username),
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
   }
-
-  const checkPassword = await comparePassword(password, checkUsername.password);
-
-  if (!checkPassword) {
-    res.status(200).json({ message: "bad credentials" });
-  }
-
-  if (!checkUsername.isActive) {
-    res
-      .status(200)
-      .json({ message: "Account deactivated. Please contact the district" });
-  }
-  res.status(200).json({
-    message: "login successful",
-    customerInfo: checkUsername,
-    token: generateToken(checkUsername._id, username),
-  });
 };
 
-export const changePassword = async (req, res) => {};
+export const changePassword = async (req, res) => {
+  try {
+    const { oldPass, newPass } = req.body;
+
+    const account = await Customer.findById(req.authUser.id);
+
+    if (await comparePassword(oldPass, account.password)) {
+      const updatedAcc = await Customer.findByIdAndUpdate(req.authUser.id, {
+        password: await endcodePassword(newPass),
+      });
+
+      res.status(200).json({ message: "Password updated successfully!!" });
+    }
+    res.status(200).json({ message: "Your old password is not correct" });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
