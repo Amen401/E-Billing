@@ -9,17 +9,26 @@ export interface User {
 }
 
 export interface Customer {
-  id: string;
+  _id: string;
   name: string;
-  email: string;
-  phone: string;
-  address: string;
-  meterNumber: string;
+  region: string;
+  serviceCenter: string;
+  addressRegion: string;
+  zone: string;
+  woreda: string;
+  town: string;
+  purpose: string;
+  powerApproved: number;
+  killowat: number;
+  applicableTarif: number;
+  volt: number;
+  depositBirr: number;
   accountNumber: string;
-  status: 'active' | 'inactive';
-  registeredBy?: string;
-  createdAt: Date;
+  meterReaderSN: string;
+  isActive: boolean;
+  createdAt: string;
 }
+
 
 export interface Officer {
   _id: string;
@@ -80,3 +89,30 @@ export interface SystemLog {
   timestamp: Date;
   details?: string;
 }
+
+export type ComplaintStatus = "Pending" | "In Progress" | "Resolved";
+
+export interface ComplaintType {
+  id: string;
+  subject: string;
+  description: string;
+  date: string;
+  status: ComplaintStatus;
+  customerName?: string;
+  customerAccNumber?: string;
+  resolvedBy?: string;
+}
+export interface ComplaintsApiResponse {
+  someComplients: ComplaintType[];
+  allComplients: number;
+  urgentComplients: number;
+  pendingComplients: number;
+  resolvedComplients: number;
+}
+
+
+export interface ComplaintFormData {
+  subject: string;
+  description: string;
+}
+

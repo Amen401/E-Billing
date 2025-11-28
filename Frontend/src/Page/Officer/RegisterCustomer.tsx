@@ -14,44 +14,89 @@ import { Breadcrumb } from "@/Components/BreadCrumb";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { officerApi } from "@/lib/api";
+import { z } from "zod";
+
+const customerSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  region: z.string().min(1, "Region is required"),
+  serviceCenter: z.string().min(1, "Service Center is required"),
+  addressRegion: z.string().min(1, "Address Region is required"),
+  zone: z.string().min(1, "Zone is required"),
+  woreda: z.string().min(1, "Woreda is required"),
+  town: z.string().min(1, "Town is required"),
+  powerApproved: z.coerce.number().min(0.1, "Enter valid KW"),
+  killowat: z.coerce.number().min(0.1, "Enter valid KW"),
+  applicableTarif: z.string().min(1, "Select a tarif"),
+  volt: z.coerce.number().min(1, "Volt is required"),
+  depositBirr: z.coerce.number().min(1, "Deposit amount required"),
+  serviceChargeBirr: z.coerce.number().min(0, "Service Charge must be >= 0"),
+  tarifBirr: z.coerce.number().min(0, "Tarif Birr must be >= 0"),
+  accountNumber: z.string().min(3, "Account number is required"),
+  meterReaderSN: z.string().min(3, "Meter serial number required"),
+  isActive: z.boolean(),
+  password: z.string(),
+  purpose: z.enum(["Domestic", "Business"], {
+    required_error: "Purpose is required",
+  }),
+});
 
 const RegisterCustomer = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+
   const [formData, setFormData] = useState({
     name: "",
     region: "",
-    service_center: "",
-    address_region: "",
+    serviceCenter: "",
+    addressRegion: "",
     zone: "",
     woreda: "",
     town: "",
     purpose: "",
-    power_approved: "",
+    powerApproved: "",
     killowat: "",
-    applicable_tarif: "",
+    applicableTarif: "",
     volt: "",
-    deposit_birr: "",
+    depositBirr: "",
+    serviceChargeBirr: "",
+    tarifBirr: "",
+    accountNumber: "",
+    meterReaderSN: "",
+    isActive: true,
+    password: "12345678",
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = (e: any) => {
+    const { name, value, type } = e.target;
+    setFormData((p) => ({
+      ...p,
+      [name]: type === "number" ? Number(value) : value,
+    }));
   };
- const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setLoading(true);
 
-  try {
-    const data = await officerApi.createCustomer(formData);
-    toast.success(data.message || "Customer registered successfully!");
-    navigate("/officer/customers");
-  } catch (error: any) {
-    toast.error(error.message || "Failed to register customer");
-  } finally {
-    setLoading(false);
-  }
-};
+  const handleSubmit = async (e: any) => {
+    e.preventDefault();
+    setLoading(true);
 
+    const validation = customerSchema.safeParse(formData);
+
+    if (!validation.success) {
+      const firstError = validation.error.errors[0].message;
+      toast.error(firstError);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const data = await officerApi.createCustomer(formData);
+      toast.success(data.message || "Customer registered successfully");
+      navigate("/officer/customers");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to register customer");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -73,8 +118,8 @@ const RegisterCustomer = () => {
           </p>
         </div>
 
-        <Button asChild className="flex items-center gap-2">
-          <Link to="/officer/customers">
+        <Button asChild>
+          <Link to="/officer/customers" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             View All Customers
           </Link>
@@ -88,186 +133,134 @@ const RegisterCustomer = () => {
             <CardTitle>Customer Registration Form</CardTitle>
           </div>
           <CardDescription>
-            Enter customer details to create a new account
+            Fill in the details to create an account
           </CardDescription>
         </CardHeader>
+
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name *</Label>
-                <Input
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  placeholder="Enter customer's full name"
-                  required
-                />
-              </div>
+              <InputField
+                label="Full Name"
+                name="name"
+                value={formData.name}
+                handle={handleChange}
+              />
 
-              <div className="space-y-2">
-                <Label htmlFor="region">Region *</Label>
-                <Input
-                  id="region"
-                  name="region"
-                  value={formData.region}
-                  onChange={handleChange}
-                  placeholder="e.g., Addis Ababa"
-                  required
-                />
-              </div>
+              <SelectField
+                label="Region"
+                name="region"
+                value={formData.region}
+                options={["SNNP"]}
+                handle={handleChange}
+              />
 
-              <div className="space-y-2">
-                <Label htmlFor="service_center">Service Center *</Label>
-                <Input
-                  id="service_center"
-                  name="service_center"
-                  value={formData.service_center}
-                  onChange={handleChange}
-                  placeholder="e.g., Bole Service Center"
-                  required
-                />
-              </div>
+              <SelectField
+                label="Service Center"
+                name="serviceCenter"
+                value={formData.serviceCenter}
+                options={[
+                  "Wolayta Sodo Main",
+                  "Wolayta Sodo East",
+                  "Wolayta Sodo West",
+                ]}
+                handle={handleChange}
+              />
 
-              <div className="space-y-2">
-                <Label htmlFor="address_region">Address Region *</Label>
-                <Input
-                  id="address_region"
-                  name="address_region"
-                  value={formData.address_region}
-                  onChange={handleChange}
-                  placeholder="Customer's address region"
-                  required
-                />
-              </div>
+              <InputField
+                label="Address Region"
+                name="addressRegion"
+                value={formData.addressRegion}
+                handle={handleChange}
+              />
+              <InputField
+                label="Zone"
+                name="zone"
+                value={formData.zone}
+                handle={handleChange}
+              />
+              <InputField
+                label="Woreda"
+                name="woreda"
+                value={formData.woreda}
+                handle={handleChange}
+              />
+              <InputField
+                label="Town"
+                name="town"
+                value={formData.town}
+                handle={handleChange}
+              />
+              <SelectField
+                label="Purpose"
+                name="purpose"
+                value={formData.purpose}
+                options={["Domestic", "Business"]}
+                handle={handleChange}
+              />
 
-              <div className="space-y-2">
-                <Label htmlFor="zone">Zone *</Label>
-                <Input
-                  id="zone"
-                  name="zone"
-                  value={formData.zone}
-                  onChange={handleChange}
-                  placeholder="Administrative zone"
-                  required
-                />
-              </div>
+              <NumberField
+                label="Power Approved (KW)"
+                name="powerApproved"
+                value={formData.powerApproved}
+                handle={handleChange}
+              />
+              <NumberField
+                label="Killowat"
+                name="killowat"
+                value={formData.killowat}
+                handle={handleChange}
+              />
 
-              <div className="space-y-2">
-                <Label htmlFor="woreda">Woreda *</Label>
-                <Input
-                  id="woreda"
-                  name="woreda"
-                  value={formData.woreda}
-                  onChange={handleChange}
-                  placeholder="Administrative woreda"
-                  required
-                />
-              </div>
+              <SelectField
+                label="Applicable Tarif"
+                name="applicableTarif"
+                value={formData.applicableTarif}
+                options={["Low Usage", "Medium Usage", "High Usage"]}
+                handle={handleChange}
+              />
 
-              <div className="space-y-2">
-                <Label htmlFor="town">Town *</Label>
-                <Input
-                  id="town"
-                  name="town"
-                  value={formData.town}
-                  onChange={handleChange}
-                  placeholder="Town or city"
-                  required
-                />
-              </div>
+              <NumberField
+                label="Volt"
+                name="volt"
+                value={formData.volt}
+                handle={handleChange}
+              />
+              <NumberField
+                label="Deposit (Birr)"
+                name="depositBirr"
+                value={formData.depositBirr}
+                handle={handleChange}
+              />
+              <NumberField
+                label="Service Charge (Birr)"
+                name="serviceChargeBirr"
+                value={formData.serviceChargeBirr}
+                handle={handleChange}
+              />
+              <NumberField
+                label="Tarif (Birr)"
+                name="tarifBirr"
+                value={formData.tarifBirr}
+                handle={handleChange}
+              />
 
-              <div className="space-y-2">
-                <Label htmlFor="purpose">Purpose *</Label>
-                <Input
-                  id="purpose"
-                  name="purpose"
-                  value={formData.purpose}
-                  onChange={handleChange}
-                  placeholder="e.g., Residential, Commercial"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="power_approved">Power Approved (KW) *</Label>
-                <Input
-                  id="power_approved"
-                  name="power_approved"
-                  type="number"
-                  step="0.01"
-                  value={formData.power_approved}
-                  onChange={handleChange}
-                  placeholder="0.00"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="killowat">Killowat *</Label>
-                <Input
-                  id="killowat"
-                  name="killowat"
-                  type="number"
-                  step="0.01"
-                  value={formData.killowat}
-                  onChange={handleChange}
-                  placeholder="0.00"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="applicable_tarif">Applicable Tarif *</Label>
-                <Input
-                  id="applicable_tarif"
-                  name="applicable_tarif"
-                  type="number"
-                  step="0.01"
-                  value={formData.applicable_tarif}
-                  onChange={handleChange}
-                  placeholder="0.00"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="volt">Volt *</Label>
-                <Input
-                  id="volt"
-                  name="volt"
-                  type="number"
-                  step="0.01"
-                  value={formData.volt}
-                  onChange={handleChange}
-                  placeholder="0.00"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="deposit_birr">Deposit (Birr) *</Label>
-                <Input
-                  id="deposit_birr"
-                  name="deposit_birr"
-                  type="number"
-                  step="0.01"
-                  value={formData.deposit_birr}
-                  onChange={handleChange}
-                  placeholder="0.00"
-                  required
-                />
-              </div>
+              <InputField
+                label="Meter Serial Number"
+                name="meterReaderSN"
+                value={formData.meterReaderSN}
+                handle={handleChange}
+              />
             </div>
 
             <div className="flex gap-2 pt-4 border-t">
               <Button type="submit" disabled={loading}>
                 {loading ? "Registering..." : "Register Customer"}
               </Button>
+
               <Button
-                type="button"
                 variant="outline"
+                type="button"
                 onClick={() => navigate("/officer/customers")}
               >
                 Cancel
@@ -279,5 +272,47 @@ const RegisterCustomer = () => {
     </div>
   );
 };
+
+const InputField = ({ label, name, value, handle }: any) => (
+  <div className="space-y-2">
+    <Label htmlFor={name}>{label} *</Label>
+    <Input id={name} name={name} value={value} onChange={handle} required />
+  </div>
+);
+
+const NumberField = ({ label, name, value, handle }: any) => (
+  <div className="space-y-2">
+    <Label htmlFor={name}>{label} *</Label>
+    <Input
+      id={name}
+      name={name}
+      type="number"
+      value={value}
+      onChange={handle}
+      required
+    />
+  </div>
+);
+
+const SelectField = ({ label, name, value, options, handle }: any) => (
+  <div className="space-y-2">
+    <Label htmlFor={name}>{label} *</Label>
+    <select
+      id={name}
+      name={name}
+      value={value}
+      onChange={handle}
+      className="border h-10 rounded-md px-2"
+      required
+    >
+      <option value="">Select {label}</option>
+      {options.map((o: any) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
+    </select>
+  </div>
+);
 
 export default RegisterCustomer;

@@ -1,157 +1,220 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Shield } from 'lucide-react';
-import { useAuth } from '../../Components/Context/AuthContext';
-import  type { UserRole } from '../../Page/Types/type';
-import { toast } from 'sonner';
-import  { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import  { Input } from '@/Components/ui/input';
-import { Checkbox } from '@radix-ui/react-checkbox';
-import { Label } from '@radix-ui/react-label';
-import  { Tabs, TabsList, TabsTrigger, TabsContent } from '@radix-ui/react-tabs';
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
-const Login = () => {
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+
+import { Loader2, User, Shield, UserCheck, Eye, EyeOff } from "lucide-react";
+
+import { useCustomerAuth } from "@/Components/Context/AuthContext";
+import { useOfficerAuth } from "@/Components/Context/OfficerContext";
+import { useAdminAuth } from "@/Components/Context/AdminContext";
+
+const loginSchema = z.object({
+  username: z.string().min(1, "Username / Account number is required"),
+  password: z.string().min(1, "Password is required"),
+});
+
+type LoginFormData = z.infer<typeof loginSchema>;
+
+const UnifiedLogin = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const { login, isAuthenticated } = useAuth();
-  
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
+  const { role: urlRole } = useParams(); 
+
+  const { login: customerLogin } = useCustomerAuth();
+  const { login: officerLogin } = useOfficerAuth();
+  const { login: adminLogin } = useAdminAuth();
+
+  const [role, setRole] =
+    useState<"customer" | "officer" | "admin">(
+      (urlRole as any) || "customer"
+    );
+
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<UserRole>('admin');
+  const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+  });
+
 
   useEffect(() => {
-    const roleParam = searchParams.get('role') as UserRole;
-    if (roleParam && ['admin', 'officer', 'customer'].includes(roleParam)) {
-      setActiveTab(roleParam);
+    if (urlRole === "customer" || urlRole === "officer" || urlRole === "admin") {
+      setRole(urlRole);
     }
-  }, [searchParams]);
-
- useEffect(() => {
-  if (isAuthenticated) {
-    if (activeTab === 'admin') navigate('/admin/dashboard');
-    else if (activeTab === 'officer') navigate('/officer/dashboard');
-    else if (activeTab === 'customer') navigate('/customer/dashboard');
-  }
-}, [isAuthenticated, navigate, activeTab]);
+  }, [urlRole]);
 
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!email || !password) {
-      toast.error('Please enter both email and password');
-      return;
-    }
+  const changeRole = (r: "customer" | "officer" | "admin") => {
+    setRole(r);
+    navigate(`/login/${r}`);
+  };
 
+  const onSubmit = async (data: LoginFormData) => {
+    setError("");
     setIsLoading(true);
+
     try {
-      await login(email, password, activeTab);
-      toast.success('Login successful!');
-      navigate('/dashboard');
-    } catch (error) {
-      toast.error('Login failed. Please try again.');
+      if (role === "customer") {
+        await customerLogin(data.username, data.password);
+        navigate("/customer/dashboard");
+      } else if (role === "officer") {
+        await officerLogin(data.username, data.password);
+        navigate("/officer/dashboard");
+      } else if (role === "admin") {
+        await adminLogin(data.username, data.password);
+        navigate("/admin/dashboard");
+      }
+    } catch (err: any) {
+      setError(err.message || "Login failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
+  const roleIcon =
+    role === "customer" ? (
+      <User className="h-7 w-7 text-primary" />
+    ) : role === "officer" ? (
+      <UserCheck className="h-7 w-7 text-primary" />
+    ) : (
+      <Shield className="h-7 w-7 text-primary" />
+    );
+
   return (
-    <div className="min-h-screen bg-slatePortal flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center pb-8">
-          <div className="bg-slatePortal text-slatePortal-foreground w-32 h-32 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <Shield className="h-16 w-16" />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-white to-accent/10 p-4">
+      <Card className="w-full max-w-md shadow-xl border border-gray-200 rounded-2xl">
+        <CardHeader className="space-y-3">
+          <div className="flex items-center justify-center">
+            <div className="h-14 w-14 rounded-full bg-primary/15 flex items-center justify-center shadow-sm">
+              {roleIcon}
+            </div>
           </div>
-          <CardTitle className="text-2xl">
-            {activeTab === 'admin' && 'Admin Portal'}
-            {activeTab === 'officer' && 'Officer Portal'}
-            {activeTab === 'customer' && 'Customer Portal'}
+
+          <CardTitle className="text-3xl font-semibold text-center">
+            Welcome Back
           </CardTitle>
+
+          <CardDescription className="text-center text-gray-600">
+            Select your role and sign in to continue
+          </CardDescription>
+
+          <div className="grid grid-cols-3 mt-4 gap-2 bg-gray-100 p-1 rounded-lg">
+            {[
+              { key: "customer", label: "Customer" },
+              { key: "officer", label: "Officer" },
+              { key: "admin", label: "Admin" },
+            ].map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => changeRole(key as any)}
+                className={`py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                  role === key
+                    ? "bg-primary text-white shadow"
+                    : "text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </CardHeader>
 
         <CardContent>
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as UserRole)}>
-            <TabsList className="grid w-full grid-cols-3 mb-6">
-              <TabsTrigger value="admin">Admin</TabsTrigger>
-              <TabsTrigger value="officer">Officer</TabsTrigger>
-              <TabsTrigger value="customer">Customer</TabsTrigger>
-            </TabsList>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            <div className="space-y-2">
+              <Label className="font-medium">
+                {role === "customer" ? "Account Number" : "Username"}
+              </Label>
+              <Input
+                placeholder={
+                  role === "customer" ? "Enter account number" : "Enter username"
+                }
+                {...register("username")}
+                className={`h-11 rounded-lg ${
+                  errors.username ? "border-red-500" : "border-gray-300"
+                }`}
+                disabled={isLoading}
+              />
+              {errors.username && (
+                <p className="text-xs text-red-500">{errors.username.message}</p>
+              )}
+            </div>
 
-            <TabsContent value={activeTab}>
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email or Username</Label>
-                  <Input
-                    id="email"
-                    type="text"
-                    placeholder="Enter your email or username"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    disabled={isLoading}
-                  />
-                </div>
+           <div className="space-y-2 relative">
+  <Label className="font-medium">Password</Label>
 
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={isLoading}
-                  />
-                </div>
+  <Input
+    type={showPassword ? "text" : "password"}
+    placeholder="Enter your password"
+    {...register("password")}
+    className={`h-11 rounded-lg pr-10 ${
+      errors.password ? "border-red-500" : "border-gray-300"
+    }`}
+    disabled={isLoading}
+    autoComplete="current-password"
+  />
 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="remember"
-                      checked={rememberMe}
-                      onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                    />
-                    <Label htmlFor="remember" className="text-sm cursor-pointer">
-                      Remember me
-                    </Label>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="link"
-                    className="text-sm text-secondary hover:text-secondary/80 p-0"
-                    onClick={() => navigate('/forgot-password')}
-                  >
-                    Forgot Password?
-                  </Button>
-                </div>
 
-                <Button
-                  type="submit"
-                  className="w-full bg-secondary hover:bg-secondary/90"
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Logging in...' : 'Login'}
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
+  <button
+    type="button"
+    onClick={() => setShowPassword(!showPassword)}
+    className="absolute right-3 top-9 text-gray-600 hover:text-gray-800"
+  >
+    {showPassword ? (
+      <EyeOff className="h-5 w-5" />
+    ) : (
+      <Eye className="h-5 w-5" />
+    )}
+  </button>
 
-          <div className="mt-6 text-center">
+  {errors.password && (
+    <p className="text-xs text-red-500">{errors.password.message}</p>
+  )}
+</div>
+
+
+            {error && (
+              <p className="text-sm text-red-600 bg-red-100 border border-red-300 p-2 rounded-md text-center">
+                {error}
+              </p>
+            )}
+
             <Button
-              type="button"
-              variant="link"
-              onClick={() => navigate('/')}
-              className="text-sm"
+              type="submit"
+              className="w-full h-11 rounded-lg text-base font-medium"
+              disabled={isLoading}
             >
-              Back to Home
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" /> Logging in...
+                </>
+              ) : (
+                "Login"
+              )}
             </Button>
-          </div>
+          </form>
         </CardContent>
       </Card>
     </div>
   );
 };
 
-export default Login;
+export default UnifiedLogin;

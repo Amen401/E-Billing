@@ -67,39 +67,42 @@ export const changePassword = async (req, res) => {
   }
 };
 
+
 export const writeComplain = async (req, res) => {
   try {
     const complain = req.body;
+
     complain.customerAccNumber = req.authUser.username;
+    complain.customerName = req.authUser.name || req.authUser.username;
+    complain.date = new Date().toISOString();
+    complain.status = "Pending";
 
     const newComplain = new CustomerComplient(complain);
-    newComplain.save();
-    res.status(200).json({ message: "Complain submitted successfully!!" });
+    const savedComplain = await newComplain.save();
+    return res.status(200).json(savedComplain);
   } catch (error) {
-    res.status(500).json({ message: "Internal server error" });
+    console.error(error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
+
+
 export const myComplains = async (req, res) => {
   try {
-    const myComplains = await CustomerComplient.find({
+    let complaints = await CustomerComplient.find({
       customerAccNumber: req.authUser.username,
-    });
-    const complains = myComplains.reverse();
-    if (!myComplains) {
-      res.status(200).json(myComplains);
-    }
-    if (myComplains.length <= 10) {
-      res.status(200).json({ myComplains: complientCustomDto(complains) });
-    }
-    let someOfMyComplain = [];
-    for (let index = 0; index < 10; index++) {
-      let complain = complains[index];
-      someOfMyComplain.push(complain);
-    }
-    res.status(200).json({ myComplains: complientCustomDto(someOfMyComplain) });
+    }).sort({ date: -1 }); 
+
+    complaints = complaints.slice(0, 10);
+
+
+    const result = complientCustomDto ? complientCustomDto(complaints) : complaints;
+
+    return res.status(200).json({ myComplains: result });
   } catch (error) {
-    res.status(500).json({ message: "Internal server error" });
+    console.error(error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 

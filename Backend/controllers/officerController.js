@@ -79,9 +79,9 @@ export const myActivities = async (req, res) => {
     let result = [];
 
     if (myActivities.length <= 10) {
-      result = myActivities.slice().reverse();
+      result = myActivities.reverse();
     } else {
-      const recentActivities = myActivities.slice().reverse();
+      const recentActivities = myActivities.reverse();
       for (let index = 0; index < 10; index++) {
         result.push(recentActivities[index]);
       }
@@ -155,7 +155,9 @@ export const updateUsernameOrPassword = async (req, res) => {
 };
 export const changeProfilePicture = async (req, res) => {
   try {
-    const deleteOldPic = await Officer.findById(req.authUser.id);
+    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+
+    const officer = await Officer.findById(req.authUser.id);
 
     const base64 = Buffer.from(req.file.buffer).toString("base64");
     const dataUri = `data:${req.file.mimetype};base64,${base64}`;
@@ -165,26 +167,22 @@ export const changeProfilePicture = async (req, res) => {
       tags: [req.authUser.id, "profile_pic"],
     });
 
-    if (!result) {
-      res.status(400).json({ message: "failed to update the profile" });
+    if (officer.photo?.secure_url) {
+      await cloud.uploader.destroy(officer.photo.public_id);
     }
 
-    if (deleteOldPic.photo.secure_url != "" && result) {
-      await cloud.uploader.destroy(deleteOldPic.photo.public_id);
-    }
-
-    const { secure_url, public_id } = result;
-    const data = {
-      photo: { secure_url, public_id },
+    officer.photo = {
+      secure_url: result.secure_url,
+      public_id: result.public_id,
     };
-    const officer = await Officer.findByIdAndUpdate(req.authUser.id, data, {
+  officer = await Officer.findByIdAndUpdate(req.authUser.id, data, {
       new: true,
     });
-    //console.log(officer);
+    console.log(officer);
     await saveActivity(req.authUser.id, `Updated your profile picture`);
     res.status(200).json({ message: "Profile updated successfully" });
   } catch (error) {
-    console.log(error);
+    console.error(error);
     res.status(500).json({ message: "Internal server error", error });
   }
 };

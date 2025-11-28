@@ -1,216 +1,387 @@
-import { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
-import { api } from "@/lib/api";
-
-interface OfficerProfileData {
-  _id: string;
-  name: string;
-  username: string;
-  email: string;
-  department: string;
-  assignedArea: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
+import { User, Mail, Image as  Lock, Save, X, Edit2, Camera } from "lucide-react";
+import { useOfficerAuth } from "@/Components/Context/OfficerContext";
 
 const OfficerProfile = () => {
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [profile, setProfile] = useState<OfficerProfileData | null>(null);
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [department, setDepartment] = useState("");
-  const [assignedArea, setAssignedArea] = useState("");
-  const [username, setUsername] = useState("");
+  const { user, updateNameOrEmail, changeProfilePicture, changePassword } = useOfficerAuth();
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const[ isEditigUsername, setisEditingUsername] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
-  const fetchProfile = async () => {
+  const [name, setName] = useState(user?.name || "");
+  const [username, setUsername] = useState(user?.username || "");
+  const [email, setEmail] = useState(user?.email || "");
+  const [passwordData, setPasswordData] = useState({ oldPass: "", newPass: "", confirmPass: "" });
+
+  const [loading, setLoading] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [imageLoading, setImageLoading] = useState(false);
+
+  const handleNameUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
     try {
-      const response = await api.get("/officer/profile");
-      
-      if (response.data) {
-        setProfile(response.data);
-        setFullName(response.data.name || '');
-        setEmail(response.data.email || '');
-        setDepartment(response.data.department || '');
-        setAssignedArea(response.data.assignedArea || '');
-        setUsername(response.data.username || '');
-      }
-    } catch (error: any) {
-      console.error("Failed to load profile:", error);
-      toast.error('Failed to load profile');
+      setLoading(true);
+      await updateNameOrEmail("name", name);
+      setIsEditingName(false);
+      toast.success("Name updated successfully");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update name");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleUpdateProfile = async (e: React.FormEvent) => {
+  const handleEmailUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
-
     try {
-      const response = await api.put("/officer/update-profile", {
-        name: fullName,
-      });
-
-      if (response.success) {
-        toast.success('Profile updated successfully!');
-
-        fetchProfile();
-      } else {
-        throw new Error(response.message || 'Failed to update profile');
-      }
-    } catch (error: any) {
-      console.error("Update profile error:", error);
-      toast.error(error.message || 'Failed to update profile');
+      setLoading(true);
+      await updateNameOrEmail("email", email);
+      setIsEditingEmail(false);
+      toast.success("Email updated successfully");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update email");
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
+  const handleProfilePicChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    console.log(e.target.files?.[0]);
+    if (!file) return;
+
+    try {
+      setImageLoading(true);
+      await changeProfilePicture(file);
+      toast.success("Profile picture updated");
+    } catch {
+      toast.error("Failed to update picture");
+    } finally {
+      setImageLoading(false);
+    }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordData.newPass !== passwordData.confirmPass) {
+      toast.error("New passwords do not match");
+      return;
+    }
+
+    try {
+      setPasswordLoading(true);
+      await changePassword(passwordData.oldPass, passwordData.newPass);
+      setPasswordData({ oldPass: "", newPass: "", confirmPass: "" });
+      setIsChangingPassword(false);
+      toast.success("Password changed successfully");
+    } catch {
+      toast.error("Failed to change password");
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Officer Profile</h1>
-        <p className="text-muted-foreground">
-          Manage your account settings and preferences
-        </p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-secondary/30 via-background to-background">
+      <div className="container max-w-6xl mx-auto p-6 lg:p-8">
+        <div className="mb-8">
+          <h1 className="text-3xl lg:text-4xl font-bold text-foreground mb-2">Profile Settings</h1>
+          <p className="text-muted-foreground">Manage your account information and preferences</p>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-4">
-            <Avatar className="h-20 w-20">
-              <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
-                {getInitials(fullName || username)}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <CardTitle>{fullName || username}</CardTitle>
-              <CardDescription className="capitalize">{department} Officer</CardDescription>
-            </div>
+        <div className="grid lg:grid-cols-[300px_1fr] gap-6">
+
+          <Card className="h-fit shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-elevated)]">
+            <CardContent className="p-6">
+              <div className="flex flex-col items-center space-y-4">
+                <div className="relative group">
+                  <div className="w-32 h-32 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-4xl font-bold text-primary-foreground shadow-lg">
+                    {user?.photo ? (
+                      <img src={user.photo} alt={user.name} className="w-full h-full rounded-full object-cover" />
+                    ) : (
+                      <span>{user?.name?.charAt(0).toUpperCase() || "O"}</span>
+                    )}
+                  </div>
+                  <label className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                    <Camera className="h-6 w-6 text-white" />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleProfilePicChange}
+                      disabled={imageLoading}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+                <div className="text-center">
+                  <h3 className="font-semibold text-lg">{user?.username || "Officer"}</h3>
+                  <p className="text-sm text-muted-foreground">{user?.email}</p>
+                </div>
+                {imageLoading && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    Uploading...
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="space-y-6">
+            <Card className="shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-elevated)]">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-xl">
+                      <User className="h-5 w-5 text-primary" />
+                      Personal Information
+                    </CardTitle>
+                    <CardDescription>Update your full name</CardDescription>
+                  </div>
+                  {!isEditingName && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsEditingName(true)}
+                      className="hover:bg-secondary"
+                    >
+                      <Edit2 className="h-4 w-4 mr-2" />
+                      Edit
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleNameUpdate} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name" className="text-sm font-medium">Full Name</Label>
+                    <Input
+                      id="name"
+                      value={name}
+                      disabled={!isEditingName || loading}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                      className="transition-all"
+                    />
+                  </div>
+                  {isEditingName && (
+                    <div className="flex gap-2 pt-2">
+                      <Button type="submit" disabled={loading} className="gap-2">
+                        <Save className="h-4 w-4" />
+                        {loading ? "Saving..." : "Save Changes"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setIsEditingName(false);
+                          setName(user?.name || "");
+                        }}
+                        disabled={loading}
+                        className="gap-2"
+                      >
+                        <X className="h-4 w-4" />
+                        Cancel
+                      </Button>
+                    </div>
+                  )}
+                </form>
+                <form onSubmit={handlePasswordChange} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name" className="text-sm font-medium">Username</Label>
+                    <Input
+                      id="name"
+                      value={username}
+                      disabled={!isEditigUsername || loading}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                      className="transition-all"
+                    />
+                  </div>
+                  {isEditigUsername && (
+                    <div className="flex gap-2 pt-2">
+                      <Button type="submit" disabled={loading} className="gap-2">
+                        <Save className="h-4 w-4" />
+                        {loading ? "Saving..." : "Save Changes"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setisEditingUsername(false);
+                          setUsername(user?.username || "");
+                        }}
+                        disabled={loading}
+                        className="gap-2"
+                      >
+                        <X className="h-4 w-4" />
+                        Cancel
+                      </Button>
+                    </div>
+                  )}
+                </form>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-elevated)]">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-xl">
+                      <Mail className="h-5 w-5 text-primary" />
+                      Email Address
+                    </CardTitle>
+                    <CardDescription>Update your email address</CardDescription>
+                  </div>
+                  {!isEditingEmail && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsEditingEmail(true)}
+                      className="hover:bg-secondary"
+                    >
+                      <Edit2 className="h-4 w-4 mr-2" />
+                      Edit
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleEmailUpdate} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="text-sm font-medium">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={email}
+                      disabled={!isEditingEmail || loading}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      className="transition-all"
+                    />
+                  </div>
+                  {isEditingEmail && (
+                    <div className="flex gap-2 pt-2">
+                      <Button type="submit" disabled={loading} className="gap-2">
+                        <Save className="h-4 w-4" />
+                        {loading ? "Saving..." : "Save Changes"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setIsEditingEmail(false);
+                          setEmail(user?.email || "");
+                        }}
+                        disabled={loading}
+                        className="gap-2"
+                      >
+                        <X className="h-4 w-4" />
+                        Cancel
+                      </Button>
+                    </div>
+                  )}
+                </form>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-elevated)]">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-xl">
+                      <Lock className="h-5 w-5 text-primary" />
+                      Password Settings
+                    </CardTitle>
+                    <CardDescription>Change your account password</CardDescription>
+                  </div>
+                  {!isChangingPassword && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsChangingPassword(true)}
+                      className="hover:bg-secondary"
+                    >
+                      <Edit2 className="h-4 w-4 mr-2" />
+                      Change
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {isChangingPassword ? (
+                  <form onSubmit={handlePasswordChange} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="oldPass" className="text-sm font-medium">Current Password</Label>
+                      <Input
+                        id="oldPass"
+                        type="password"
+                        placeholder="Enter current password"
+                        value={passwordData.oldPass}
+                        onChange={(e) => setPasswordData({ ...passwordData, oldPass: e.target.value })}
+                        required
+                        className="transition-all"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="newPass" className="text-sm font-medium">New Password</Label>
+                      <Input
+                        id="newPass"
+                        type="password"
+                        placeholder="Enter new password"
+                        value={passwordData.newPass}
+                        onChange={(e) => setPasswordData({ ...passwordData, newPass: e.target.value })}
+                        required
+                        className="transition-all"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="confirmPass" className="text-sm font-medium">Confirm New Password</Label>
+                      <Input
+                        id="confirmPass"
+                        type="password"
+                        placeholder="Confirm new password"
+                        value={passwordData.confirmPass}
+                        onChange={(e) => setPasswordData({ ...passwordData, confirmPass: e.target.value })}
+                        required
+                        className="transition-all"
+                      />
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                      <Button type="submit" disabled={passwordLoading} className="gap-2">
+                        <Save className="h-4 w-4" />
+                        {passwordLoading ? "Updating..." : "Update Password"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setIsChangingPassword(false);
+                          setPasswordData({ oldPass: "", newPass: "", confirmPass: "" });
+                        }}
+                        disabled={passwordLoading}
+                        className="gap-2"
+                      >
+                        <X className="h-4 w-4" />
+                        Cancel
+                      </Button>
+                    </div>
+                  </form>
+                ) : (
+                  <p className="text-sm text-muted-foreground">••••••••</p>
+                )}
+              </CardContent>
+            </Card>
           </div>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleUpdateProfile} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                type="text"
-                value={username}
-                disabled
-                className="bg-muted"
-              />
-              <p className="text-xs text-muted-foreground">
-                Username cannot be changed
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                disabled
-                className="bg-muted"
-              />
-              <p className="text-xs text-muted-foreground">
-                Email cannot be changed
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name</Label>
-              <Input
-                id="fullName"
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Enter your full name"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="department">Department</Label>
-              <Input
-                id="department"
-                type="text"
-                value={department}
-                disabled
-                className="bg-muted capitalize"
-              />
-              <p className="text-xs text-muted-foreground">
-                Department is assigned by administrator
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="assignedArea">Assigned Area</Label>
-              <Input
-                id="assignedArea"
-                type="text"
-                value={assignedArea}
-                disabled
-                className="bg-muted"
-              />
-              <p className="text-xs text-muted-foreground">
-                Assigned area is managed by administrator
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="status">Account Status</Label>
-              <Input
-                id="status"
-                type="text"
-                value={profile?.isActive ? "Active" : "Inactive"}
-                disabled
-                className="bg-muted"
-              />
-            </div>
-
-            <Button type="submit" disabled={saving}>
-              {saving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Save Changes'
-              )}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 };

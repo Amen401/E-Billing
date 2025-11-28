@@ -50,7 +50,7 @@ export const createAdmin = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: "Internal server error", error: error });
   }
-}; //will be removed after adding one admin!!
+};
 
 export const searchOfficer = async (req, res) => {
   try {
@@ -255,7 +255,7 @@ export const customerResetPassword = async (req, res) => {
     const id = req.body.id;
     const password = await endcodePassword("12345678");
     const customer = await Customer.findOneAndUpdate(
-      id,
+        { _id: id },
       { password },
       { new: true }
     );
@@ -359,34 +359,40 @@ export const searchMyActivities = async (req, res) => {
     res.status(500).json({ message: "Internal server error", error: error });
   }
 };
-
 export const activateDeactivateCustomer = async (req, res) => {
   try {
-    const id = req.body.id;
-    const isActive = req.body.isActive;
+    const { id, isActive, adminId } = req.body;
 
-    const getCustomerAndUPdate = await Customer.findByIdAndUpdate(
+     const getCustomerAndUPdate = await Customer.findByIdAndUpdate(
       id,
       { isActive },
       { new: true }
     );
+
 
     const history = new customerADHistory({
       customerId: id,
       action: isActive ? "Activate" : "Deactivate",
       date: formattedDate(),
     });
-    await history.save();
+ await history.save();
+
     await saveActivity(
-      req.userAuth.id,
-      `${isActive ? "Activated " : "Deactivated "} ${
-        getCustomerAndUPdate.accountNumber
+      adminId,
+      `${
+        getCustomerAndUPdate.isActive ? "Activated" : "Deactivated"
+      } getCustomerAndUPdate.accountNumber
       }  account number`
     );
-    re;
-    res.status(200).json(getCustomerAndUPdate);
+
+    res.status(200).json({
+      message: `Customer ${
+        getCustomerAndUPdate.isActive ? "Activated" : "Deactivated"
+      } Successfully!!`,
+      result: getCustomerAndUPdate,
+    });
   } catch (error) {
-    res.status(500).json({ message: "Internal server error", error: error });
+    res.status(500).json({ message: "Internal server error", error });
   }
 };
 

@@ -2,191 +2,275 @@ import ComplaintDetailsDialog from "@/Components/officer/ComplaintDetails";
 import ComplaintMetrics from "@/Components/officer/ComplaintMetrics";
 import ComplaintsTable from "@/Components/officer/ComplaintsTable";
 import ComplaintFilters from "@/Components/officer/ComplanintsFilter";
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { toast } from "sonner";
+import { officerApi } from "@/lib/api";
+import type { ComplaintsApiResponse } from "../Types/type";
+import { useSearchParams } from "react-router-dom";
 
 interface Complaint {
-  ticketId: string;
-  customerAccountNo: string;
-  customerName?: string;
-  customerEmail?: string;
+  id: string;
+  customerName: string;
+  customerAccNumber: string;
   subject: string;
-  description?: string;
-  category?: string;
+  description: string;
+  category: string;
+  status: "pending" | "open" | "in-progress" | "resolved" | "closed";
   date: string;
-  status: "urgent" | "pending" | "resolved";
 }
 
-const initialComplaints: Complaint[] = [
-  {
-    ticketId: "CMP001",
-    customerAccountNo: "CUST-1001",
-    customerName: "John Smith",
-    customerEmail: "john.smith@example.com",
-    subject: "Faulty Product Delivery - Item 4",
-    description: "Received a damaged product. The packaging was torn and the item inside was broken.",
-    category: "delivery",
-    date: "2023-10-28",
-    status: "urgent",
-  },
-  {
-    ticketId: "CMP002",
-    customerAccountNo: "CUST-1002",
-    customerName: "Sarah Johnson",
-    customerEmail: "sarah.j@example.com",
-    subject: "Billing Error - Incorrect Charge for Service 7",
-    description: "I was charged twice for the same service. Need a refund for the duplicate charge.",
-    category: "billing",
-    date: "2023-10-25",
-    status: "pending",
-  },
-  {
-    ticketId: "CMP003",
-    customerAccountNo: "CUST-1003",
-    customerName: "Michael Brown",
-    customerEmail: "m.brown@example.com",
-    subject: "Late Delivery of Order #12345",
-    description: "Order was supposed to arrive 5 days ago but still hasn't been delivered.",
-    category: "delivery",
-    date: "2023-10-24",
-    status: "resolved",
-  },
-  {
-    ticketId: "CMP004",
-    customerAccountNo: "CUST-1004",
-    customerName: "Emily Davis",
-    customerEmail: "emily.d@example.com",
-    subject: "Unresponsive Customer Support - General Inquiry",
-    description: "Called customer support multiple times but no one is answering.",
-    category: "support",
-    date: "2023-10-23",
-    status: "urgent",
-  },
-  {
-    ticketId: "CMP005",
-    customerAccountNo: "CUST-1005",
-    customerName: "David Wilson",
-    customerEmail: "d.wilson@example.com",
-    subject: "Difficulty with Software Installation - App v2.0",
-    description: "Unable to install the latest version of the software. Getting error code 404.",
-    category: "support",
-    date: "2023-10-22",
-    status: "pending",
-  },
-  {
-    ticketId: "CMP006",
-    customerAccountNo: "CUST-1006",
-    customerName: "Jessica Martinez",
-    customerEmail: "jessica.m@example.com",
-    subject: "Incorrect Product Description on Website",
-    description: "Product description didn't match what I received. Need clarification.",
-    category: "product",
-    date: "2023-10-21",
-    status: "resolved",
-  },
-];
+const DEBOUNCE_DELAY = 400;
 
-const Compliants = () => {
-  const [complaints, setComplaints] = useState<Complaint[]>(initialComplaints);
-  const [filteredComplaints, setFilteredComplaints] = useState<Complaint[]>(initialComplaints);
+const Complaints = () => {
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [filteredComplaints, setFilteredComplaints] = useState<Complaint[]>([]);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all-statuses");
   const [categoryFilter, setCategoryFilter] = useState("all-cases");
+
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    applyFilters(query, statusFilter, categoryFilter);
+  const [loading, setLoading] = useState(false);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState(searchParams.get("search") || "");
+  const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
+
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const [metrics, setMetrics] = useState({
+    allComplients: 0,
+    urgentComplients: 0,
+    pendingComplients: 0,
+    resolvedComplients: 0,
+  });
+
+  const fetchComplaints = async () => {
+    setLoading(true);
+
+    try {
+      const res: ComplaintsApiResponse = await officerApi.customercomplaintInfos();
+
+      setMetrics({
+        allComplients: res.allComplients ?? 0,
+        urgentComplients: res.urgentComplients ?? 0,
+        pendingComplients: res.pendingComplients ?? 0,
+        resolvedComplients: res.resolvedComplients ?? 0,
+      });
+
+      const list = res?.someComplients ?? [];
+
+      const data: Complaint[] = list.map((item: any) => ({
+        id: item.id,
+        customerAccNumber: item.customerAccNumber,
+        customerName: item.customerName || "N/A",
+        subject: item.subject,
+        description: item.description,
+        category: item.subject?.toLowerCase() || "general",
+        date: item.date,
+        status: normalizeStatus(item.status),
+        resolvedBy: item.resolvedBy,
+      }));
+
+      setComplaints(data);
+      setFilteredComplaints(data);
+    } catch (err) {
+      console.error("Failed to fetch complaints:", err);
+      toast.error("Failed to load complaints. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleStatusFilter = (status: string) => {
-    setStatusFilter(status);
-    applyFilters(searchQuery, status, categoryFilter);
+  const normalizeStatus = (status: string): Complaint["status"] => {
+    if (!status) return "pending";
+
+    const normalized = status.toLowerCase().replace(/[\s_]/g, "-");
+    const validStatuses: Complaint["status"][] = [
+      "pending",
+      "open",
+      "in-progress",
+      "resolved",
+      "closed",
+    ];
+
+    return validStatuses.includes(normalized as Complaint["status"])
+      ? (normalized as Complaint["status"])
+      : "pending";
   };
 
-  const handleCategoryFilter = (category: string) => {
-    setCategoryFilter(category);
-    applyFilters(searchQuery, statusFilter, category);
-  };
+  const updateComplaintStatus = async (
+    complaintId: string,
+    newStatus: Complaint["status"]
+  ) => {
+    const previousComplaints = [...complaints];
+    const previousSelectedComplaint = selectedComplaint;
 
-  const applyFilters = (search: string, status: string, category: string) => {
-    let filtered = [...complaints];
-
-    if (search) {
-      filtered = filtered.filter(
-        (complaint) =>
-          complaint.ticketId.toLowerCase().includes(search.toLowerCase()) ||
-          complaint.customerAccountNo.toLowerCase().includes(search.toLowerCase()) ||
-          complaint.subject.toLowerCase().includes(search.toLowerCase()) ||
-          complaint.customerName?.toLowerCase().includes(search.toLowerCase())
+    try {
+      const updatedComplaints = complaints.map((c) =>
+        c.id === complaintId ? { ...c, status: newStatus } : c
       );
-    }
 
-    if (status !== "all-statuses") {
-      filtered = filtered.filter((complaint) => complaint.status === status);
-    }
+      setComplaints(updatedComplaints);
+      setMetrics((prev) => ({
+        ...prev,
+        pendingComplients:
+          newStatus === "resolved"
+            ? prev.pendingComplients - 1
+            : prev.pendingComplients + 1,
+        resolvedComplients:
+          newStatus === "resolved"
+            ? prev.resolvedComplients + 1
+            : prev.resolvedComplients - 1,
+      }));
 
-    if (category !== "all-cases") {
-      filtered = filtered.filter((complaint) => complaint.category === category);
-    }
+      if (selectedComplaint?.id === complaintId) {
+        setSelectedComplaint({ ...selectedComplaint, status: newStatus });
+      }
 
-    setFilteredComplaints(filtered);
+      applyFilters(searchQuery, statusFilter, categoryFilter, updatedComplaints);
+
+      await officerApi.updatecomplaintstatus(complaintId, newStatus);
+
+      toast.success("Complaint status updated successfully!");
+    } catch (error: any) {
+      console.error("Failed to update complaint status:", error);
+      setComplaints(previousComplaints);
+      setSelectedComplaint(previousSelectedComplaint);
+      applyFilters(searchQuery, statusFilter, categoryFilter, previousComplaints);
+
+      toast.error(error?.message || "Failed to update complaint status.");
+    }
   };
 
-  const handleViewDetails = (complaint: Complaint) => {
+ 
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      const newSearchParams = searchTerm ? { search: searchTerm } : {};
+      setSearchParams(newSearchParams);
+    }, DEBOUNCE_DELAY);
+
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
+  const applyFilters = useCallback(
+    (
+      search: string,
+      status: string,
+      category: string,
+      complaintList: Complaint[] = complaints
+    ) => {
+      let filtered = [...complaintList];
+
+      if (search && search.trim()) {
+        const searchLower = search.toLowerCase();
+
+        filtered = filtered.filter((c) => {
+          return (
+            c.id?.toLowerCase().includes(searchLower) ||
+            c.customerAccNumber?.toLowerCase().includes(searchLower) ||
+            c.subject?.toLowerCase().includes(searchLower) ||
+            c.customerName?.toLowerCase().includes(searchLower) ||
+            c.description?.toLowerCase().includes(searchLower)
+          );
+        });
+      }
+
+      if (status !== "all-statuses") {
+        filtered = filtered.filter((complaint) => complaint.status === status);
+      }
+
+      if (category !== "all-cases") {
+        filtered = filtered.filter((complaint) => complaint.category === category);
+      }
+
+      setFilteredComplaints(filtered);
+    },
+    [complaints]
+  );
+
+  useEffect(() => {
+    applyFilters(debouncedSearch, statusFilter, categoryFilter);
+  }, [debouncedSearch, statusFilter, categoryFilter]);
+
+  const handleSearch = (value: string) => {
+    setSearchTerm(value);
+  };
+
+  const handleStatusFilter = useCallback(
+    (status: string) => {
+      setStatusFilter(status);
+      applyFilters(debouncedSearch, status, categoryFilter);
+    },
+    [debouncedSearch, categoryFilter, applyFilters]
+  );
+
+  const handleCategoryFilter = useCallback(
+    (category: string) => {
+      setCategoryFilter(category);
+      applyFilters(debouncedSearch, statusFilter, category);
+    },
+    [debouncedSearch, statusFilter, applyFilters]
+  );
+
+  const handleViewDetails = useCallback((complaint: Complaint) => {
     setSelectedComplaint(complaint);
     setDetailsDialogOpen(true);
-  };
+  }, []);
 
-  const handleStatusChange = (ticketId: string, newStatus: "urgent" | "pending" | "resolved") => {
-    const updatedComplaints = complaints.map((complaint) =>
-      complaint.ticketId === ticketId ? { ...complaint, status: newStatus } : complaint
-    );
-    setComplaints(updatedComplaints);
-    
-    if (selectedComplaint?.ticketId === ticketId) {
-      setSelectedComplaint({ ...selectedComplaint, status: newStatus });
-    }
-    
-    applyFilters(searchQuery, statusFilter, categoryFilter);
-  };
+  useEffect(() => {
+    fetchComplaints();
 
-  const metrics = {
-    total: complaints.length,
-    urgent: complaints.filter((c) => c.status === "urgent").length,
-    pending: complaints.filter((c) => c.status === "pending").length,
-    resolved: complaints.filter((c) => c.status === "resolved").length,
-  };
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+      if (abortControllerRef.current) abortControllerRef.current.abort();
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Complaint Management</h1>
-          </div>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Complaint Management</h1>
+          <p className="text-muted-foreground mt-2">
+            Monitor and manage customer complaints efficiently
+          </p>
         </div>
 
         <ComplaintMetrics metrics={metrics} />
+
         <ComplaintFilters
           onSearch={handleSearch}
           onStatusFilter={handleStatusFilter}
           onCategoryFilter={handleCategoryFilter}
         />
-        <ComplaintsTable
-          complaints={filteredComplaints}
-          onViewDetails={handleViewDetails}
-        />
+
+        {loading ? (
+          <div className="rounded-lg border bg-card p-8 text-center">
+            <p className="text-muted-foreground">Loading complaints...</p>
+          </div>
+        ) : (
+          <ComplaintsTable
+            complaints={filteredComplaints}
+            onViewDetails={handleViewDetails}
+          />
+        )}
 
         <ComplaintDetailsDialog
           complaint={selectedComplaint}
           open={detailsDialogOpen}
           onOpenChange={setDetailsDialogOpen}
-          onStatusChange={handleStatusChange}
+          onStatusChange={(ticketId, status) =>
+            updateComplaintStatus(ticketId, status)
+          }
         />
       </div>
     </div>
   );
 };
 
-export default Compliants;
+export default Complaints;

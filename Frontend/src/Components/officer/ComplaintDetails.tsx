@@ -1,5 +1,3 @@
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -7,7 +5,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -15,47 +14,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { toast } from "sonner";
-
-interface Complaint {
-  ticketId: string;
-  customerAccountNo: string;
-  customerName?: string;
-  customerEmail?: string;
-  subject: string;
-  description?: string;
-  category?: string;
-  date: string;
-  status: "urgent" | "pending" | "resolved";
-}
+import { format } from "date-fns";
+import { Calendar, User, Mail, FileText, Hash } from "lucide-react";
+import type { Complaint } from "@/Page/Types/type";
 
 interface ComplaintDetailsDialogProps {
   complaint: Complaint | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onStatusChange: (ticketId: string, newStatus: "urgent" | "pending" | "resolved") => void;
+  onStatusChange: (ticketId: string, status: Complaint["status"]) => void;
 }
-
-const getStatusBadge = (status: string) => {
-  const variants = {
-    urgent: "destructive",
-    pending: "secondary",
-    resolved: "default",
-  } as const;
-
-  const labels = {
-    urgent: "Urgent",
-    pending: "Pending",
-    resolved: "Resolved",
-  };
-
-  return (
-    <Badge variant={variants[status as keyof typeof variants]}>
-      {labels[status as keyof typeof labels]}
-    </Badge>
-  );
-};
 
 const ComplaintDetailsDialog = ({
   complaint,
@@ -65,101 +33,133 @@ const ComplaintDetailsDialog = ({
 }: ComplaintDetailsDialogProps) => {
   if (!complaint) return null;
 
-  const handleStatusChange = (newStatus: string) => {
-    onStatusChange(complaint.ticketId, newStatus as "urgent" | "pending" | "resolved");
-    toast({
-      title: "Status Updated",
-      description: `Complaint status changed to ${newStatus}`,
-    });
+  const getStatusColor = (status: Complaint["status"]) => {
+    switch (status) {
+      case "open":
+        return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
+      case "pending":
+        return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
+      case "in-progress":
+        return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
+      case "resolved":
+        return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+      case "closed":
+        return "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400";
+      default:
+        return "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400";
+    }
+  };
+
+  const formatStatus = (status: Complaint["status"]) => {
+    return status
+      .split("-")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-3">
-            Complaint Details
-            {getStatusBadge(complaint.status)}
-          </DialogTitle>
+          <DialogTitle className="text-2xl">Complaint Details</DialogTitle>
           <DialogDescription>
-            Ticket ID: {complaint.ticketId}
+            Ticket ID: <span className="font-mono">CUPM.{complaint.id.substring(0, 8).toUpperCase()}</span>
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
-          <div>
-            <h3 className="text-lg font-semibold mb-3">Customer Information</h3>
-            <div className="space-y-3">
-              <div>
-                <Label className="text-muted-foreground">Account Number</Label>
-                <p className="font-medium">{complaint.customerAccountNo}</p>
-              </div>
-              {complaint.customerName && (
-                <div>
-                  <Label className="text-muted-foreground">Name</Label>
-                  <p className="font-medium">{complaint.customerName}</p>
-                </div>
-              )}
-              {complaint.customerEmail && (
-                <div>
-                  <Label className="text-muted-foreground">Email</Label>
-                  <p className="font-medium">{complaint.customerEmail}</p>
-                </div>
-              )}
+          <div className="flex items-center justify-between">
+            <Badge className={getStatusColor(complaint.status)}>
+              {formatStatus(complaint.status)}
+            </Badge>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Calendar className="h-4 w-4" />
+              {format(new Date(complaint.date), "MMM dd, yyyy HH:mm")}
             </div>
           </div>
 
           <Separator />
 
-          <div>
-            <h3 className="text-lg font-semibold mb-3">Complaint Details</h3>
-            <div className="space-y-3">
-              <div>
-                <Label className="text-muted-foreground">Subject</Label>
-                <p className="font-medium">{complaint.subject}</p>
+          <div className="grid gap-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <User className="h-4 w-4" />
+                  <span>Customer Name</span>
+                </div>
+                <p className="font-medium">{complaint.customerName || "N/A"}</p>
               </div>
-              {complaint.description && (
-                <div>
-                  <Label className="text-muted-foreground">Description</Label>
-                  <p className="text-sm leading-relaxed mt-1">{complaint.description}</p>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Hash className="h-4 w-4" />
+                  <span>Account Number</span>
                 </div>
-              )}
-              {complaint.category && (
-                <div>
-                  <Label className="text-muted-foreground">Category</Label>
-                  <p className="font-medium capitalize">{complaint.category}</p>
+                <p className="font-medium font-mono">{complaint.customerAccNumber}</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <FileText className="h-4 w-4" />
+                <span>Category</span>
+              </div>
+              <p className="font-medium capitalize">{complaint.category}</p>
+            </div>
+
+            {complaint.resolvedBy && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Mail className="h-4 w-4" />
+                  <span>Resolved By</span>
                 </div>
-              )}
-              <div>
-                <Label className="text-muted-foreground">Date Registered</Label>
-                <p className="font-medium">{new Date(complaint.date).toLocaleDateString('en-US', { 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
-                })}</p>
+                <p className="font-medium">{complaint.resolvedBy}</p>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">
+                Subject
+              </p>
+              <p className="text-lg font-semibold">{complaint.subject}</p>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">
+                Description
+              </p>
+              <div className="rounded-lg bg-muted p-4 min-h-[100px]">
+                <p className="whitespace-pre-wrap">
+                  {complaint.description || "No description provided"}
+                </p>
               </div>
             </div>
           </div>
 
           <Separator />
 
-          <div>
-            <h3 className="text-lg font-semibold mb-3">Update Status</h3>
-            <Select value={complaint.status} onValueChange={handleStatusChange}>
-              <SelectTrigger>
+          <div className="space-y-3">
+            <p className="text-sm font-medium">Update Status</p>
+            <Select
+              value={complaint.status}
+              onValueChange={(value) =>
+                onStatusChange(complaint.id, value as Complaint["status"])
+              }
+            >
+              <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="urgent">Urgent</SelectItem>
+                <SelectItem value="open">Open</SelectItem>
+                <SelectItem value="in-progress">In Progress</SelectItem>
                 <SelectItem value="resolved">Resolved</SelectItem>
+                <SelectItem value="closed">Closed</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              Changes are saved automatically
+            </p>
           </div>
-        </div>
-
-        <div className="flex justify-end pt-4">
-          <Button onClick={() => onOpenChange(false)}>Close</Button>
         </div>
       </DialogContent>
     </Dialog>
