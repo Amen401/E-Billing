@@ -1,58 +1,120 @@
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User } from "lucide-react";
+import React, { useState } from "react";
+import { useCustomerAuth } from "@/Components/Context/AuthContext";
+import { customerApi } from "@/lib/api";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
-const Profile = () => {
+const CustomerProfile: React.FC = () => {
+  const { customer, logout } = useCustomerAuth();
+
+  const [oldPass, setOldPass] = useState("");
+  const [newPass, setNewPass] = useState("");
+  const [confirmPass, setConfirmPass] = useState("");
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
+
+  if (!customer) {
+    return <div className="p-4 text-center">Loading profile...</div>;
+  }
+
+  const handlePasswordUpdate = async () => {
+    if (!oldPass || !newPass || !confirmPass) {
+      return toast.error("Please fill all fields");
+    }
+
+    if (newPass !== confirmPass) {
+      return toast.error("New passwords do not match");
+    }
+
+    try {
+      setLoading(true);
+
+      await customerApi.updatepassword({
+        id: customer.id,
+        oldPass,
+        newPass,
+      });
+
+      toast.success("Password updated successfully");
+
+      setOldPass("");
+      setNewPass("");
+      setConfirmPass("");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update password");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="max-w-3xl space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground mb-2">Profile</h1>
-        <p className="text-muted-foreground">Manage your account information</p>
+    <div className="max-w-xl mx-auto p-6 rounded-xl bg-white border border-gray-300 shadow-sm">
+
+      <h1 className="text-3xl font-bold text-black mb-6 text-center">
+        Customer Profile
+      </h1>
+
+
+      <div className="p-4 rounded-lg bg-gray-50 border border-gray-200 mb-8">
+        <h2 className="text-xl font-semibold text-black mb-4">Account Details</h2>
+
+        <div className="space-y-2 text-gray-700">
+          <p><strong className="text-black">ID:</strong> {customer.id}</p>
+          <p><strong className="text-black">Username:</strong> {customer.username}</p>
+          <p><strong className="text-black">Account Number:</strong> {customer.accountNumber}</p>
+          <p><strong className="text-black">Name:</strong> {customer.name}</p>
+        </div>
       </div>
 
-      <Card className="p-6">
-        <div className="flex items-center gap-6 mb-6">
-          <Avatar className="w-20 h-20">
-            <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
-              JD
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <h3 className="text-xl font-semibold text-foreground">John Doe</h3>
-            <p className="text-sm text-muted-foreground">Customer ID: PC-2024-001</p>
-          </div>
-        </div>
+      <h2 className="text-xl font-semibold text-black mb-3">Update Password</h2>
 
-        <form className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="firstName">First Name</Label>
-              <Input id="firstName" defaultValue="John" />
-            </div>
-            <div>
-              <Label htmlFor="lastName">Last Name</Label>
-              <Input id="lastName" defaultValue="Doe" />
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" defaultValue="john.doe@example.com" />
-          </div>
-          <div>
-            <Label htmlFor="phone">Phone Number</Label>
-            <Input id="phone" defaultValue="+251 911 234 567" />
-          </div>
-          <Button type="submit" className="w-full">
-            <User className="w-4 h-4 mr-2" />
-            Update Profile
-          </Button>
-        </form>
-      </Card>
+      <div className="space-y-4">
+        <input
+          type="password"
+          className="border border-gray-300 p-3 w-full rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+          placeholder="Current Password"
+          value={oldPass}
+          onChange={(e) => setOldPass(e.target.value)}
+        />
+
+        <input
+          type="password"
+          className="border border-gray-300 p-3 w-full rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+          placeholder="New Password"
+          value={newPass}
+          onChange={(e) => setNewPass(e.target.value)}
+        />
+
+        <input
+          type="password"
+          className="border border-gray-300 p-3 w-full rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+          placeholder="Confirm New Password"
+          value={confirmPass}
+          onChange={(e) => setConfirmPass(e.target.value)}
+        />
+
+        <button
+          onClick={handlePasswordUpdate}
+          disabled={loading}
+          className="w-full bg-black text-white py-3 rounded-lg font-medium hover:bg-gray-900 transition disabled:opacity-50"
+        >
+          {loading ? "Updating..." : "Update Password"}
+        </button>
+      </div>
+
+
+      <button
+        onClick={() => {
+    logout();       
+    navigate("/");  
+  }}
+        className="mt-8 w-full bg-gray-200 text-black py-3 rounded-lg font-medium hover:bg-gray-300 transition"
+      >
+        Logout
+      </button>
     </div>
   );
 };
 
-export default Profile;
+export default CustomerProfile;

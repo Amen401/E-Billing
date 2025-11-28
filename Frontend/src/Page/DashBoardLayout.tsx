@@ -1,11 +1,11 @@
 
 import { Navigate } from 'react-router-dom';
 import OfficerDashboard from './Officer/Dashboard';
-import CustomerDashboard from './Customer/Dashboard';
-import { useAuth } from '@/Components/Context/AuthContext';
+import CustomerDashboard from './Customer/CustomerDashboard';
+import { useCustomerAuth } from '@/Components/Context/AuthContext';
 
 const DashboardRouter = () => {
-  const { user } = useAuth();
+  const { user } = useCustomerAuth();
 
   if (!user) return null;
 

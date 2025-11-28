@@ -153,7 +153,6 @@ const ManageOfficers = () => {
       return;
     }
 
-    // Debounce search by 500ms
     searchTimeoutRef.current = setTimeout(() => {
       performSearch(value);
     }, 500);

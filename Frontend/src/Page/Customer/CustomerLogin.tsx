@@ -7,8 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2, Eye, EyeOff, User } from 'lucide-react'
-import { customerApi } from '@/lib/api'
 import { useNavigate } from 'react-router-dom'
+
+import { useCustomerAuth } from '@/Components/Context/AuthContext';
 
 const loginSchema = z.object({
   username: z.string().min(1, 'Account number is required'),
@@ -17,8 +18,10 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>
 
-export const CustomerLogin: React.FC = () => {
+ const CustomerLogin: React.FC = () => {
   const navigate = useNavigate()
+  const { login: customerLogin } = useCustomerAuth()
+
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
@@ -36,18 +39,9 @@ export const CustomerLogin: React.FC = () => {
     setError('')
 
     try {
-      const result = await customerApi.login(data.username, data.password)
+      await customerLogin(data.username, data.password)
 
-      if (result.message === 'login successful') {
-        localStorage.setItem('authToken', result.token)
-        localStorage.setItem('customerInfo', JSON.stringify(result.customerInfo))
-        localStorage.setItem('customerId', result.id)
-        localStorage.setItem('accountNumber', result.accountNumber)
-
-        navigate('/customer/dashboard')
-      } else {
-        setError(result.message || 'Invalid credentials')
-      }
+      navigate('/customer/dashboard', { replace: true })
     } catch (err: any) {
       setError(err.message || 'Network error. Please try again.')
       console.error('Login error:', err)
@@ -146,3 +140,4 @@ export const CustomerLogin: React.FC = () => {
     </div>
   )
 }
+export default CustomerLogin;

@@ -1,69 +1,101 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { User, UserRole } from '../../Page/Types/type';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { customerApi } from "@/lib/api";
 
-interface AuthContextType {
-  user: User | null;
-  login: (email: string, password: string, role: UserRole) => Promise<void>;
+interface Customer {
+  id: string;
+  accountNumber: string;
+  name: string;
+  username: string;
+}
+
+interface CustomerAuthContextType {
+  customer: Customer | null;
+  login: (username: string, password: string) => Promise<void>;
   logout: () => void;
+  updatePassword: (oldPass: string, newPass: string) => Promise<void>;
   isAuthenticated: boolean;
   isLoading: boolean;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const CustomerAuthContext = createContext<CustomerAuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+export const CustomerAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [customer, setCustomer] = useState<Customer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    const storedCustomer = localStorage.getItem("customerInfo");
+    if (storedCustomer) {
+      setCustomer(JSON.parse(storedCustomer));
     }
     setIsLoading(false);
   }, []);
 
-  const login = async (email: string, password: string, role: UserRole) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Mock authentication - in production, this would call a real API
-    const mockUser: User = {
-      id: Math.random().toString(36).substr(2, 9),
-      email,
-      role,
-      name: email.split('@')[0].charAt(0).toUpperCase() + email.split('@')[0].slice(1),
-      createdAt: new Date(),
-    };
+  // -------------------------
+  // LOGIN
+  // -------------------------
+  const login = async (username: string, password: string) => {
+    const result = await customerApi.login(username, password);
 
-    setUser(mockUser);
-    localStorage.setItem('user', JSON.stringify(mockUser));
+    if (result.message !== "login successful") {
+      throw new Error(result.message || "Invalid credentials");
+    }
+
+    localStorage.setItem("authToken", result.token);
+    localStorage.setItem("customerInfo", JSON.stringify(result.customerInfo));
+    localStorage.setItem("customerId", result.id);
+    localStorage.setItem("accountNumber", result.accountNumber);
+
+    setCustomer(result.customerInfo);
   };
 
+  
   const logout = () => {
-    setUser(null);
-    localStorage.removeItem('user');
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("customerInfo");
+    localStorage.removeItem("customerId");
+    localStorage.removeItem("accountNumber");
+
+    setCustomer(null);
+  };
+
+
+  const updatePassword = async (oldPass: string, newPass: string) => {
+    if (!customer) throw new Error("Not authenticated");
+
+    const data = {
+      id: customer.id,
+      oldPass,
+      newPass,
+    };
+
+    const result = await customerApi.updatepassword(data);
+
+    return result;
   };
 
   return (
-    <AuthContext.Provider
+    <CustomerAuthContext.Provider
       value={{
-        user,
+        customer,
         login,
         logout,
-        isAuthenticated: !!user,
+        updatePassword,
+        isAuthenticated: !!customer,
         isLoading,
       }}
     >
       {children}
-    </AuthContext.Provider>
+    </CustomerAuthContext.Provider>
   );
 };
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+export const useCustomerAuth = () => {
+  const context = useContext(CustomerAuthContext);
+  if (!context) {
+    throw new Error(
+      "useCustomerAuth must be used within CustomerAuthProvider"
+    );
   }
   return context;
 };

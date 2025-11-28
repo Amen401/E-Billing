@@ -1,4 +1,5 @@
-import { useAdminAuth } from "@/Components/Context/AdminContext";
+import type { ComplaintType } from "@/Page/Types/type";
+import { get } from "react-hook-form";
 
 const API_BASE_URL = "http://localhost:3000";
 
@@ -108,8 +109,36 @@ const ENDPOINTS = {
   officerMeterReadingDetail: "/officer/meter-readings/:id",
   createCustomer:"/officer/add-customer",
   adminlogout:"/admin/admin-logout",
-  searchCustomers:"officer/search-customer"
+  searchCustomers:"/officer/search-customer",
+  getcustomers:"/officer/get-customers",
+  activateDeactivateCustomer:"/admin/ad-customer",
+   officerLogout: "/officer/officer-logout",
+  updateNameOrEmail: "/officer/update-name-or-email",
+  changeProfilePic: "/officer/change-profile-pic",
+  updatePassowrdOrUsername: "/officer/update-up",
+  systemActivitiesofOfficer: "/officer/my-activities",
+  searchmyactitiesofOfficer:"/officer/search-my-activities",
+ updateComplaintstatus:"/officer/update-complient-status",
+ searchcustomercomplaints:"/officer/search-customer-complients",
+ customercomplaintInfo:"/officer/customer-complient-infos",
+
 };
+
+export const authApi = {
+  login: async (username: string, password: string) => {
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+
+    if (!res.ok) throw new Error("Login failed");
+
+    return res.json();
+  },
+};
+
+
 
 export const adminApi = {
   login: async (username: string, password: string) => {
@@ -125,15 +154,31 @@ searchOfficer: async (query: string) => {
   const response = await api.get(`${ENDPOINTS.searchOfficer}?q=${encodeURIComponent(query)}`);
   return response;
 },
+searchCustomers: async (query: string) => {
+  const response = await api.post(`${ENDPOINTS.searchCustomers}`, {
+    searchBy: "name", 
+    value: query
+  });
+  return response;
+},
 updateAdminProfile:async()=> {
   const response=await api.put(`${ENDPOINTS.updateUsernameOrPassword}`);
   return response;
   
 },
+
 searchMyActivities:async(query:string, filter: string)=>{
 const response=await api.get(`${ENDPOINTS.searchmyactities}?filter=activity&value=${encodeURIComponent(query)}`);
 return response
 },
+activateDeactivateCustomer: async (id: string, isActive: boolean,adminId:string) => {
+  const response = await api.post(
+    ENDPOINTS.activateDeactivateCustomer,
+    { id, isActive ,adminId}
+  );
+  return response;
+},
+
 
 
   activateDeactivateOfficer: async (id: string, isActive: boolean ,adminId:string) => {
@@ -194,36 +239,102 @@ getOfficerStats: async () => {
 
 };
 export const customerApi = {
+
   login: async (username: string, password: string) => {
     const response = await api.post(ENDPOINTS.customerLogin, { username, password });
     return response;
   },
+
+  getProfile: async () => {
+    return api.get("/customer/profile");
+  },
+
+
+updatepassword: async (data: { id: string; oldPass: string; newPass: string }) => {
+    const token = localStorage.getItem("authToken");
+    if (!token) throw new Error("Not authenticated");
+    const response = await fetch(`${API_BASE_URL}/customer/update-password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    })
+    const resData = await response.json();
+    if (!response.ok) {
+      throw new Error(resData.message || "Failed to update password");
+    } 
+    return resData;
+  },
+
+  getMeterReadings: async () => {
+    return api.get("/customer/meter-readings");
+  },
+
+  getMeterReadingDetail: async (id: string) => {
+    return api.get(`/customer/meter-readings/${id}`);
+  },
+
+  submitComplaint: async (data: { subject: string; description: string,   date?: string, status?: string;  }) => {
+    const response = await api.post("/customer/write-complain", data);
+    return response;
+  },
+
+ getComplaints: async () => {
+  const response = await api.get<{ myComplains: ComplaintType[] }>("/customer/my-complain");
+  return response;
+},
+
+
+  logout: async () => {
+    const token = localStorage.getItem("authToken");
+    if (!token) throw new Error("Not authenticated");
+
+    const response = await fetch(`${API_BASE_URL}/customer/customer-logout`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const resData = await response.json();
+    if (!response.ok) {
+      throw new Error(resData.message || "Logout failed");
+    }
+
+    return resData;
+  },
 };
+
 export const officerApi = {
   login: async (username: string, password: string) => {
     const response = await api.post(ENDPOINTS.officerLogin, { username, password });
     return response;
   },
-   getProfile: async () => {
-    const response = await api.get(ENDPOINTS.officerProfile);
-    return response;
+  getProfile: async () => {
+    return api.get(ENDPOINTS.officerProfile);
   },
 
   updateProfile: async (data: { name: string }) => {
-    const response = await api.put(ENDPOINTS.updateOfficerProfile, data);
-    return response;
+    return api.put(ENDPOINTS.updateOfficerProfile, data);
   },
+  addMeterReading: async (data: FormData) => {
+       const response = await api.post("/officer/meter-readings", data,);
+      return response;
+    },
    getMeterReadings: async () => {
     const response = await api.get<{ data: MeterReading[] }>(ENDPOINTS.officerMeterReadings);
     return response;
   },
+  
 
   getMeterReadingDetail: async (id: string) => {
     const response = await api.get(`${ENDPOINTS.officerMeterReadingDetail.replace(':id', id)}`);
     return response;
   },
 createCustomer: async (data: any) => {
-const token = localStorage.getItem("officerToken");
+const token = localStorage.getItem("authToken");
 if (!token) throw new Error("No officer token found, please login");
 
   const response = await fetch(`${API_BASE_URL}${ENDPOINTS.createCustomer}`, {
@@ -243,9 +354,131 @@ if (!token) throw new Error("No officer token found, please login");
 
   return resData;
 },
+
 searchCustomers: async (query: string) => {
-  const response = await api.get(`${ENDPOINTS.searchCustomers}?q=${encodeURIComponent(query)}`);
+  const response = await api.post(`${ENDPOINTS.searchCustomers}`, {
+    searchBy: "name", 
+    value: query
+  });
   return response;
+},
+getCustomers:async()=>{
+  const response=await api.get(ENDPOINTS.getcustomers);
+  return response;
+},
+ updateNameOrEmail: async (attribute: "name" | "email", value: string) => {
+    const token = localStorage.getItem("authToken");
+    if (!token) throw new Error("Not authenticated");
+
+    const response = await fetch(`${API_BASE_URL}${ENDPOINTS.updateNameOrEmail}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ atribute: attribute, value }),
+    });
+
+    const resData = await response.json();
+
+    if (!response.ok) {
+      throw new Error(resData.message || "Failed to update profile");
+    }
+
+    return resData;
+  },
+
+
+changeProfilePicture : async (file: File) => {
+  const token = localStorage.getItem("authToken");
+  if (!token) throw new Error("Not authenticated");
+
+  const formData = new FormData();
+  formData.append("image", file);
+  console.log("FormData keys:", [...formData.keys()]);
+  const response = await fetch(`${API_BASE_URL}${ENDPOINTS.changeProfilePic}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Upload failed");
+  }
+
+  return response.json();
+},
+
+
+
+  updateUsernameOrPassword: async (data: { id: string; username: string; oldPass?: string; newPass?: string }) => {
+    const token = localStorage.getItem("authToken");
+    if (!token) throw new Error("Not authenticated");
+
+    const response = await fetch(`${API_BASE_URL}${ENDPOINTS.updatePassowrdOrUsername}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    const resData = await response.json();
+    if (!response.ok) {
+      throw new Error(resData.message || "Failed to update password or username");
+    }
+
+    return resData;
+  },
+
+
+  logout: async () => {
+    const token = localStorage.getItem("authToken");
+    if (!token) throw new Error("Not authenticated");
+
+    const response = await fetch(`${API_BASE_URL}${ENDPOINTS.officerLogout}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const resData = await response.json();
+      throw new Error(resData.message || "Logout failed");
+    }
+
+    return response.json();
+  },
+  getSystemActivities: async () => {
+    const response = await api.get(ENDPOINTS.systemActivitiesofOfficer);
+    return response; 
+  },
+
+searchMyActivities: async (query: string, filter: string) => {
+  const response = await api.get(
+    `${ENDPOINTS.searchmyactitiesofOfficer}?filter=${filter}&value=${encodeURIComponent(query)}`
+  );
+  return response;
+},
+updatecomplaintstatus:async(cId:string,status:string)=>{
+  const response=await api.put(ENDPOINTS.updateComplaintstatus,{cId,status});
+  return response;
+},
+searchcustomercomplaints: async (query: string) => {
+  const url = `${ENDPOINTS.searchcustomercomplaints}?filter=customerName&value=${query}`;
+  const response = await api.post(url);
+  return response;
+},
+
+customercomplaintInfos:async()=>{
+  const response = await api.get<{ myComplains: ComplaintType[] }>(`${ENDPOINTS.customercomplaintInfo}`);
+  return response;
+
 },
 
 

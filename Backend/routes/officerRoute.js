@@ -11,7 +11,7 @@ import {
   searchMyActivities,
   updateComplientStatus,
   updateNameOrEmail,
-  updateUsernameOrPassword,
+  updateUsernameOrPassword
 } from "../controllers/officerController.js";
 
 import { verifyToken } from "../Util/tokenVerify.js";
@@ -28,22 +28,27 @@ officerRouter.get("/get-customers", verifyToken, getCustomer);
 officerRouter.post("/officer-logout", verifyToken, officerLogout);
 officerRouter.post(
   "/change-profile-pic",
-  verifyToken,
   upload.single("image"),
+  verifyToken,
   changeProfilePicture
 );
+
 officerRouter.post("/update-name-or-email", verifyToken, updateNameOrEmail);
 officerRouter.post("/update-up", verifyToken, updateUsernameOrPassword);
 officerRouter.get(
-  "/search-customer-comp",
-  verifyToken,
-  searchCustomerComplients
-);
-officerRouter.get(
-  "/get-customer-comp-info",
+  "/customer-complient-infos",
   verifyToken,
   customerComplientInformations
 );
-officerRouter.post("/update-comp-status", verifyToken, updateComplientStatus);
+officerRouter.post(
+  "/search-customer-complients",
+  verifyToken,
+  searchCustomerComplients
+);
+officerRouter.put(
+  "/update-complient-status",
+  verifyToken,
+  updateComplientStatus
+);
 
 export default officerRouter;

@@ -1,6 +1,5 @@
 import { LayoutDashboard, UserPlus, Gauge, MessageSquare, FileText, LogOut, User } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { useAuth } from "@/Components/Context/AuthContext";
 import {
   Sidebar,
   SidebarContent,
@@ -15,6 +14,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useOfficerAuth } from "../Context/OfficerContext";
 
 const items = [
   { title: "Dashboard", url: "/officer/dashboard", icon: LayoutDashboard },
@@ -22,12 +22,11 @@ const items = [
   { title: "Meter Readings", url: "/officer/meter-readings", icon: Gauge },
   { title: "Complaints", url: "/officer/complaints", icon: MessageSquare },
   { title: "Reports", url: "/officer/reports", icon: FileText },
-  {title:"profile",url:"/officer/profile",icon:User}
 ];
 
 export function OfficerSidebar() {
   const { open } = useSidebar();
-  const { logout, user } = useAuth();
+  const { logout, user } = useOfficerAuth();
   const navigate = useNavigate();
 
   const getInitials = (name: string) => name?.charAt(0).toUpperCase() || "U";
@@ -69,7 +68,7 @@ export function OfficerSidebar() {
         <div className="p-2 space-y-2">
           {user && (
             <NavLink
-              to="/admin/profile"
+              to="/officer/profile"
               className="flex items-center gap-2 p-2 rounded-md hover:bg-sidebar-accent transition-colors"
             >
               <Avatar className="h-8 w-8">

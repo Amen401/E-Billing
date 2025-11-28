@@ -21,6 +21,7 @@ const AdminProfile = () => {
 
   const [profileData, setProfileData] = useState({
     name: user?.name,
+    username: user?.username,
   });
   const [passwordData, setPasswordData] = useState({
     oldPass: "",
@@ -148,7 +149,6 @@ const AdminProfile = () => {
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {/* ✅ Update Username Section */}
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <p className="font-medium">Username</p>

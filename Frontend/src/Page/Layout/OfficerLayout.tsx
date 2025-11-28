@@ -2,7 +2,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { OfficerSidebar } from "@/Components/officer/OfficerSidebar";
 import { Outlet } from "react-router-dom";
 
-export function OfficerLayout() {
+const OfficerLayout=()=> {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
@@ -19,3 +19,4 @@ export function OfficerLayout() {
     </SidebarProvider>
   );
 }
+export default OfficerLayout;

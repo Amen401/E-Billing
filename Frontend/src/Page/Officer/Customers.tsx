@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useNavigate , useSearchParams, } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -24,61 +26,170 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { Search, Eye, Users, AlertCircle } from "lucide-react";
-import { Breadcrumb } from "@/components/BreadCrumb";
-import { useQuery } from "@tanstack/react-query";
-import { officerApi } from "@/lib/api";
-import { useSearchParams } from "react-router-dom";
-import type { Customer } from "../Types/type";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Breadcrumb } from "@/components/BreadCrumb";
+import { Search, Eye, Users, AlertCircle } from "lucide-react";
+import { officerApi } from "@/lib/api";
+
+
+interface Customer {
+  _id: string;
+  name: string;
+  region: string;
+  serviceCenter: string;
+  zone: string;
+  powerApproved: number;
+  depositBirr: number;
+  accountNumber: string;
+  isActive: boolean;
+  createdAt: string;
+}
 
 const ITEMS_PER_PAGE = 10;
+const DEBOUNCE_DELAY = 500;
 
+const BREADCRUMB_ITEMS = [
+  { label: "Dashboard", href: "/officer/dashboard" },
+  { label: "Register Customer", href: "/officer/register-customer" },
+  { label: "Customers" },
+];
 const Customers = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialSearch = searchParams.get("search") || "";
-  const [searchTerm, setSearchTerm] = useState(initialSearch);
+  const [searchTerm, setSearchTerm] = useState(searchParams.get("search") || "");
   const [currentPage, setCurrentPage] = useState(1);
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
+const navigate=useNavigate();
+  const shouldSearch = debouncedSearch.trim().length > 0;
+
+  const { 
+    data: apiResponse, 
+    isLoading, 
+    isError, 
+    error 
+  } = useQuery({
+    queryKey: ["customers", debouncedSearch],
+    queryFn: () => 
+      shouldSearch 
+        ? officerApi.searchCustomers(debouncedSearch)
+        : officerApi.getCustomers(),
+    keepPreviousData: true,
+  });
+
+
+  console.log("API Response:", apiResponse);
+  console.log("API Response Data:", apiResponse);
+
+
+  const customers: Customer[] = apiResponse || [];
+  const totalCustomers = customers.length;
 
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(searchTerm);
       setCurrentPage(1);
-      if (searchTerm) {
-        setSearchParams({ search: searchTerm });
-      } else {
-        setSearchParams({});
-      }
-    }, 500);
+      
+      const newSearchParams = searchTerm ? { search: searchTerm } : {};
+      setSearchParams(newSearchParams);
+    }, DEBOUNCE_DELAY);
 
     return () => clearTimeout(handler);
   }, [searchTerm, setSearchParams]);
 
-  const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["customers", debouncedSearch],
-    queryFn: () => officerApi.searchCustomers(debouncedSearch),
-  });
-
-  const customers = data?.data || [];
-  const totalCustomers = data?.total || 0;
-
   const totalPages = Math.ceil(customers.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedCustomers = customers.slice(
-    startIndex,
-    startIndex + ITEMS_PER_PAGE
+  const paginatedCustomers = customers.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(event.target.value);
+  };
+
+  const handlePreviousPage = () => {
+    setCurrentPage(prev => Math.max(1, prev - 1));
+  };
+
+  const handleNextPage = () => {
+    setCurrentPage(prev => Math.min(totalPages, prev + 1));
+  };
+
+  const handlePageClick = (pageNum: number) => {
+    setCurrentPage(pageNum);
+  };
+
+  const LoadingState = () => (
+    <TableRow>
+      <TableCell colSpan={7} className="text-center py-8">
+        <div className="flex items-center justify-center gap-2">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <span className="text-muted-foreground">
+            {shouldSearch ? "Searching customers..." : "Loading customers..."}
+          </span>
+        </div>
+      </TableCell>
+    </TableRow>
   );
+
+  const EmptyState = () => (
+    <TableRow>
+      <TableCell colSpan={7} className="text-center py-8">
+        <div className="text-muted-foreground">
+          {shouldSearch 
+            ? "No customers found matching your search" 
+            : "No customers registered yet"
+          }
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+
+ 
+  const CustomerRow = ({ customer }: { customer: Customer }) => (
+    <TableRow key={customer._id} className="hover:bg-muted/50">
+      <TableCell className="font-medium">{customer.name}</TableCell>
+      <TableCell>{customer.region}</TableCell>
+      <TableCell className="hidden md:table-cell">{customer.serviceCenter}</TableCell>
+      <TableCell className="hidden lg:table-cell">{customer.zone}</TableCell>
+      <TableCell className="text-right">{customer.powerApproved}</TableCell>
+      <TableCell className="text-right hidden sm:table-cell">
+        {customer.depositBirr?.toLocaleString()}
+      </TableCell>
+      <TableCell className="text-center">
+        <Button
+        variant="ghost"
+        size="sm"
+        className="hover:bg-primary/10"
+        onClick={() => navigate(`/officer/customers/${customer._id}`)}
+      >
+        <Eye className="h-4 w-4" />
+      </Button>
+      </TableCell>
+    </TableRow>
+  );
+
+  const PaginationItems = () => {
+    const visiblePages = Math.min(5, totalPages);
+    const pages = Array.from({ length: visiblePages }, (_, i) => {
+      if (totalPages <= 5) return i + 1;
+      if (currentPage <= 3) return i + 1;
+      if (currentPage >= totalPages - 2) return totalPages - 4 + i;
+      return currentPage - 2 + i;
+    });
+
+    return pages.map(pageNum => (
+      <PaginationItem key={pageNum}>
+        <PaginationLink
+          onClick={() => handlePageClick(pageNum)}
+          isActive={currentPage === pageNum}
+          className="cursor-pointer"
+        >
+          {pageNum}
+        </PaginationLink>
+      </PaginationItem>
+    ));
+  };
 
   return (
     <div className="min-h-screen bg-background p-6 space-y-6">
-      <Breadcrumb
-        items={[
-          { label: "Dashboard", href: "/officer/dashboard" },
-          { label: "Register Customer", href: "/officer/register-customer" },
-          { label: "Customers" },
-        ]}
-      />
+      <Breadcrumb items={BREADCRUMB_ITEMS} />
 
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-foreground">
@@ -89,16 +200,7 @@ const Customers = () => {
         </p>
       </div>
 
-      {isError && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            {error instanceof Error
-              ? error.message
-              : "Failed to load customers. Please try again."}
-          </AlertDescription>
-        </Alert>
-      )}
+
 
       <Card className="shadow-md">
         <CardHeader>
@@ -112,16 +214,20 @@ const Customers = () => {
               <Input
                 placeholder="Search by name or region..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={handleSearchChange}
                 className="pl-9 w-full sm:w-[300px]"
               />
             </div>
           </div>
           <CardDescription>
-            Total Customers: {totalCustomers}
-            {debouncedSearch && ` (filtered)`}
+            {shouldSearch ? (
+              <>Showing search results for "{debouncedSearch}"</>
+            ) : (
+              <>Total Customers: {totalCustomers}</>
+            )}
           </CardDescription>
         </CardHeader>
+
         <CardContent>
           <div className="rounded-md border">
             <Table>
@@ -129,68 +235,21 @@ const Customers = () => {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Region</TableHead>
-                  <TableHead className="hidden md:table-cell">
-                    Service Center
-                  </TableHead>
+                  <TableHead className="hidden md:table-cell">Service Center</TableHead>
                   <TableHead className="hidden lg:table-cell">Zone</TableHead>
                   <TableHead className="text-right">Power (KW)</TableHead>
-                  <TableHead className="text-right hidden sm:table-cell">
-                    Deposit (Birr)
-                  </TableHead>
+                  <TableHead className="text-right hidden sm:table-cell">Deposit (Birr)</TableHead>
                   <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
-                      <div className="flex items-center justify-center gap-2">
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                        <span className="text-muted-foreground">
-                          Loading customers...
-                        </span>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                  <LoadingState />
                 ) : paginatedCustomers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
-                      <div className="text-muted-foreground">
-                        {debouncedSearch
-                          ? "No customers found matching your search"
-                          : "No customers registered yet"}
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                  <EmptyState />
                 ) : (
                   paginatedCustomers.map((customer: Customer) => (
-                    <TableRow key={customer.id} className="hover:bg-muted/50">
-                      <TableCell className="font-medium">
-                        {customer.name}
-                      </TableCell>
-                      <TableCell>{customer.region}</TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        {customer.service_center}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell">
-                        {customer.zone}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {customer.power_approved}
-                      </TableCell>
-                      <TableCell className="text-right hidden sm:table-cell">
-                        {customer.deposit_birr.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="hover:bg-primary/10"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+                    <CustomerRow key={customer._id} customer={customer} />
                   ))
                 )}
               </TableBody>
@@ -203,7 +262,7 @@ const Customers = () => {
                 <PaginationContent>
                   <PaginationItem>
                     <PaginationPrevious
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      onClick={handlePreviousPage}
                       className={
                         currentPage === 1
                           ? "pointer-events-none opacity-50"
@@ -211,34 +270,12 @@ const Customers = () => {
                       }
                     />
                   </PaginationItem>
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum: number;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-                    return (
-                      <PaginationItem key={pageNum}>
-                        <PaginationLink
-                          onClick={() => setCurrentPage(pageNum)}
-                          isActive={currentPage === pageNum}
-                          className="cursor-pointer"
-                        >
-                          {pageNum}
-                        </PaginationLink>
-                      </PaginationItem>
-                    );
-                  })}
+                  
+                  <PaginationItems />
+                  
                   <PaginationItem>
                     <PaginationNext
-                      onClick={() =>
-                        setCurrentPage((p) => Math.min(totalPages, p + 1))
-                      }
+                      onClick={handleNextPage}
                       className={
                         currentPage === totalPages
                           ? "pointer-events-none opacity-50"

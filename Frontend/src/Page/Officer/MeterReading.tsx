@@ -4,10 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Gauge, Search, TrendingUp, AlertTriangle, Activity, Eye } from "lucide-react";
+import { Gauge, Search, TrendingUp, AlertTriangle, Activity, Eye, Plus } from "lucide-react";
 import { Breadcrumb } from "@/components/BreadCrumb";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { useNavigate } from "react-router-dom";
 
 interface MeterReading {
   _id: string;
@@ -23,6 +24,7 @@ interface MeterReading {
 
 const MeterReadings = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const navigate=useNavigate();
 
   const { data: readings = [], isLoading } = useQuery({
     queryKey: ["meter-readings"],
@@ -56,6 +58,12 @@ const MeterReadings = () => {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Meter Reading & Anomaly Management</h1>
         <p className="text-muted-foreground">Monitor and manage water meter readings</p>
+      </div>
+      <div>
+             <Button onClick={() => navigate("/officer/meter-readings/add")} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add Reading
+            </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
