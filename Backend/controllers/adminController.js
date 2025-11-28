@@ -6,17 +6,10 @@ import { Customer } from "../models/CustomerModel.js";
 import { officerADHistory } from "../models/OfficerActivationDeactivationHistory.js";
 import { Officer } from "../models/OfficerModel.js";
 import { passwordResetHistory } from "../models/PasswordResetHistory.js";
+import { formattedDate } from "../Util/FormattedDate.js";
 import { comparePassword, endcodePassword } from "../Util/passwordEncDec.js";
 import { generateToken } from "../Util/tokenGenrator.js";
-const date = new Date();
-const formatted = date.toLocaleString("en-US", {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  hour12: false,
-});
+
 export const createOfficer = async (req, res) => {
   try {
     const { newOfficer, adminId } = req.body;
@@ -96,7 +89,7 @@ export const activateDeactivateOfficer = async (req, res) => {
 
     const saveHistory = new officerADHistory({
       officerId: id,
-      date: formatted,
+      date: formattedDate(),
       action: isActive ? "Activate" : "Deactivate",
     });
 
@@ -245,7 +238,7 @@ export const officerResetPassword = async (req, res) => {
     );
     const passwordHistory = new passwordResetHistory({
       userId: id,
-      date: formatted,
+      date: formattedDate(),
     });
     await passwordHistory.save();
     res.status(200).json({
@@ -273,7 +266,7 @@ export const customerResetPassword = async (req, res) => {
     );
     const passwordHistory = new passwordResetHistory({
       userId: id,
-      date: formatted,
+      date: formattedDate(),
     });
     await passwordHistory.save();
     res.status(200).json({
@@ -380,7 +373,7 @@ export const activateDeactivateCustomer = async (req, res) => {
     const history = new customerADHistory({
       customerId: id,
       action: isActive ? "Activate" : "Deactivate",
-      date: formatted,
+      date: formattedDate(),
     });
  await history.save();
 
@@ -416,7 +409,7 @@ async function saveActivity(id, activity) {
   const AdminActivity = new adminAT({
     adminId: id,
     activity: activity,
-    date: formatted,
+    date: formattedDate(),
   });
   await AdminActivity.save();
 }

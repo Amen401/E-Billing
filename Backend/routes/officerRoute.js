@@ -2,8 +2,12 @@ import express from "express";
 import {
   addCustomer,
   changeProfilePicture,
+  checkMissedMonthes,
+  closePaymentSchedule,
+  createSchedule,
   customerComplientInformations,
   getCustomer,
+  manualMeterReadingAndPayment,
   myActivities,
   officerLogin,
   officerLogout,
@@ -35,6 +39,11 @@ officerRouter.post(
 
 officerRouter.post("/update-name-or-email", verifyToken, updateNameOrEmail);
 officerRouter.post("/update-up", verifyToken, updateUsernameOrPassword);
+
+officerRouter.post("/create-schedule", verifyToken, createSchedule);
+officerRouter.post("/close-schedule", verifyToken, closePaymentSchedule);
+
+officerRouter.post("/pay-manualy", verifyToken, manualMeterReadingAndPayment);
 officerRouter.get(
   "/customer-complient-infos",
   verifyToken,
@@ -50,5 +59,7 @@ officerRouter.put(
   verifyToken,
   updateComplientStatus
 );
+officerRouter.get("/get-missed-payments", verifyToken, checkMissedMonthes);
+officerRouter.post("/update-comp-status", verifyToken, updateComplientStatus);
 
 export default officerRouter;
