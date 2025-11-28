@@ -1,6 +1,14 @@
 import { CustomerComplient } from "../models/CustomerComplient.js";
 import { Customer } from "../models/CustomerModel.js";
+import { merterReading } from "../models/MeterReading.js";
+import { paymentSchedule } from "../models/PaymentSchedule.js";
+import { customerTariff } from "../models/Tariff.js";
+import { detectAnomaly } from "../Util/AnomalyDetector.js";
+import { cloud } from "../Util/Cloundnary.js";
+import { formattedDate } from "../Util/FormattedDate.js";
+import { handlePredictionRequest } from "../Util/MonthlyUsagePredictor.js";
 import { comparePassword, endcodePassword } from "../Util/passwordEncDec.js";
+import { extractKWAndMeterNo } from "../Util/photoAnalyzer.js";
 import { generateToken } from "../Util/tokenGenrator.js";
 import { complientCustomDto } from "./officerController.js";
 
@@ -95,6 +103,12 @@ export const myComplains = async (req, res) => {
   }
 };
 
+export const predictMyUsage = async (req, res) => {
+  try {
+    const usagePrediction = await handlePredictionRequest(req, res);
+  } catch (error) {}
+};
+
 export const searchMyComplain = async (req, res) => {
   try {
     const { filter, value } = req.query;
@@ -108,6 +122,95 @@ export const searchMyComplain = async (req, res) => {
     }
 
     res.status(200).json(complientCustomDto(complients));
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+export const checkPaymentSchedule = async (req, res) => {
+  try {
+    const openedPaymentSchedule = await paymentSchedule.find({ isOpen: true });
+    res.status(200).json(openedPaymentSchedule);
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const submitReading = async (req, res) => {
+  try {
+    const photo = req.file;
+    const base64 = Buffer.from(photo.buffer).toString("base64");
+    const mimeType = photo.mimetype;
+    const resp = await extractKWAndMeterNo(base64, mimeType);
+
+    const findAccount = await Customer.findById(req.authUser.id);
+    if (resp.meterNo != findAccount.meterReaderSN) {
+      res.status(200).json({
+        message: "This meter is not your meter. please insert your meter image",
+      });
+    }
+    const lastReading = await merterReading
+      .findOne({
+        customerId: req.authUser.id,
+      })
+      .sort({ createdAt: -1 })
+      .exec();
+
+    const monthlyUsage = resp.kilowatt - lastReading.killowatRead;
+
+    const uploadPhoto = await cloud.uploader.upload(base64, {
+      folder: "Meter-Readings",
+      tags: [req.authUser.id, "meter-readings"],
+    });
+    let newMeterReading = new merterReading();
+    if (uploadPhoto) {
+      newMeterReading.photo = {
+        secure_url: uploadPhoto.secure_url,
+        public_id: uploadPhoto.public_id,
+      };
+      newMeterReading.killowatRead = resp.killowat;
+      newMeterReading.monthlyUsage = monthlyUsage;
+      const anomalyStatus = await detectAnomaly(
+        req.authUser.id,
+        resp.killowat,
+        monthlyUsage
+      );
+      newMeterReading.anomalyStatus = anomalyStatus.anomalyStatus;
+      newMeterReading.paymentStatus = "Not Paid";
+      const myTariff = await customerTariff.findOne({
+        customerId: req.authUser.id,
+      });
+      newMeterReading.fee =
+        myTariff.energyTariff * monthlyUsage + myTariff.serviceCharge;
+      newMeterReading.dateOfSubmission = formattedDate();
+      const paymentMonth = await paymentSchedule.findOne({ isOpen: true });
+      newMeterReading.paymentMonth = paymentMonth._id;
+      newMeterReading.customerId = req.authUser.id;
+
+      const result = await newMeterReading.save();
+      res.status(200).json({
+        meterReadingresult: result,
+        message: "Meter reading successfuly submitted",
+      });
+    }
+    res
+      .status(200)
+      .json({ message: "Something is not correct please try again" });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const myMonthlyUsageAnlysis = async (req, res) => {
+  try {
+    const lastReadings = await merterReading
+      .find({ customerId: req.authUser.id })
+      .sort({ createdAt: -1 })
+      .limit(6)
+      .populate("paymentMonth")
+      .exec();
+    const nextMonthUsage = await handlePredictionRequest();
+
+    res.status(200).json(lastReadings, nextMonthUsage);
   } catch (error) {
     res.status(500).json({ message: "Internal server error" });
   }

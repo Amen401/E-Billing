@@ -6,16 +6,10 @@ import { comparePassword, endcodePassword } from "../Util/passwordEncDec.js";
 import { generateToken } from "../Util/tokenGenrator.js";
 import { cloud } from "../Util/Cloundnary.js";
 import { CustomerComplient } from "../models/CustomerComplient.js";
-
-const date = new Date();
-const formatted = date.toLocaleString("en-US", {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  hour12: false,
-});
+import { formattedDate } from "../Util/FormattedDate.js";
+import { customerPayments } from "../models/Payments.js";
+import { paymentSchedule } from "../models/PaymentSchedule.js";
+import { merterReading } from "../models/MeterReading.js";
 
 export const officerLogin = async (req, res) => {
   const { username, password } = req.body;
@@ -81,7 +75,7 @@ export const addCustomer = async (req, res) => {
 
 export const myActivities = async (req, res) => {
   try {
-    const myActivities = await officerAT.find({ OfficerId: req.authUser.id });
+    const myActivities = await officerAT.find({ officerId: req.authUser.id });
     let result = [];
 
     if (myActivities.length <= 10) {
@@ -320,11 +314,132 @@ export const updateComplientStatus = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
+export const checkMissedMonthes = async (req, res) => {
+  try {
+    const findCustomer = await findById(req.query.id);
+    const findCustomerLastPayment = await customerPayments
+      .findOne({
+        customerId: req.query.id,
+        createdAt: { $gt: findCustomer.createdAt },
+      })
+      .sort({ createdAt: -1 })
+      .exec();
+    const missedMonthes = await paymentSchedule.find({
+      cratedAt: { $gt: findCustomerLastPayment.paymentMonth.cratedAt },
+    });
+    res.status(200).json(missedMonthes);
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const createSchedule = async (req, res) => {
+  try {
+    const newSchedule = new paymentSchedule(req.body);
+    await newSchedule.save();
+    await saveActivity(
+      req.authUser.id,
+      `Created new payment schedule ${newSchedule.yearAndMonth}`
+    );
+    res.status(200).json({ message: "New schedule seted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+export const closePaymentSchedule = async (req, res) => {
+  try {
+    const sch = await paymentSchedule.findByIdAndUpdate(
+      req.body.id,
+      { isOpen: false },
+      { new: true }
+    );
+    await saveActivity(
+      req.authUser.id,
+      `Closed payment schedule ${sch.yearAndMonth}`
+    );
+  } catch (error) {}
+};
+
+export const manualMeterReadingAndPayment = async (req, res) => {
+  try {
+    const photo = req.file;
+    const { cId, months, fine } = req.body;
+
+    const base64 = Buffer.from(photo.buffer).toString("base64");
+    const mimeType = photo.mimetype;
+    const resp = await extractKWAndMeterNo(base64, mimeType);
+    const findAccount = await Customer.findById(cId);
+
+    if (resp.meterNo != findAccount.meterReaderSN) {
+      res.status(200).json({
+        message: "This meter is not your meter. please insert your meter image",
+      });
+    }
+
+    const uploadImage = await cloud.uploader.upload(base64, {
+      folder: "Meter-Readings",
+      tags: [req.authUser.id, "meter-readings"],
+    });
+
+    const lastReading = await merterReading
+      .findOne({
+        customerId: req.authUser.id,
+      })
+      .sort({ createdAt: -1 })
+      .exec();
+    const monthlyUsage = resp.kilowatt - lastReading.killowatRead;
+
+    const eachMonthUsage = monthlyUsage / months.length;
+
+    const myTariff = await customerTariff.findOne({
+      customerId: cId,
+    });
+    let totalPayment = 0;
+    for (let index = 0; index < months.length; index++) {
+      const newReading = new merterReading({
+        photo: {
+          secure_url: uploadImage.secure_url,
+          public_id: uploadImage.public_id,
+        },
+        killowatRead: lastReading + eachMonthUsage * (index + 1),
+        monthlyUsage: eachMonthUsage,
+        anomalyStatus: "Normal",
+        paymentStatus: "Paid",
+        fee:
+          myTariff.energyTariff * eachMonthUsage +
+          myTariff.serviceCharge +
+          fine,
+        dateOfSubmission: formattedDate(),
+        paymentMonth: months[index],
+        customerId: cId,
+      });
+      totalPayment +=
+        myTariff.energyTariff * eachMonthUsage + myTariff.serviceCharge + fine;
+      const result = await newReading.save();
+      const newPayment = customerPayments({
+        meterReading: result._id,
+        customerId: cId,
+        paymentMonth: months[index],
+      });
+      await newPayment.save();
+    }
+    await saveActivity(
+      req.authUser.id,
+      `Manually paid ${findAccount.accountNumber} ${months.length} month payment`
+    );
+    res
+      .status(200)
+      .json({ message: "Fixed problem sucessFully", totalPayment });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
 async function saveActivity(id, activity) {
   const OfficerActivity = new officerAT({
     officerId: id,
     activity: activity,
-    date: formatted,
+    date: formattedDate(),
   });
   await OfficerActivity.save();
 }
