@@ -15,7 +15,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useCustomerAuth } from "@/Components/Context/AuthContext";
+import { useAuth } from "@/components/context/UnifiedContext";
 
 const navigation = [
   { name: "Dashboard", href: "/customer/dashboard", icon: LayoutDashboard },
@@ -32,7 +32,7 @@ const navigation = [
 
 const CustomerLayout=()=> {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { customer } = useCustomerAuth();
+  const { user ,logout} = useAuth();
 
   return (
     <div className="h-screen flex w-full bg-background overflow-hidden">
@@ -111,14 +111,15 @@ const CustomerLayout=()=> {
               variant="ghost"
               size="sm"
               className="text-destructive hover:text-destructive"
+              onClick={logout}
             >
               <LogOut className="w-4 h-4 mr-2" />
               Logout
             </Button>
-            {customer?.name}
+            {user?.name}
             <Avatar className="w-9 h-9">
               <AvatarFallback className="bg-primary text-primary-foreground">
-               {customer?.name.charAt(0).toUpperCase()}
+               {user?.name.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
           </div>

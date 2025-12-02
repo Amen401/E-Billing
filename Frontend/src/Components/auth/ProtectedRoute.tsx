@@ -1,12 +1,12 @@
 import { Navigate } from "react-router-dom";
-import { useCustomerAuth } from "@/Components/Context/AuthContext";
+import { useAuth } from "@/components/context/UnifiedContext";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
 export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { customer, isAuthenticated, isLoading } = useCustomerAuth();
+ const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
     return (
@@ -16,8 +16,8 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
-  if (!isAuthenticated || !customer) {
-    return <Navigate to="/customer/login" replace />;
+  if (!isAuthenticated || !user) {
+    return <Navigate to="/login/customer" replace />;
   }
 
   return <>{children}</>;

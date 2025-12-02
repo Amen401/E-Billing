@@ -462,3 +462,28 @@ export function complientCustomDto(complients) {
   }
   return complientsDto;
 }
+export const getOfficerStats = async (req, res) => {
+  try {
+    const totalCustomers = await Customer.countDocuments();
+    const allComplaints = await CustomerComplient.find();
+    const reportsGenerated = allComplaints.length;
+    const pendingComplaints = allComplaints.filter(c => c.status === "pending").length;
+
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const readingsToday = await officerAT.countDocuments({
+      date: { $gte: startOfDay.toISOString() },
+    });
+
+    res.status(200).json({
+      customersRegistered: totalCustomers,
+      readingsToday,
+      reportsGenerated,
+      pendingComplaints,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal server error", error });
+  }
+};

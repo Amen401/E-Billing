@@ -1,4 +1,13 @@
-import { LayoutDashboard, UserPlus, Gauge, MessageSquare, FileText, LogOut, User } from "lucide-react";
+import {
+  LayoutDashboard,
+  UserPlus,
+  Gauge,
+  MessageSquare,
+  FileText,
+  LogOut,
+  User,
+  Calendar,
+} from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Sidebar,
@@ -14,11 +23,20 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useOfficerAuth } from "../Context/OfficerContext";
+import { useAuth } from "../context/UnifiedContext";
 
 const items = [
   { title: "Dashboard", url: "/officer/dashboard", icon: LayoutDashboard },
-  { title: "Register Customer", url: "/officer/register-customer", icon: UserPlus },
+  {
+    title: "Register Customer",
+    url: "/officer/register-customer",
+    icon: UserPlus,
+  },
+  {
+    title: "schedule a payment",
+    url: "/officer/schedule-payment",
+    icon: Calendar,
+  },
   { title: "Meter Readings", url: "/officer/meter-readings", icon: Gauge },
   { title: "Complaints", url: "/officer/complaints", icon: MessageSquare },
   { title: "Reports", url: "/officer/reports", icon: FileText },
@@ -26,7 +44,7 @@ const items = [
 
 export function OfficerSidebar() {
   const { open } = useSidebar();
-  const { logout, user } = useOfficerAuth();
+  const { logout, user } = useAuth();
   const navigate = useNavigate();
 
   const getInitials = (name: string) => name?.charAt(0).toUpperCase() || "U";
@@ -81,7 +99,9 @@ export function OfficerSidebar() {
                   <p className="text-sm font-medium text-sidebar-foreground truncate">
                     {user.name}
                   </p>
-                  <p className="text-xs text-sidebar-foreground/70">View Profile</p>
+                  <p className="text-xs text-sidebar-foreground/70">
+                    View Profile
+                  </p>
                 </div>
               )}
             </NavLink>

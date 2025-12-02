@@ -19,39 +19,54 @@ export const PaymentDialog = ({ open, onOpenChange, amount, readingValue, onPaym
   const [paymentMethod, setPaymentMethod] = useState<"card" | "bank" | "wallet">("card");
   const [processing, setProcessing] = useState(false);
   const [success, setSuccess] = useState(false);
-
-  const handlePayment = async () => {
+const handlePayment = async () => {
+  try {
     setProcessing(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    const res = await fetch("http://localhost:3000/payment/create", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        amount,
+        email: "hana@example.com",
+        name: "Hana",
+        customerId: "USER_ID_FROM_AUTH",
+      }),
+    });
+
+    const data = await res.json();
+
+    if (data.checkoutUrl) {
+      window.location.href = data.checkoutUrl;
+    }
+  } catch (err) {
+    console.error(err);
+  } finally {
     setProcessing(false);
-    setSuccess(true);
-    
-    setTimeout(() => {
-      onPaymentComplete();
-      setSuccess(false);
-      onOpenChange(false);
-    }, 2000);
-  };
+  }
+};
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[400px]">
         {!success ? (
           <>
             <DialogHeader>
-              <DialogTitle className="text-2xl font-bold">Complete Payment</DialogTitle>
+              <DialogTitle className="text-xl font-bold">Complete Payment</DialogTitle>
               <DialogDescription>
                 Review your bill and select a payment method
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-6 py-4">
-              {/* Bill Summary */}
               <Card className="p-4 bg-muted/50 border-border">
                 <div className="space-y-3">
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-muted-foreground">Meter Reading</span>
-                    <span className="font-mono font-semibold">{readingValue} kWh</span>
+                    <span className="font-mono font-large">{readingValue} kWh</span>
                   </div>
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-muted-foreground">Usage This Period</span>
@@ -69,7 +84,6 @@ export const PaymentDialog = ({ open, onOpenChange, amount, readingValue, onPaym
                 </div>
               </Card>
 
-              {/* Payment Methods */}
               <div className="space-y-3">
                 <Label className="text-base font-semibold">Select Payment Method</Label>
                 <RadioGroup value={paymentMethod} onValueChange={(value: any) => setPaymentMethod(value)}>

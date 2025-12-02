@@ -1,13 +1,13 @@
 import { Navigate } from "react-router-dom";
-import { useAdminAuth } from "./../Context/AdminContext";
+import { useAuth } from "../Context/UnifiedContext";
 import type { JSX } from "react";
 
 const AdminProtectedRoute = ({ children }: { children: JSX.Element }) => {
-  const { isAuthenticated, isLoading } = useAdminAuth();
+const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) return <div>Loading...</div>;
 
-  return isAuthenticated ? children : <Navigate to="/admin/login" replace />;
+  return isAuthenticated ? children : <Navigate to="/login/admin" replace />;
 };
 
 export default AdminProtectedRoute;

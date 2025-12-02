@@ -121,22 +121,15 @@ const ENDPOINTS = {
  updateComplaintstatus:"/officer/update-complient-status",
  searchcustomercomplaints:"/officer/search-customer-complients",
  customercomplaintInfo:"/officer/customer-complient-infos",
+ getoficerstats:"/officer/get-officer-stats",
 
 };
 
 export const authApi = {
-  login: async (username: string, password: string) => {
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
-
-    if (!res.ok) throw new Error("Login failed");
-
-    return res.json();
-  },
+  login: (username: string, password: string) =>
+    api.post("/auth/login", { username, password }),
 };
+
 
 
 
@@ -267,6 +260,28 @@ updatepassword: async (data: { id: string; oldPass: string; newPass: string }) =
     } 
     return resData;
   },
+
+submitMeterReading: async (formData: FormData) => {
+  const token = localStorage.getItem("authToken");
+  if (!token) throw new Error("Not authenticated");
+
+  const response = await fetch(`${API_BASE_URL}/customer/submit-reading`, {
+    method: "POST",
+    body: formData,
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+
+  const data = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(data.message || "Submission failed");
+  }
+
+  return data;
+},
+    
 
   getMeterReadings: async () => {
     return api.get("/customer/meter-readings");
@@ -480,6 +495,10 @@ customercomplaintInfos:async()=>{
   return response;
 
 },
+getDashboardStats:async()=>{
+  const response=await api.get(ENDPOINTS.getoficerstats);
+  return response;
+} 
 
 
 

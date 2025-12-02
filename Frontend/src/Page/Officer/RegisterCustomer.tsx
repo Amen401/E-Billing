@@ -26,12 +26,13 @@ const customerSchema = z.object({
   town: z.string().min(1, "Town is required"),
   powerApproved: z.coerce.number().min(0.1, "Enter valid KW"),
   killowat: z.coerce.number().min(0.1, "Enter valid KW"),
-  applicableTarif: z.string().min(1, "Select a tarif"),
+  applicableTarif: z.enum(["Low Usage", "Medium Usage", "High Usage"], {
+    required_error: "Applicable Tarif is required",
+  }),
   volt: z.coerce.number().min(1, "Volt is required"),
   depositBirr: z.coerce.number().min(1, "Deposit amount required"),
   serviceChargeBirr: z.coerce.number().min(0, "Service Charge must be >= 0"),
   tarifBirr: z.coerce.number().min(0, "Tarif Birr must be >= 0"),
-  accountNumber: z.string().min(3, "Account number is required"),
   meterReaderSN: z.string().min(3, "Meter serial number required"),
   isActive: z.boolean(),
   password: z.string(),
@@ -39,6 +40,7 @@ const customerSchema = z.object({
     required_error: "Purpose is required",
   }),
 });
+
 
 const RegisterCustomer = () => {
   const navigate = useNavigate();
@@ -53,13 +55,13 @@ const RegisterCustomer = () => {
     woreda: "",
     town: "",
     purpose: "",
-    powerApproved: "",
-    killowat: "",
+    powerApproved: 0,
+    killowat: 0,
     applicableTarif: "",
-    volt: "",
-    depositBirr: "",
-    serviceChargeBirr: "",
-    tarifBirr: "",
+    volt: 0,
+    depositBirr: 0,
+    serviceChargeBirr: 0,
+    tarifBirr: 0,
     accountNumber: "",
     meterReaderSN: "",
     isActive: true,
@@ -81,7 +83,9 @@ const RegisterCustomer = () => {
     const validation = customerSchema.safeParse(formData);
 
     if (!validation.success) {
-      const firstError = validation.error.errors[0].message;
+      console.log("Zod validation error:", validation.error);
+      const firstError =
+        validation.error?.errors?.[0]?.message || "Validation failed";
       toast.error(firstError);
       setLoading(false);
       return;

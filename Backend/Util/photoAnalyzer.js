@@ -27,12 +27,7 @@ Important rules:
 `;
 
     const contents = [
-      {
-        inlineData: {
-          mimeType,
-          data: base64,
-        },
-      },
+      { inlineData: { mimeType, data: base64 } },
       { text: prompt },
     ];
 
@@ -42,18 +37,36 @@ Important rules:
     });
 
     const text = response?.candidates?.[0]?.content?.parts?.[0]?.text;
-    return JSON.parse(
-      text
-        .replace(/```json/gi, "")
-        .replace(/```/g, "")
-        .trim()
-    );
+    console.log(text);
+
+    if (!text) {
+      throw new Error("No response text from Gemini");
+    }
+
+    const cleanText = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+
+    let result;
+    try {
+      result = JSON.parse(cleanText);
+    } catch (parseError) {
+      console.error("Failed to parse Gemini JSON:", parseError, "Text:", cleanText);
+      throw new Error("Gemini response is not valid JSON");
+    }
+
+
+    if (
+      !result ||
+      (result.meterNo !== null && typeof result.meterNo !== "string") ||
+      (result.kilowatt !== null && typeof result.kilowatt !== "number")
+    ) {
+      console.error("Invalid data format from Gemini:", result);
+      throw new Error("Invalid data extracted from meter image");
+    }
+
+    return result;
+
   } catch (error) {
-    console.error("Gemini error:", error);
-    return {
-      error: true,
-      message: error.message || "Unknown error from Gemini",
-      details: error,
-    };
+    console.error("Gemini extraction error:", error);
+    throw new Error(`Gemini extraction failed: ${error.message}`);
   }
 }

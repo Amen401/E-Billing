@@ -3,9 +3,10 @@ import { useCustomerAuth } from "@/Components/Context/AuthContext";
 import { customerApi } from "@/lib/api";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/components/context/UnifiedContext";
 
 const CustomerProfile: React.FC = () => {
-  const { customer, logout } = useCustomerAuth();
+  const { user, logout } = useAuth();
 
   const [oldPass, setOldPass] = useState("");
   const [newPass, setNewPass] = useState("");
@@ -14,7 +15,7 @@ const CustomerProfile: React.FC = () => {
   const navigate = useNavigate();
 
 
-  if (!customer) {
+  if (!user) {
     return <div className="p-4 text-center">Loading profile...</div>;
   }
 
@@ -31,7 +32,7 @@ const CustomerProfile: React.FC = () => {
       setLoading(true);
 
       await customerApi.updatepassword({
-        id: customer.id,
+        id: user.id,
         oldPass,
         newPass,
       });
@@ -60,10 +61,10 @@ const CustomerProfile: React.FC = () => {
         <h2 className="text-xl font-semibold text-black mb-4">Account Details</h2>
 
         <div className="space-y-2 text-gray-700">
-          <p><strong className="text-black">ID:</strong> {customer.id}</p>
-          <p><strong className="text-black">Username:</strong> {customer.username}</p>
-          <p><strong className="text-black">Account Number:</strong> {customer.accountNumber}</p>
-          <p><strong className="text-black">Name:</strong> {customer.name}</p>
+          <p><strong className="text-black">ID:</strong> {user.id}</p>
+          <p><strong className="text-black">Username:</strong> {user.username}</p>
+          <p><strong className="text-black">Account Number:</strong> {user.username}</p>
+          <p><strong className="text-black">Name:</strong> {user.name}</p>
         </div>
       </div>
 

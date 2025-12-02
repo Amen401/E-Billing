@@ -1,4 +1,4 @@
-import {  useCustomerAuth } from "@/Components/Context/AuthContext";
+
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -18,70 +18,70 @@ import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { officerApi } from "@/lib/api";
 import { useSearchParams } from "react-router-dom";
-import type { SystemLog } from "../Types/type";
-import { fi } from "date-fns/locale";
+import { useAuth } from "@/components/context/UnifiedContext";
 
 interface Activity {
   activity: string;
-  details: string;
+  details?: string;
   date: string;
 }
+interface Stat {
+  title: string;
+  value: number;
+  icon: React.ElementType;
+  color: string;
+}
+
+
 const OfficerDashboard = () => {
-    const { customer, logout } = useCustomerAuth();
+  const { user, logout } = useAuth();
   const [systemActivities, setSystemActivities] = useState<Activity[]>([]);
   const [filtered, setFiltered] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [filterType, setFilterType] = useState<"time" | "date" | "name">("time");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchParams, setSearchParams] = useSearchParams();
-
-  const stats = [
-    {
-      title: "Customers Registered",
-      value: "156",
-      icon: UserPlus,
-      color: "text-primary",
-    },
-    {
-      title: "Readings Today",
-      value: "23",
-      icon: Gauge,
-      color: "text-secondary",
-    },
-    {
-      title: "Reports Generated",
-      value: "8",
-      icon: FileText,
-      color: "text-accent",
-    },
-    {
-      title: "Pending Complaints",
-      value: "5",
-      icon: AlertTriangle,
-      color: "text-destructive",
-    },
-  ];
+  const [stats, setStats] = useState<Stat[]>([]);
+const fetchStats = async () => {
+  try {
+    const data = await officerApi.getDashboardStats();
+    const formattedStats: Stat[] = [
+      { title: "Customers Registered", value: data.customersRegistered, icon: UserPlus, color: "text-primary" },
+      { title: "Readings Today", value: data.readingsToday, icon: Gauge, color: "text-secondary" },
+      { title: "Reports Generated", value: data.reportsGenerated, icon: FileText, color: "text-accent" },
+      { title: "Pending Complaints", value: data.pendingComplaints, icon: AlertTriangle, color: "text-destructive" },
+    ];
+    setStats(formattedStats);
+  } catch (err: any) {
+    console.error(err);
+    toast.error("Failed to fetch dashboard stats");
+  }
+};
+useEffect(() => {
+  fetchStats();
+  fetchActivities();
+}, []);
 
 
- 
   const fetchActivities = async () => {
     setIsLoading(true);
     try {
       const activities: Activity[] = await officerApi.getSystemActivities();
-      setSystemActivities(activities);
-      setFiltered(activities);
+      setSystemActivities(activities || []);
+      setFiltered(activities || []);
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Failed to fetch activities");
+      setSystemActivities([]);
+      setFiltered([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
-    setSearchParams(query ? { value: query } : {});
+    setSearchParams(query ? { value: query, filter: filterType } : {});
 
     if (!query.trim()) {
       fetchActivities();
@@ -90,25 +90,28 @@ const OfficerDashboard = () => {
 
     try {
       setIsLoading(true);
-      const activities: Activity[] = await officerApi.searchMyActivities(query);
-      setSystemActivities(activities);
-      setFiltered(activities);
+      const activities: Activity[] = await officerApi.searchMyActivities(query, filterType);
+      setSystemActivities(activities || []);
+      setFiltered(activities || []);
     } catch (err: any) {
       console.error(err);
       toast.error("Search failed");
+      setSystemActivities([]);
+      setFiltered([]);
     } finally {
       setIsLoading(false);
     }
   };
 
+
   useEffect(() => {
     const value = searchParams.get("value") || "";
-    const filter = (searchParams.get("filter") as "time" | "date" | "name") || "time";
+    const filter = (searchParams.get("filter") as "date" | "date" | "name") || "date";
     setSearchQuery(value);
     setFilterType(filter);
 
     if (value) {
-      handleSearch(value, filter);
+      handleSearch(value);
     } else {
       fetchActivities();
     }
@@ -116,7 +119,7 @@ const OfficerDashboard = () => {
 
 
   useEffect(() => {
-    let result = [...systemActivities];
+    let result = [...(systemActivities || [])];
 
     if (searchQuery.trim() !== "") {
       result = result.filter((item) =>
@@ -126,11 +129,13 @@ const OfficerDashboard = () => {
 
     result.sort((a, b) => {
       if (filterType === "name") return a.activity.localeCompare(b.activity);
-      return new Date(b.date).getTime() - new Date(a.date).getTime();
+      if (filterType === "date") return new Date(a.date).getTime() - new Date(b.date).getTime(); // oldest first
+      return new Date(b.date).getTime() - new Date(a.date).getTime(); // newest first
     });
 
     setFiltered(result);
   }, [searchQuery, filterType, systemActivities]);
+
   return (
     <div className="min-h-screen bg-background">
       <header className="bg-card border-b border-border">
@@ -138,7 +143,7 @@ const OfficerDashboard = () => {
           <div>
             <h1 className="text-2xl font-bold">Officer Dashboard</h1>
             <p className="text-sm text-muted-foreground">
-              Welcome back, {customer?.name}
+              Welcome back, {user?.name}
             </p>
           </div>
           <Button onClick={logout} variant="outline">
@@ -166,9 +171,7 @@ const OfficerDashboard = () => {
 
         <Card className="border-slate-200">
           <CardHeader>
-            <CardTitle className="text-lg font-semibold">
-              Recent System Activity
-            </CardTitle>
+            <CardTitle className="text-lg font-semibold">Recent System Activity</CardTitle>
 
             <div className="flex items-center gap-4 mt-3">
               <div className="relative w-full">
@@ -183,7 +186,7 @@ const OfficerDashboard = () => {
 
               <select
                 value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
+                onChange={(e) => setFilterType(e.target.value as "time" | "date" | "name")}
                 className="border rounded-md px-3 py-2 bg-white"
               >
                 <option value="time">Newest</option>
@@ -211,7 +214,7 @@ const OfficerDashboard = () => {
                         Loading...
                       </TableCell>
                     </TableRow>
-                  ) : filtered.length === 0 ? (
+                  ) : (!filtered || filtered.length === 0) ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center py-4">
                         No logs found
@@ -221,9 +224,7 @@ const OfficerDashboard = () => {
                     filtered.map((activity, i) => (
                       <TableRow key={i}>
                         <TableCell>{activity.activity}</TableCell>
-                        <TableCell>
-                          {new Date(activity.date).toLocaleString()}
-                        </TableCell>
+                        <TableCell>{new Date(activity.date).toLocaleString()}</TableCell>
                         <TableCell>
                           <Badge variant="default">Success</Badge>
                         </TableCell>

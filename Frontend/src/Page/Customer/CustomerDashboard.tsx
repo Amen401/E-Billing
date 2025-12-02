@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/card";
 import { ClipboardList, User, FileWarning } from "lucide-react";
 import { useEffect, useState } from "react";
 import { customerApi } from "@/lib/api";
+import { useAuth } from "@/components/context/UnifiedContext";
 
 interface Complaint {
   _id: string;
@@ -39,20 +40,18 @@ const StatsCard = ({
 );
 
 const CustomerDashboard = () => {
-  const [customer, setCustomer] = useState<any>(null);
+ const {user} = useAuth();
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [latestComplaint, setLatestComplaint] = useState<Complaint | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
-      const customerInfo = JSON.parse(localStorage.getItem("customerInfo") || "{}");
-      setCustomer(customerInfo);
 
       const token = localStorage.getItem("authToken");
       if (!token) return;
 
       try {
-        const result = await customerApi.myComplains(); 
+        const result = await customerApi.getComplaints(); 
 
         if (result && Array.isArray(result.complains)) {
           setComplaints(result.complains);
@@ -73,7 +72,7 @@ const CustomerDashboard = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground mb-2">
-          Welcome, {customer?.name || "Customer"}!
+          Welcome, {user?.name || "Customer"}!
         </h1>
         <p className="text-muted-foreground">
           Here’s a quick overview of your customer dashboard.
@@ -85,7 +84,7 @@ const CustomerDashboard = () => {
         <StatsCard
           icon={User}
           title="Account Number"
-          value={customer?.accountNumber || "---"}
+          value={user?.username || "---"}
           subtitle="Your registered account number"
           iconBg="bg-primary/10 text-primary"
         />

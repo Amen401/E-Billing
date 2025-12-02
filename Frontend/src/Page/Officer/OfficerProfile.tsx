@@ -5,10 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { User, Mail, Image as  Lock, Save, X, Edit2, Camera } from "lucide-react";
-import { useOfficerAuth } from "@/Components/Context/OfficerContext";
+import { useAuth } from "@/components/context/UnifiedContext";
 
 const OfficerProfile = () => {
-  const { user, updateNameOrEmail, changeProfilePicture, changePassword } = useOfficerAuth();
+  const { user, updateNameOrEmail, changeProfilePicture, changePassword } = useAuth();
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [isEditingEmail, setIsEditingEmail] = useState(false);

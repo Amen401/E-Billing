@@ -2,7 +2,7 @@ import { spawn } from "child_process";
 import fs from "fs/promises";
 import path from "path";
 
-const MONGO_URI = process.env.MONGO_URL;
+const MONGO_URI = process.env.URL;
 const DB_NAME = process.env.DB_NAME || "test";
 
 const PYTHON_SCRIPT_REL_PATH = path.join(

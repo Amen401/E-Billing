@@ -15,7 +15,8 @@ import {
   searchMyActivities,
   updateComplientStatus,
   updateNameOrEmail,
-  updateUsernameOrPassword
+  updateUsernameOrPassword,
+  getOfficerStats,
 } from "../controllers/officerController.js";
 
 import { verifyToken } from "../Util/tokenVerify.js";
@@ -61,5 +62,6 @@ officerRouter.put(
 );
 officerRouter.get("/get-missed-payments", verifyToken, checkMissedMonthes);
 officerRouter.post("/update-comp-status", verifyToken, updateComplientStatus);
+officerRouter.get("/get-officer-stats", verifyToken, getOfficerStats);
 
 export default officerRouter;
