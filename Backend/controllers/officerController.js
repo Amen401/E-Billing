@@ -10,6 +10,7 @@ import { formattedDate } from "../Util/FormattedDate.js";
 import { customerPayments } from "../models/Payments.js";
 import { paymentSchedule } from "../models/PaymentSchedule.js";
 import { merterReading } from "../models/MeterReading.js";
+import { customerTariff } from "../models/Tariff.js";
 
 export const officerLogin = async (req, res) => {
   const { username, password } = req.body;
@@ -41,7 +42,7 @@ export const officerLogin = async (req, res) => {
 };
 export const addCustomer = async (req, res) => {
   try {
-    const regForm = req.body;
+    const { regForm, tarif } = req.body;
     regForm.password = await endcodePassword(regForm.password);
 
     let isAccountExists = true;
@@ -58,7 +59,12 @@ export const addCustomer = async (req, res) => {
     const newCustomer = new Customer(regForm);
 
     const save = await newCustomer.save();
-
+    const customerTariff = new customerTariff({
+      customerId: save._id,
+      energyTariff: tarif.energyTariff,
+      serviceCharge: tarif.serviceCharge,
+    });
+    await customerTariff.save();
     saveActivity(
       req.authUser.id,
       `Created customer account with name: ${save.name} and accountNumber: ${save.accountNumber}`
@@ -175,7 +181,7 @@ export const changeProfilePicture = async (req, res) => {
       secure_url: result.secure_url,
       public_id: result.public_id,
     };
-  officer = await Officer.findByIdAndUpdate(req.authUser.id, data, {
+    officer = await Officer.findByIdAndUpdate(req.authUser.id, data, {
       new: true,
     });
     console.log(officer);
@@ -331,7 +337,6 @@ export const checkMissedMonthes = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
-
 export const createSchedule = async (req, res) => {
   try {
     const newSchedule = new paymentSchedule(req.body);
@@ -358,7 +363,6 @@ export const closePaymentSchedule = async (req, res) => {
     );
   } catch (error) {}
 };
-
 export const manualMeterReadingAndPayment = async (req, res) => {
   try {
     const photo = req.file;
@@ -433,6 +437,75 @@ export const manualMeterReadingAndPayment = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
+export const searchMeterReadings = async (req, res) => {
+  try {
+    const { value } = req.query;
+    const customers = await Customer.find({
+      $or: [
+        { meterReaderSN: RegExp(value, "i") },
+        { accountNumber: RegExp(value, "i") },
+      ],
+    });
+    if (!customers) {
+      res.status(200).json({ message: "No account or meter reading found" });
+    }
+    const customerId = customers.map((c) => c._id);
+
+    const meterReadings = await merterReading.find({
+      customerId: { $in: customerId },
+    });
+    res.status(200).json(meterReadings);
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const changeMeterReadingStatus = async (req, res) => {
+  try {
+    const { id } = req.body;
+    const result = await merterReading
+      .findByIdAndUpdate(
+        id,
+        {
+          anomalyStatus: "Normal",
+        },
+        { new: true }
+      )
+      .populate("customerId", "paymentMonth");
+    await saveActivity(
+      req.authUser.id,
+      `Changed reading status to Normal of  ${result.customerId.accountNumber} 
+      account ${result.paymentMonth.yearAndMonth}`
+    );
+    res.status(200).json({ message: "Status updated sucessfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+export const payMissedPaymentMonths = async (req, res) => {
+  try {
+    const reading = merterReading
+      .findById(rId)
+      .populate("customerId", "paymentMonth");
+    const recordPaymet = new customerPayments({
+      meterReading: reading._id,
+      customerId: reading.customerId._id,
+      paymentMonth: reading.paymentMonth._id,
+    });
+
+    await merterReading.findByIdAndUpdate(reading._id, {
+      paymentStatus: "Paid",
+    });
+    await recordPaymet.save();
+    await saveActivity(
+      req.authUser.id,
+      `Changed reading status to Normal of  ${result.customerId.accountNumber} 
+      account ${result.paymentMonth.yearAndMonth}`
+    );
+    res.status(200).json({ message: "Paid sucessfully" });
+  } catch (error) {}
+};
 async function saveActivity(id, activity) {
   const OfficerActivity = new officerAT({
     officerId: id,
@@ -467,7 +540,9 @@ export const getOfficerStats = async (req, res) => {
     const totalCustomers = await Customer.countDocuments();
     const allComplaints = await CustomerComplient.find();
     const reportsGenerated = allComplaints.length;
-    const pendingComplaints = allComplaints.filter(c => c.status === "pending").length;
+    const pendingComplaints = allComplaints.filter(
+      (c) => c.status === "pending"
+    ).length;
 
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);

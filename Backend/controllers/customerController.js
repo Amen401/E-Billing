@@ -1,6 +1,7 @@
 import { CustomerComplient } from "../models/CustomerComplient.js";
 import { Customer } from "../models/CustomerModel.js";
 import { merterReading } from "../models/MeterReading.js";
+import { customerPayments } from "../models/Payments.js";
 import { paymentSchedule } from "../models/PaymentSchedule.js";
 import { customerTariff } from "../models/Tariff.js";
 import { detectAnomaly } from "../Util/AnomalyDetector.js";
@@ -153,11 +154,9 @@ export const submitReading = async (req, res) => {
       resp.kilowatt === null ||
       isNaN(resp.kilowatt)
     ) {
-      return res
-        .status(400)
-        .json({
-          message: "Extracted kilowatt reading is invalid or unreadable.",
-        });
+      return res.status(400).json({
+        message: "Extracted kilowatt reading is invalid or unreadable.",
+      });
     }
 
     const findAccount = await Customer.findById(req.authUser.id);
@@ -227,12 +226,10 @@ export const submitReading = async (req, res) => {
       });
 
       if (!myTariff) {
-        return res
-          .status(404)
-          .json({
-            message:
-              "Customer tariff information not found. Cannot calculate fee.",
-          });
+        return res.status(404).json({
+          message:
+            "Customer tariff information not found. Cannot calculate fee.",
+        });
       }
 
       newMeterReading.fee =
@@ -257,11 +254,9 @@ export const submitReading = async (req, res) => {
       });
     }
 
-    return res
-      .status(500)
-      .json({
-        message: "Something is not correct, please try again (upload failed).",
-      });
+    return res.status(500).json({
+      message: "Something is not correct, please try again (upload failed).",
+    });
   } catch (error) {
     console.error("Submission Error:", error);
     res
@@ -283,4 +278,38 @@ export const myMonthlyUsageAnlysis = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: "Internal server error" });
   }
+};
+
+export const myMeterReadings = async (req, res) => {
+  try {
+    const readings = await merterReading.find({ customerId: req.authUser.id });
+    res.status(200).json(readings);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Internal server error during reading submission" });
+  }
+};
+
+export const payBill = async (req, res) => {
+  try {
+    const { rId } = req.body;
+    const reading = merterReading.findById(rId).populate("paymentMonth");
+    if (!reading && !reading.paymentMonth.isOpen) {
+      res.status(200).json({
+        message:
+          "The current month payment schedule is closed please contact the district.",
+      });
+    }
+    const recordPaymet = new customerPayments({
+      meterReading: reading._id,
+      customerId: req.authUser.id,
+      paymentMonth: reading.paymentMonth._id,
+    });
+    await merterReading.findByIdAndUpdate(reading._id, {
+      paymentStatus: "Paid",
+    });
+    await recordPaymet.save();
+    res.status(200).json({ message: "Paid sucessfully" });
+  } catch (error) {}
 };
