@@ -363,6 +363,14 @@ export const closePaymentSchedule = async (req, res) => {
     );
   } catch (error) {}
 };
+export const getAllSchedule = async (req, res) => {
+  try {
+    const schedules = await paymentSchedule.find();
+    res.status(200).json(schedules);
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};  
 export const manualMeterReadingAndPayment = async (req, res) => {
   try {
     const photo = req.file;

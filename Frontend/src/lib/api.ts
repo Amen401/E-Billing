@@ -122,6 +122,9 @@ const ENDPOINTS = {
  searchcustomercomplaints:"/officer/search-customer-complients",
  customercomplaintInfo:"/officer/customer-complient-infos",
  getoficerstats:"/officer/get-officer-stats",
+ createSchedule:"/officer/create-schedule",
+ getSchedule:"/officer/get-schedule",
+ closeSchedule:"/officer/close-schedule",
 
 };
 
@@ -498,8 +501,23 @@ customercomplaintInfos:async()=>{
 getDashboardStats:async()=>{
   const response=await api.get(ENDPOINTS.getoficerstats);
   return response;
-} 
-
+} ,
+createSchedule: async (data: any) => {
+  const response = await api.post(ENDPOINTS.createSchedule, data);
+  return response;
+},
+getSchedule: async () => {
+  const response = await api.get(ENDPOINTS.getSchedule);
+  return response;
+},
+closeSchedule: async (id: string) => {
+  const response = await api.put(ENDPOINTS.closeSchedule, { id });
+  return response;
+},
+checkMissedMonths:async(id:string)=>{
+  const response=await api.get("/officer/check-missed-months");
+  return response;
+}
 
 
 

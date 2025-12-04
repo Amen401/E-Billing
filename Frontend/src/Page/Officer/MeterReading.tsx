@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Gauge, Search, TrendingUp, AlertTriangle, Activity, Eye, Plus } from "lucide-react";
 import { Breadcrumb } from "@/components/BreadCrumb";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, officerApi } from "@/lib/api";
 import { useNavigate } from "react-router-dom";
 
 interface MeterReading {
@@ -39,7 +39,7 @@ const MeterReadings = () => {
   const { data: readings = [], isLoading } = useQuery({
     queryKey: ["meter-readings"],
     queryFn: async () => {
-      const response = await api.get<{ data: MeterReading[] }>("/officer/meter-readings");
+      const response = await officerApi.getMeterReadings();
       return response.data || [];
     },
   });

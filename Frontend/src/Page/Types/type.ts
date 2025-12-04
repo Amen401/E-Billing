@@ -115,4 +115,9 @@ export interface ComplaintFormData {
   subject: string;
   description: string;
 }
+export interface MissedMonth {
+  month: string;
+  year: number;
+  isSelected: boolean;
+}
 

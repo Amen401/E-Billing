@@ -26,9 +26,7 @@ const customerSchema = z.object({
   town: z.string().min(1, "Town is required"),
   powerApproved: z.coerce.number().min(0.1, "Enter valid KW"),
   killowat: z.coerce.number().min(0.1, "Enter valid KW"),
-  applicableTarif: z.enum(["Low Usage", "Medium Usage", "High Usage"], {
-    required_error: "Applicable Tarif is required",
-  }),
+  applicableTarif: z.coerce.number().min(0.1, "Enter valid Tarif"),
   volt: z.coerce.number().min(1, "Volt is required"),
   depositBirr: z.coerce.number().min(1, "Deposit amount required"),
   serviceChargeBirr: z.coerce.number().min(0, "Service Charge must be >= 0"),
@@ -57,7 +55,7 @@ const RegisterCustomer = () => {
     purpose: "",
     powerApproved: 0,
     killowat: 0,
-    applicableTarif: "",
+    applicableTarif: 0,
     volt: 0,
     depositBirr: 0,
     serviceChargeBirr: 0,
@@ -216,11 +214,10 @@ const RegisterCustomer = () => {
                 handle={handleChange}
               />
 
-              <SelectField
+              <NumberField
                 label="Applicable Tarif"
                 name="applicableTarif"
                 value={formData.applicableTarif}
-                options={["Low Usage", "Medium Usage", "High Usage"]}
                 handle={handleChange}
               />
 
@@ -240,12 +237,6 @@ const RegisterCustomer = () => {
                 label="Service Charge (Birr)"
                 name="serviceChargeBirr"
                 value={formData.serviceChargeBirr}
-                handle={handleChange}
-              />
-              <NumberField
-                label="Tarif (Birr)"
-                name="tarifBirr"
-                value={formData.tarifBirr}
                 handle={handleChange}
               />
 
@@ -310,8 +301,8 @@ const SelectField = ({ label, name, value, options, handle }: any) => (
       required
     >
       <option value="">Select {label}</option>
-      {options.map((o: any) => (
-        <option key={o} value={o}>
+      {options.map((o:any) => (
+        <option key={o.value}  value={o}>
           {o}
         </option>
       ))}

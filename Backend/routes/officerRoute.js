@@ -17,6 +17,7 @@ import {
   updateNameOrEmail,
   updateUsernameOrPassword,
   getOfficerStats,
+  getAllSchedule,
 } from "../controllers/officerController.js";
 
 import { verifyToken } from "../Util/tokenVerify.js";
@@ -43,6 +44,7 @@ officerRouter.post("/update-up", verifyToken, updateUsernameOrPassword);
 
 officerRouter.post("/create-schedule", verifyToken, createSchedule);
 officerRouter.post("/close-schedule", verifyToken, closePaymentSchedule);
+officerRouter.get("/get-schedule", verifyToken, getAllSchedule);
 
 officerRouter.post("/pay-manualy", verifyToken, manualMeterReadingAndPayment);
 officerRouter.get(
