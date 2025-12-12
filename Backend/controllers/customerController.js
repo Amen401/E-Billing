@@ -3,7 +3,7 @@ import { Customer } from "../models/CustomerModel.js";
 import { merterReading } from "../models/MeterReading.js";
 import { customerPayments } from "../models/Payments.js";
 import { paymentSchedule } from "../models/PaymentSchedule.js";
-import { customerTariff } from "../models/Tariff.js";
+import { CustomerTariff } from "../models/Tariff.js";
 import { detectAnomaly } from "../Util/AnomalyDetector.js";
 import { cloud } from "../Util/Cloundnary.js";
 import { formattedDate } from "../Util/FormattedDate.js";
@@ -189,7 +189,6 @@ export const submitReading = async (req, res) => {
           folder: "Meter-Readings",
           tags: [req.authUser.id, "meter-readings"],
           quality: "auto:low",
-          timeout: 300000,
         },
         (error, result) => {
           if (error) return reject(error);
@@ -221,7 +220,7 @@ export const submitReading = async (req, res) => {
       newMeterReading.anomalyStatus = anomalyStatus.anomalyStatus;
       newMeterReading.paymentStatus = "Not Paid";
 
-      const myTariff = await customerTariff.findOne({
+      const myTariff = await CustomerTariff.findOne({
         customerId: req.authUser.id,
       });
 
@@ -270,13 +269,16 @@ export const myMonthlyUsageAnlysis = async (req, res) => {
       .find({ customerId: req.authUser.id })
       .sort({ createdAt: -1 })
       .limit(6)
-      .populate("paymentMonth")
-      .exec();
-    const nextMonthUsage = await handlePredictionRequest();
+      .populate("paymentMonth");
+    const nextMonthUsage = await handlePredictionRequest(req, res);
 
-    res.status(200).json(lastReadings, nextMonthUsage);
+    return res.status(200).json({
+      readings: lastReadings,
+      prediction: nextMonthUsage,
+    });
   } catch (error) {
-    res.status(500).json({ message: "Internal server error" });
+    console.log(error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 

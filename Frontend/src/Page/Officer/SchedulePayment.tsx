@@ -49,19 +49,25 @@ const SchedulePayment = () => {
     fetchSchedule();
   }, []);
 
-  const handleCreateSchedule = async () => {
-    try {
-      const res = await officerApi.createSchedule({
-        yearAndMonth,
-        normalPaymentStartDate: startDate,
-        normalPaymentEndDate: endDate,
-      });
+ const handleCreateSchedule = async () => {
+  if (!yearAndMonth || !startDate || !endDate) {
+    alert("Please fill all fields");
+    return;
+  }
 
-      setSchedule(Array.isArray(res.data) ? res.data : []);
-    } catch (error) {
-      console.log(error);
-    }
-  };
+  try {
+    const res = await officerApi.createSchedule({
+      yearAndMonth,
+      normalPaymentStartDate: `${startDate.day}/${startDate.month}/${startDate.year}`,
+      normalPaymentEndDate: `${endDate.day}/${endDate.month}/${endDate.year}`,
+    });
+
+    setSchedule(Array.isArray(res) ? res : []);
+  } catch (error) {
+    console.log(error);
+  }
+};
+
 
   const handleClose = async (id: string) => {
     try {

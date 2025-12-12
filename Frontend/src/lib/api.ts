@@ -183,7 +183,7 @@ activateDeactivateCustomer: async (id: string, isActive: boolean,adminId:string)
   },
 
  updateName: async (id: string, name: string) => {
-  const response = await api.put(ENDPOINTS.updateName, { id, name });
+  const response = await api.post(ENDPOINTS.updateName, { id, name });
   return response;
 },
 
@@ -323,6 +323,29 @@ submitMeterReading: async (formData: FormData) => {
 
     return resData;
   },
+getMonthlyUsage: async () => {
+  const res = await api.get("/customer/my-monthly-usage-analysis");
+  return res; 
+},
+
+getConsumption: async ({ startDate, endDate }) => {
+  const res = await api.get("/customer/my-monthly-usage-analysis", {
+    params: { startDate, endDate },
+  });
+  return res;
+},
+
+getBills: async ({ startDate, endDate }) => {
+  const res = await api.get("/customer/bills", {
+    params: { startDate, endDate },
+  });
+  return res;
+},
+getmymeterReading:async()=>{
+  const response=await api.get("/customer/my-meter-readings");
+  return response;
+},
+
 };
 
 export const officerApi = {
@@ -517,7 +540,21 @@ closeSchedule: async (id: string) => {
 checkMissedMonths:async(id:string)=>{
   const response=await api.get("/officer/check-missed-months");
   return response;
-}
+},
+chnageMeterReadingStatus: async (readingId: string) => {
+  const response = await api.post("/officer/change-reading-status", {
+    readingId,
+  });
+  return response;
+},
+searchMeterReadings: async (query: string) => {
+  const response = await api.get(`/officer/search-meter-readings?q=${encodeURIComponent(query)}`);
+  return response;
+},
+getAllMeterReadings: async () => {
+  const response = await api.get("/officer/get-all-meter-readings");
+  return response;
+},
 
 
 

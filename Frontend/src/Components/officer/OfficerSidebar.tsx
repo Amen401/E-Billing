@@ -28,8 +28,8 @@ import { useAuth } from "../context/UnifiedContext";
 const items = [
   { title: "Dashboard", url: "/officer/dashboard", icon: LayoutDashboard },
   {
-    title: "Register Customer",
-    url: "/officer/register-customer",
+    title: "Customers",
+    url: "/officer/customers",
     icon: UserPlus,
   },
   {

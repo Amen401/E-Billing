@@ -75,38 +75,50 @@ const RegisterCustomer = () => {
   };
 
   const handleSubmit = async (e: any) => {
-    e.preventDefault();
-    setLoading(true);
+  e.preventDefault();
+  setLoading(true);
 
-    const validation = customerSchema.safeParse(formData);
+  const validation = customerSchema.safeParse(formData);
 
-    if (!validation.success) {
-      console.log("Zod validation error:", validation.error);
-      const firstError =
-        validation.error?.errors?.[0]?.message || "Validation failed";
-      toast.error(firstError);
-      setLoading(false);
-      return;
-    }
+  if (!validation.success) {
+    const firstError =
+      validation.error?.errors?.[0]?.message || "Validation failed";
+    toast.error(firstError);
+    setLoading(false);
+    return;
+  }
 
-    try {
-      const data = await officerApi.createCustomer(formData);
-      toast.success(data.message || "Customer registered successfully");
-      navigate("/officer/customers");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to register customer");
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    const payload = {
+      regForm: formData, 
+      tarif: {
+        energyTariff: formData.applicableTarif,
+        serviceCharge: formData.serviceChargeBirr,
+      },
+    };
+
+    const data = await officerApi.createCustomer(payload);
+    toast.success(data.message || "Customer registered successfully");
+
+    navigate("/officer/customers");
+  } catch (err: any) {
+    const msg =
+      err?.response?.data?.message || err.message || "Failed to register customer";
+    toast.error(msg);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <div className="space-y-6">
       <Breadcrumb
         items={[
           { label: "Dashboard", href: "/officer/dashboard" },
+           { label: "View Customers", href: "/officer/customers" },
           { label: "Register Customer" },
-          { label: "View Customers", href: "/officer/customers" },
+         
         ]}
       />
 

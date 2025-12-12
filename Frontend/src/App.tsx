@@ -10,6 +10,7 @@ import AdminProtectedRoute from "./Components/auth/AdminProtectedRoute";
 import AddMeterReading from "./Components/officer/AddMeterReading";
 import UnifiedLogin from "./Page/Auth/Login";
 import SchedulePayment from "./Page/Officer/SchedulePayment";
+import MeterReadingDetail from "./Page/Officer/DetailmeterReading";
 
 
 const Home = lazy(() => import("./Page/Home"));
@@ -117,6 +118,7 @@ const App = () => (
               <Route index element={<Navigate to="/officer/dashboard" replace />} />
               <Route path="dashboard" element={<OfficerDashboard />} />
               <Route path="meter-readings" element={<MeterReadings />} />
+              <Route path="meter-readings/:id" element={<MeterReadingDetail />} />
               <Route path="schedule-payment" element={<SchedulePayment />} />
               <Route path="register-customer" element={<RegisterCustomer />} />
               <Route path="customers" element={<Customers />} />

@@ -13,6 +13,17 @@ import { generateToken } from "../Util/tokenGenrator.js";
 export const createOfficer = async (req, res) => {
   try {
     const { newOfficer, adminId } = req.body;
+    const existingOfficer = await Officer.findOne({ email: newOfficer.email });
+    if (existingOfficer) {
+      return res.status(400).json({ message: "Email already exists" });
+    }
+
+    const existingUsername = await Officer.findOne({
+      username: newOfficer.username,
+    });
+    if (existingUsername) {
+      return res.status(400).json({ message: "Username already exists" });
+    }
 
     newOfficer.password = await endcodePassword(newOfficer.password);
     const newOfficerSchema = new Officer(newOfficer);
@@ -255,7 +266,7 @@ export const customerResetPassword = async (req, res) => {
     const id = req.body.id;
     const password = await endcodePassword("12345678");
     const customer = await Customer.findOneAndUpdate(
-        { _id: id },
+      { _id: id },
       { password },
       { new: true }
     );
@@ -363,19 +374,18 @@ export const activateDeactivateCustomer = async (req, res) => {
   try {
     const { id, isActive, adminId } = req.body;
 
-     const getCustomerAndUPdate = await Customer.findByIdAndUpdate(
+    const getCustomerAndUPdate = await Customer.findByIdAndUpdate(
       id,
       { isActive },
       { new: true }
     );
-
 
     const history = new customerADHistory({
       customerId: id,
       action: isActive ? "Activate" : "Deactivate",
       date: formattedDate(),
     });
- await history.save();
+    await history.save();
 
     await saveActivity(
       adminId,

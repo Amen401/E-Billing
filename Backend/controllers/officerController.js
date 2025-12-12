@@ -10,7 +10,7 @@ import { formattedDate } from "../Util/FormattedDate.js";
 import { customerPayments } from "../models/Payments.js";
 import { paymentSchedule } from "../models/PaymentSchedule.js";
 import { merterReading } from "../models/MeterReading.js";
-import { customerTariff } from "../models/Tariff.js";
+import { CustomerTariff } from "../models/Tariff.js";
 
 export const officerLogin = async (req, res) => {
   const { username, password } = req.body;
@@ -43,6 +43,15 @@ export const officerLogin = async (req, res) => {
 export const addCustomer = async (req, res) => {
   try {
     const { regForm, tarif } = req.body;
+    const existingCustomer = await Customer.findOne({
+      meterReaderSN: regForm.meterReaderSN,
+    });
+    if (existingCustomer) {
+      return res.status(400).json({
+        message: `Meter Serial Number ${regForm.meterReaderSN} is already used`,
+      });
+    }
+
     regForm.password = await endcodePassword(regForm.password);
 
     let isAccountExists = true;
@@ -59,12 +68,13 @@ export const addCustomer = async (req, res) => {
     const newCustomer = new Customer(regForm);
 
     const save = await newCustomer.save();
-    const customerTariff = new customerTariff({
+    const customerTariff = new CustomerTariff({
       customerId: save._id,
       energyTariff: tarif.energyTariff,
       serviceCharge: tarif.serviceCharge,
     });
     await customerTariff.save();
+
     saveActivity(
       req.authUser.id,
       `Created customer account with name: ${save.name} and accountNumber: ${save.accountNumber}`
@@ -75,7 +85,8 @@ export const addCustomer = async (req, res) => {
       password: "12345678",
     });
   } catch (error) {
-    res.status(500).json({ message: "Internal server error", error });
+    console.error("Error in addCustomer:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -345,7 +356,7 @@ export const createSchedule = async (req, res) => {
       req.authUser.id,
       `Created new payment schedule ${newSchedule.yearAndMonth}`
     );
-    res.status(200).json({ message: "New schedule seted successfully" });
+    res.status(201).json(newSchedule);
   } catch (error) {
     res.status(500).json({ message: "Internal server error" });
   }
@@ -370,7 +381,7 @@ export const getAllSchedule = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: "Internal server error" });
   }
-};  
+};
 export const manualMeterReadingAndPayment = async (req, res) => {
   try {
     const photo = req.file;
@@ -402,7 +413,7 @@ export const manualMeterReadingAndPayment = async (req, res) => {
 
     const eachMonthUsage = monthlyUsage / months.length;
 
-    const myTariff = await customerTariff.findOne({
+    const myTariff = await CustomerTariff.findOne({
       customerId: cId,
     });
     let totalPayment = 0;
@@ -487,6 +498,14 @@ export const changeMeterReadingStatus = async (req, res) => {
       account ${result.paymentMonth.yearAndMonth}`
     );
     res.status(200).json({ message: "Status updated sucessfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+export const getAllMeterReadings = async (req, res) => {
+  try {
+    const meterReadings = await merterReading.find();
+    res.status(200).json(meterReadings);
   } catch (error) {
     res.status(500).json({ message: "Internal server error" });
   }

@@ -16,4 +16,4 @@ const tariffSchema = mongoose.Schema({
   },
 });
 
-export const customerTariff = mongoose.model("CustomerTariff", tariffSchema);
+export const CustomerTariff = mongoose.model("CustomerTariff", tariffSchema);

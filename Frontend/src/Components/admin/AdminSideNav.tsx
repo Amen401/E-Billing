@@ -1,6 +1,6 @@
 import { LayoutDashboard, UserCog, Activity, LogOut, User } from "lucide-react";
 import { NavLink } from "react-router-dom";
-import { useAdminAuth } from "../Context/AdminContext";
+import { useAuth } from "../context/UnifiedContext";
 import {
   Sidebar,
   SidebarContent,
@@ -25,7 +25,7 @@ const menuItems = [
 
 export function AdminSidebar() {
   const { open } = useSidebar();
-  const { logout, user } = useAdminAuth();
+  const { logout, user } = useAuth();
 
   const getInitials = (name: string) => {
     return name?.charAt(0).toUpperCase() || "A";

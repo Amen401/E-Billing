@@ -12,11 +12,14 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { User, Lock, Save, Mail } from "lucide-react";
-import { useAdminAuth } from "@/Components/Context/AdminContext";
+import { useAuth } from "@/components/context/UnifiedContext";
 
 const AdminProfile = () => {
-  const { user, updateProfile, changePassword } = useAdminAuth();
-  const [isEditing, setIsEditing] = useState(false);
+  const { user, updateProfile, changePassword } = useAuth();
+
+  // Separate state for editing name and username
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const [profileData, setProfileData] = useState({
@@ -32,15 +35,17 @@ const AdminProfile = () => {
   const [profileLoading, setProfileLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
 
-  const handleProfileUpdate = async (e: React.FormEvent) => {
+  const handleProfileUpdate = async (e: React.FormEvent, field: "name" | "username") => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || !updateProfile) return;
 
     try {
       setProfileLoading(true);
-      await updateProfile({ name: profileData.name });
-      toast.success("Profile updated successfully");
-      setIsEditing(false);
+      await updateProfile({ name: field === "name" ? profileData.name : undefined });
+      toast.success(`${field === "name" ? "Name" : "Username"} updated successfully`);
+
+      if (field === "name") setIsEditingName(false);
+      else setIsEditingUsername(false);
     } catch (err: any) {
       toast.error(err.message || "Failed to update profile");
     } finally {
@@ -79,6 +84,7 @@ const AdminProfile = () => {
     <div className="space-y-6 p-6 max-w-4xl mx-auto">
       <h1 className="text-3xl font-bold">Admin Profile</h1>
 
+      {/* Name Section */}
       <Card>
         <CardHeader className="flex items-center justify-between">
           <div>
@@ -87,57 +93,48 @@ const AdminProfile = () => {
             </CardTitle>
             <CardDescription>Update your name</CardDescription>
           </div>
-          {!isEditing && (
+          {!isEditingName && (
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setIsEditing(true)}
+              onClick={() => setIsEditingName(true)}
             >
               Edit
             </Button>
           )}
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleProfileUpdate} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
-              <Input
-                id="name"
-                value={profileData.name}
-                onChange={(e) => setProfileData({ name: e.target.value })}
-                disabled={!isEditing || profileLoading}
-                required
-              />
-            </div>
-            {isEditing && (
-              <div className="flex gap-2 pt-2">
-                <Button
-                  type="submit"
-                  className="gap-2"
+          {isEditingName && (
+            <form onSubmit={(e) => handleProfileUpdate(e, "name")} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name</Label>
+                <Input
+                  id="name"
+                  value={profileData.name}
+                  onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
                   disabled={profileLoading}
-                >
-                  {profileLoading ? (
-                    "Saving..."
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4" /> Save
-                    </>
-                  )}
+                  required
+                />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button type="submit" disabled={profileLoading}>
+                  {profileLoading ? "Saving..." : <><Save className="h-4 w-4" /> Save</>}
                 </Button>
                 <Button
                   variant="outline"
                   type="button"
                   disabled={profileLoading}
-                  onClick={() => setIsEditing(false)}
+                  onClick={() => setIsEditingName(false)}
                 >
                   Cancel
                 </Button>
               </div>
-            )}
-          </form>
+            </form>
+          )}
         </CardContent>
       </Card>
 
+      {/* Username Section */}
       <Card>
         <CardHeader className="flex items-center justify-between">
           <div>
@@ -149,22 +146,23 @@ const AdminProfile = () => {
         </CardHeader>
 
         <CardContent className="space-y-6">
+          {/* Username */}
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <p className="font-medium">Username</p>
-              {!isEditing && (
+              {!isEditingUsername && (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setIsEditing(true)}
+                  onClick={() => setIsEditingUsername(true)}
                 >
                   Change Username
                 </Button>
               )}
             </div>
 
-            {isEditing && (
-              <form onSubmit={handleProfileUpdate} className="space-y-3">
+            {isEditingUsername && (
+              <form onSubmit={(e) => handleProfileUpdate(e, "username")} className="space-y-3">
                 <Input
                   value={profileData.username}
                   onChange={(e) =>
@@ -181,7 +179,7 @@ const AdminProfile = () => {
                     variant="outline"
                     type="button"
                     disabled={profileLoading}
-                    onClick={() => setIsEditing(false)}
+                    onClick={() => setIsEditingUsername(false)}
                   >
                     Cancel
                   </Button>
@@ -192,7 +190,7 @@ const AdminProfile = () => {
 
           <Separator />
 
-          {/* ✅ Change Password Section */}
+          {/* Password Section */}
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <p className="font-medium">Password</p>
@@ -214,10 +212,7 @@ const AdminProfile = () => {
                   placeholder="Current Password"
                   value={passwordData.oldPass}
                   onChange={(e) =>
-                    setPasswordData({
-                      ...passwordData,
-                      oldPass: e.target.value,
-                    })
+                    setPasswordData({ ...passwordData, oldPass: e.target.value })
                   }
                   required
                 />
@@ -226,10 +221,7 @@ const AdminProfile = () => {
                   placeholder="New Password"
                   value={passwordData.newPass}
                   onChange={(e) =>
-                    setPasswordData({
-                      ...passwordData,
-                      newPass: e.target.value,
-                    })
+                    setPasswordData({ ...passwordData, newPass: e.target.value })
                   }
                   required
                 />
@@ -238,14 +230,10 @@ const AdminProfile = () => {
                   placeholder="Confirm New Password"
                   value={passwordData.confirmPass}
                   onChange={(e) =>
-                    setPasswordData({
-                      ...passwordData,
-                      confirmPass: e.target.value,
-                    })
+                    setPasswordData({ ...passwordData, confirmPass: e.target.value })
                   }
                   required
                 />
-
                 <div className="flex gap-2">
                   <Button type="submit" disabled={passwordLoading}>
                     {passwordLoading ? "Saving..." : "Update Password"}
@@ -265,11 +253,11 @@ const AdminProfile = () => {
         </CardContent>
       </Card>
 
+      {/* Account Details */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Mail className="h-5 w-5" />
-            Account Details
+            <Mail className="h-5 w-5" /> Account Details
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -283,21 +271,15 @@ const AdminProfile = () => {
             <Separator />
             <div className="flex justify-between items-center py-2">
               <div>
-                <p className="text-sm font-medium text-foreground">
-                  Account Status
-                </p>
+                <p className="text-sm font-medium text-foreground">Account Status</p>
                 <p className="text-sm text-muted-foreground">Active</p>
               </div>
             </div>
             <Separator />
             <div className="flex justify-between items-center py-2">
               <div>
-                <p className="text-sm font-medium text-foreground">
-                  Last Login
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {new Date().toLocaleString()}
-                </p>
+                <p className="text-sm font-medium text-foreground">Last Login</p>
+                <p className="text-sm text-muted-foreground">{new Date().toLocaleString()}</p>
               </div>
             </div>
           </div>

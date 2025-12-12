@@ -3,6 +3,7 @@ import {
   changePassword,
   customerLogin,
   myComplains,
+  myMeterReadings,
   myMonthlyUsageAnlysis,
   searchMyComplain,
   submitReading,
@@ -23,6 +24,7 @@ customerRouter.get(
   verifyToken,
   myMonthlyUsageAnlysis
 );
+customerRouter.get("/my-meter-readings", verifyToken, myMeterReadings);
 customerRouter.post(
   "/submit-reading",
   verifyToken,

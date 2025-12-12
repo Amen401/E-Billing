@@ -1,84 +1,80 @@
 import { spawn } from "child_process";
-import fs from "fs/promises";
-import path from "path";
+import dotenv from "dotenv";
+import { MongoClient } from "mongodb";
+import fs from "fs";
 
+
+dotenv.config();
+
+const PYTHON_SCRIPT = `${process.cwd()}/Python/Monthly_Pred.py`;
 const MONGO_URI = process.env.URL;
-const DB_NAME = process.env.DB_NAME || "test";
+const DB_NAME = process.env.DB_NAME;
+const COLLECTION = "Predictions";
 
-const PYTHON_SCRIPT_REL_PATH = path.join(
-  "Backend",
-  "Python",
-  "Monthly_Pred.py"
-);
-
-if (!MONGO_URI) {
-  console.error(
-    "FATAL ERROR: MONGO_URI not found in environment variables. Check your .env file."
-  );
-  process.exit(1);
-}
-
-export async function handlePredictionRequest(req, res) {
-  const customerId = req.authUser.id;
-  const OUT_FILE = `forecast_${customerId}_${Date.now()}.json`;
+export async function handlePredictionRequest(req) {
+  const customerId = req.authUser._id?.toString() || req.authUser.id;
+  console.log("id", customerId);
 
   const pythonArgs = [
-    PYTHON_SCRIPT_REL_PATH,
+    PYTHON_SCRIPT,
     "--mongo",
-    MONGO_URI,
+    process.env.URL, // raw URI
     "--db",
     DB_NAME,
+    "--coll",
+    "meterreadings", // match collection name exactly
     "--customer",
     customerId,
     "--out",
-    OUT_FILE,
+    "forecast.json",
   ];
 
-  try {
-    const pythonProcess = spawn("python3", pythonArgs);
+  const pythonProcess = spawn("python", pythonArgs, { windowsHide: true });
 
-    let scriptOutput = "";
-    let scriptError = "";
+  pythonProcess.stdout.on("data", (data) => console.log(data.toString()));
+  pythonProcess.stderr.on("data", (data) => console.error(data.toString()));
 
-    pythonProcess.stdout.on("data", (data) => {
-      scriptOutput += data.toString();
+  console.log("Running Python with args:", pythonArgs.join(" "));
+
+  return new Promise((resolve, reject) => {
+    const pythonProcess = spawn("python", pythonArgs, { windowsHide: true });
+
+    let scriptOut = "";
+    let scriptErr = "";
+
+    pythonProcess.stderr.on("data", (d) => (scriptErr += d.toString()));
+    pythonProcess.stdout.on("data", (d) => {
+      scriptOut += d.toString();
     });
 
-    pythonProcess.stderr.on("data", (data) => {
-      scriptError += data.toString();
+    pythonProcess.on("close", async (code) => {
+      try {
+        if (code !== 0) return reject(scriptErr || "Python script failed.");
+
+        const jsonData = JSON.parse(fs.readFileSync("forecast.json", "utf-8"));
+
+        // Update MongoDB with the prediction
+        const client = new MongoClient(MONGO_URI);
+        await client.connect();
+        const db = client.db(DB_NAME);
+        await db
+          .collection(COLLECTION)
+          .updateOne(
+            { customerId: jsonData.customerId },
+            { $set: jsonData },
+            { upsert: true }
+          );
+        await client.close();
+
+        resolve(jsonData);
+      } catch (err) {
+        reject(err);
+      }
     });
-
-    const code = await new Promise((resolve) => {
-      pythonProcess.on("close", resolve);
-    });
-
-    if (code !== 0) {
-      console.error(
-        `Python script exited with code ${code}. Error: ${scriptError}`
-      );
-      return res.status(500).json({
-        error: "Forecasting failed on Python side.",
-        details: scriptError || scriptOutput,
-      });
-    }
-
-    console.log(`Python Script Success Output: ${scriptOutput.trim()}`);
-
-    const data = await fs.readFile(OUT_FILE, "utf-8");
-    const result = JSON.parse(data);
-
-    await fs.unlink(OUT_FILE);
-
-    return res.json(result);
-  } catch (error) {
-    console.error("Express/Execution error:", error);
-
-    try {
-      await fs.unlink(OUT_FILE);
-    } catch {}
-    return res.status(500).json({
-      error: "Server error during execution.",
-      details: error.message,
-    });
-  }
+  });
 }
+
+
+
+
+

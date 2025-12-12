@@ -80,7 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return userData.role;
     } catch (err: any) {
       toast.error(err.message || "Login failed");
-      throw err;
+      throw err.message;
     } finally {
       setIsLoading(false);
     }
@@ -129,22 +129,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const updateProfile = async (data: { name?: string }) => {
-    if (!user) return;
+ const updateProfile = async (data: { name?: string }) => {
+  if (!user) return;
 
-    try {
-      if (user.role === "admin" && data.name && data.name !== user.name) {
-        const response = await adminApi.updateName(user.id, data.name);
-        const updatedUser = { ...user, name: response.result.name };
-        setUser(updatedUser);
-        localStorage.setItem("user", JSON.stringify(updatedUser));
-        toast.success(response.message || "Profile updated successfully");
-      }
-    } catch (err: any) {
-      toast.error(err.message || "Failed to update profile");
-      throw err;
+  try {
+    if (user.role === "admin" && data.name && data.name !== user.name) {
+      const response = await adminApi.updateName(user.id, data.name);
+      const updatedName = response.result?.name || data.name;
+      const updatedUser = { ...user, name: updatedName };
+      setUser(updatedUser);
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      toast.success("Profile updated successfully");
     }
-  };
+  } catch (err: any) {
+    toast.error(err.message || "Failed to update profile");
+    throw err;
+  }
+};
+
 
   const changePassword = async (oldPass: string, newPass: string) => {
     if (!user) return;

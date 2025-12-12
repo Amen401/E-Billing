@@ -47,7 +47,7 @@ import {
 } from "@/components/ui/select";
 import { getStatusBadgeVariant } from "@/lib/bage-utils";
 import type { Officer } from "../Types/type";
-import { useAdminAuth } from "@/Components/Context/AdminContext";
+import { useAuth } from "@/components/context/UnifiedContext";
 
 const ManageOfficers = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -60,7 +60,7 @@ const ManageOfficers = () => {
   const [selectedOfficer, setSelectedOfficer] = useState<Officer | null>(null);
   const [resetPasswordResult, setResetPasswordResult] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
-  const { user } = useAdminAuth();
+  const { user } = useAuth();
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [newOfficer, setNewOfficer] = useState({

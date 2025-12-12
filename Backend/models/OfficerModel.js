@@ -20,12 +20,10 @@ const officerSchema = new mongoose.Schema(
     photo: {
       secure_url: {
         type: String,
-        required: true,
         default: "",
       },
       public_id: {
         type: String,
-        required: true,
         default: "",
       },
     },

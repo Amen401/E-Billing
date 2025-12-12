@@ -1,11 +1,9 @@
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { CreditCard, Building2, Wallet, CheckCircle2, AlertCircle } from "lucide-react";
-import { useState } from "react";
 import { motion } from "framer-motion";
+import { CheckCircle2, AlertCircle, Wallet } from "lucide-react";
 
 interface PaymentDialogProps {
   open: boolean;
@@ -15,163 +13,108 @@ interface PaymentDialogProps {
   onPaymentComplete: () => void;
 }
 
-export const PaymentDialog = ({ open, onOpenChange, amount, readingValue, onPaymentComplete }: PaymentDialogProps) => {
-  const [paymentMethod, setPaymentMethod] = useState<"card" | "bank" | "wallet">("card");
+export const EthiopianPaymentDialog = ({
+  open,
+  onOpenChange,
+  amount,
+  readingValue,
+  onPaymentComplete,
+}: PaymentDialogProps) => {
   const [processing, setProcessing] = useState(false);
   const [success, setSuccess] = useState(false);
-const handlePayment = async () => {
-  try {
+  const [polling, setPolling] = useState(false);
+
+  const handlePayment = async () => {
     setProcessing(true);
 
-    const res = await fetch("http://localhost:3000/payment/create", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        amount,
-        email: "hana@example.com",
-        name: "Hana",
-        customerId: "USER_ID_FROM_AUTH",
-      }),
-    });
+    try {
+      const res = await fetch("http://localhost:3000/payment/chapa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount, customerId: "USER_ID_FROM_AUTH" }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (data.checkoutUrl) {
-      window.location.href = data.checkoutUrl;
+      if (data.checkoutUrl && data.tx_ref) {
+        window.open(data.checkoutUrl, "_blank");
+
+
+        setPolling(true);
+        const interval = setInterval(async () => {
+          const statusRes = await fetch(`http://localhost:3000/payment/chapa-status/${data.tx_ref}`);
+          const statusData = await statusRes.json();
+
+          if (statusData.status === "success") {
+            clearInterval(interval);
+            setPolling(false);
+            setSuccess(true);
+            onPaymentComplete();
+          } else if (statusData.status === "failed") {
+            clearInterval(interval);
+            setPolling(false);
+            alert("Payment failed. Please try again.");
+          }
+        }, 3000);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Payment error. Try again.");
+    } finally {
+      setProcessing(false);
     }
-  } catch (err) {
-    console.error(err);
-  } finally {
-    setProcessing(false);
-  }
-};
-
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[400px]">
+      <DialogContent className="sm:max-w-[360px] p-6">
         {!success ? (
           <>
-            <DialogHeader>
-              <DialogTitle className="text-xl font-bold">Complete Payment</DialogTitle>
-              <DialogDescription>
-                Review your bill and select a payment method
+            <DialogHeader className="text-center">
+              <DialogTitle className="text-xl font-bold">Pay Your Bill</DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground">
+                Meter Reading: {readingValue} kWh
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-6 py-4">
-              <Card className="p-4 bg-muted/50 border-border">
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">Meter Reading</span>
-                    <span className="font-mono font-large">{readingValue} kWh</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">Usage This Period</span>
-                    <span className="font-mono">234 kWh</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">Rate per kWh</span>
-                    <span className="font-mono">$0.15</span>
-                  </div>
-                  <div className="h-px bg-border my-2" />
-                  <div className="flex justify-between items-center">
-                    <span className="font-semibold text-lg">Total Amount</span>
-                    <span className="font-bold text-2xl text-primary">${amount.toFixed(2)}</span>
-                  </div>
-                </div>
-              </Card>
+            <Card className="p-4 mt-4 text-center bg-muted/50 border-border">
+              <div className="text-lg font-semibold mb-2">Total Amount</div>
+              <div className="text-2xl font-bold text-primary">{amount.toFixed(2)}birr</div>
+            </Card>
 
-              <div className="space-y-3">
-                <Label className="text-base font-semibold">Select Payment Method</Label>
-                <RadioGroup value={paymentMethod} onValueChange={(value: any) => setPaymentMethod(value)}>
-                  <Card 
-                    className={`p-4 cursor-pointer transition-all hover:shadow-md ${
-                      paymentMethod === "card" ? "border-primary ring-2 ring-primary/20" : "border-border"
-                    }`}
-                    onClick={() => setPaymentMethod("card")}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <RadioGroupItem value="card" id="card" />
-                      <CreditCard className="w-5 h-5 text-primary" />
-                      <div className="flex-1">
-                        <Label htmlFor="card" className="font-semibold cursor-pointer">Credit/Debit Card</Label>
-                        <p className="text-xs text-muted-foreground">Visa, Mastercard, Amex</p>
-                      </div>
-                    </div>
-                  </Card>
+            <div className="mt-6 text-center space-y-3">
+              <Button
+                onClick={handlePayment}
+                className="w-full bg-gradient-primary flex items-center justify-center gap-2"
+                disabled={processing || polling}
+              >
+                {processing || polling ? (
+                  <span className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white bg-black border-t-transparent rounded-full animate-spin" />
+                    {polling ? "Waiting for payment..." : "Processing..."}
+                  </span>
+                ) : (
+                  <>
+                    <Wallet className="w-5 h-5" />
+                    Pay with Chapa
+                  </>
+                )}
+              </Button>
 
-                  <Card 
-                    className={`p-4 cursor-pointer transition-all hover:shadow-md ${
-                      paymentMethod === "bank" ? "border-primary ring-2 ring-primary/20" : "border-border"
-                    }`}
-                    onClick={() => setPaymentMethod("bank")}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <RadioGroupItem value="bank" id="bank" />
-                      <Building2 className="w-5 h-5 text-primary" />
-                      <div className="flex-1">
-                        <Label htmlFor="bank" className="font-semibold cursor-pointer">Bank Transfer</Label>
-                        <p className="text-xs text-muted-foreground">Direct from your bank account</p>
-                      </div>
-                    </div>
-                  </Card>
-
-                  <Card 
-                    className={`p-4 cursor-pointer transition-all hover:shadow-md ${
-                      paymentMethod === "wallet" ? "border-primary ring-2 ring-primary/20" : "border-border"
-                    }`}
-                    onClick={() => setPaymentMethod("wallet")}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <RadioGroupItem value="wallet" id="wallet" />
-                      <Wallet className="w-5 h-5 text-primary" />
-                      <div className="flex-1">
-                        <Label htmlFor="wallet" className="font-semibold cursor-pointer">Digital Wallet</Label>
-                        <p className="text-xs text-muted-foreground">Apple Pay, Google Pay</p>
-                      </div>
-                    </div>
-                  </Card>
-                </RadioGroup>
-              </div>
-
-              {/* Security Notice */}
-              <Card className="p-3 bg-primary/5 border-primary/20">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                  <p className="text-xs text-muted-foreground">
-                    Your payment is secured with 256-bit SSL encryption. We never store your card details.
-                  </p>
-                </div>
-              </Card>
-            </div>
-
-            <div className="flex gap-3">
-              <Button 
-                variant="outline" 
-                onClick={() => onOpenChange(false)} 
-                className="flex-1"
-                disabled={processing}
+              <Button
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                className="w-full"
+                disabled={processing || polling}
               >
                 Cancel
               </Button>
-              <Button 
-                onClick={handlePayment} 
-                className="flex-1 bg-gradient-primary"
-                disabled={processing}
-              >
-                {processing ? (
-                  <span className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Processing...
-                  </span>
-                ) : (
-                  `Pay $${amount.toFixed(2)}`
-                )}
-              </Button>
             </div>
+
+            <Card className="p-3 mt-4 bg-primary/5 border-primary/20 text-xs text-muted-foreground flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+              Your payment is secured and encrypted. We never store your payment details.
+            </Card>
           </>
         ) : (
           <motion.div
