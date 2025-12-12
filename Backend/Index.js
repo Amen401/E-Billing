@@ -2,6 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import { databaseConnection } from "./config/databaseConfig.js";
 import cors from "cors";
+import http from "http";
 
 const app = express();
 
@@ -31,6 +32,10 @@ app.post("/auth/login", unifiedLogin);
 
 const PORT = process.env.PORT || 5000;
 
-const server=app.listen(PORT, () => {
+const server = http.createServer(app);
+
+server.timeout = 120000;
+
+server.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });

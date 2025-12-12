@@ -1,0 +1,16 @@
+{
+  "customerId": "690f0023180b83246b84afe3",
+  "history_used": 10,
+  "last_6_month_filter_applied": true,
+  "last_history_date": "2025-12-31",
+  "mae_last_month": 13614.896139430064,
+  "prediction": {
+    "next_month_date": "2026-01-31",
+    "predicted_monthlyUsage": 562780.5517261656,
+    "usage_range": {
+      "lower": 553467.5844131488,
+      "upper": 572002.4999098043
+    },
+    "predicted_killowatRead": 590509.0517261656
+  }
+}

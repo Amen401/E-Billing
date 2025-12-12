@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import Webcam from "react-webcam";
 import { motion, AnimatePresence } from "framer-motion";
 import { ReviewDialog } from "@/components/Customer/ReviewDialog";
-import { PaymentDialog } from "@/components/Customer/PaymentDialog";
+import { EthiopianPaymentDialog } from "@/Components/Customer/PaymentDialog";
 import { customerApi } from "@/lib/api";
 
 interface MeterReadingResult {
@@ -225,7 +225,7 @@ const SubmitReading = () => {
                     <div>
                       <p className="text-sm text-muted-foreground">Fee Amount</p>
                       <p className="text-2xl font-bold">
-                        ${result.fee.toFixed(2)}
+                        {result.fee.toFixed(2)}birr
                       </p>
                     </div>
                   </div>
@@ -290,7 +290,7 @@ const SubmitReading = () => {
           </motion.div>
         </div>
 
-        <PaymentDialog
+        <EthiopianPaymentDialog
           open={showPayment}
           onOpenChange={setShowPayment}
           amount={result.fee}
@@ -489,7 +489,7 @@ const SubmitReading = () => {
                   </Button>
                   <Button
                     onClick={submitToBackend}
-                    className="flex-1 h-12 text-lg bg-success/70 text-white"
+                    className="flex-1 h-12 text-lg bg-black bg-success/70 text-white"
                     disabled={isProcessing}
                   >
                     {isProcessing ? "Sending..." : "Send Reading"}
@@ -561,7 +561,7 @@ const SubmitReading = () => {
         onConfirm={handleConfirmReading}
       />
 
-      <PaymentDialog
+      <EthiopianPaymentDialog
         open={showPayment}
         onOpenChange={setShowPayment}
         amount={estimatedAmount}

@@ -13,7 +13,7 @@ import { officerApi, adminApi } from "@/lib/api";
 import type { Customer } from "@/types/customer";
 import { CustomerTableRow } from "@/components/Customer/CustomerTableRow";
 import { StatCard } from "@/components/Customer/StatCard";
-import { useAdminAuth } from "@/Components/Context/AdminContext";
+import { useAuth } from "@/components/context/UnifiedContext";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 const ITEMS_PER_PAGE = 10;
@@ -22,7 +22,7 @@ const DEBOUNCE_DELAY = 500;
 export default function ManageCustomers() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user } = useAdminAuth();
+  const { user } = useAuth();
 
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
   const [resetPasswordResult, setResetPasswordResult] = useState<string>("");

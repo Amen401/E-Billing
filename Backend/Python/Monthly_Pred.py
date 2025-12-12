@@ -1,13 +1,13 @@
-# predict_next_month_from_mongo.py
+# Monthly_pred.py
 import os
 import json
 import argparse
-from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
 from prophet import Prophet
 from pymongo import MongoClient
 from sklearn.metrics import mean_absolute_error
+from bson import ObjectId
 
 # ------------------------------
 # FETCH FROM MONGO
@@ -17,12 +17,25 @@ def fetch_from_mongo(mongo_uri, db_name, collection_name, customer_id):
     db = client[db_name]
     coll = db[collection_name]
 
+    print("Connecting to:", mongo_uri)
+    print("Connected! Using database:", db_name)
+    print("Using collection:", collection_name)
+
+    # Convert customer_id to ObjectId
+    try:
+        customer_id = ObjectId(customer_id)
+    except:
+        print("Invalid ObjectId format")
+        return []
+
     docs = list(
         coll.find(
             {"customerId": customer_id},
             {"killowatRead": 1, "monthlyUsage": 1, "dateOfSubmission": 1, "_id": 0}
         ).sort("dateOfSubmission", 1)
     )
+
+    print("Documents fetched:", len(docs))
     client.close()
     return docs
 
@@ -35,7 +48,10 @@ def prepare_df(docs):
 
     df = pd.DataFrame(docs)
     df = df.rename(columns={"dateOfSubmission": "ds"})
-    df['ds'] = pd.to_datetime(df['ds'])
+    
+    # Convert to datetime and align to month-end
+    df['ds'] = pd.to_datetime(df['ds'], format="%m/%d/%Y, %H:%M")
+    df['ds'] = df['ds'] + pd.offsets.MonthEnd(0)  # month-end alignment
 
     # Normalize monthlyUsage
     df = df[pd.notna(df['monthlyUsage'])]
@@ -47,7 +63,7 @@ def prepare_df(docs):
 
     df = df.sort_values('ds').reset_index(drop=True)
 
-    # ----- 🔥 FILTER LAST 6 MONTHS -----
+    # ----- FILTER LAST 6 MONTHS -----
     six_months_ago = df['ds'].max() - pd.DateOffset(months=6)
     df_last6 = df[df['ds'] >= six_months_ago].copy()
 
@@ -60,16 +76,12 @@ def prepare_df(docs):
 # TRAIN MODEL
 # ------------------------------
 def train_prophet(df):
-    m = Prophet(
-        yearly_seasonality=False,
-        weekly_seasonality=False,
-        daily_seasonality=False
-    )
+    m = Prophet(yearly_seasonality=False, weekly_seasonality=False, daily_seasonality=False)
     m.fit(df[['ds', 'y']])
     return m
 
 # ------------------------------
-# SIMPLE SINGLE-MONTH BACKTEST
+# BACKTEST (SINGLE MONTH)
 # ------------------------------
 def backtest_mae(df):
     if len(df) < 4:
@@ -78,17 +90,17 @@ def backtest_mae(df):
     train = df[:-1]
     test = df[-1:]
 
-    m = Prophet(
-        yearly_seasonality=False,
-        weekly_seasonality=False,
-        daily_seasonality=False
-    )
+    m = Prophet(yearly_seasonality=False, weekly_seasonality=False, daily_seasonality=False)
     m.fit(train[['ds', 'y']])
 
-    fut = m.make_future_dataframe(periods=1, freq='M')
+    fut = m.make_future_dataframe(periods=1, freq='ME')
     pred = m.predict(fut)
 
-    pred_y = pred.set_index('ds').loc[test['ds'].values[0], 'yhat']
+    # pick closest date
+    test_date = test['ds'].values[0]
+    nearest_idx = (pred['ds'] - test_date).abs().idxmin()
+    pred_y = pred.loc[nearest_idx, 'yhat']
+
     mae = float(mean_absolute_error(test['y'].values, [pred_y]))
     return mae
 
@@ -96,7 +108,7 @@ def backtest_mae(df):
 # PREDICT NEXT MONTH
 # ------------------------------
 def predict_next_month(m, df):
-    future = m.make_future_dataframe(periods=1, freq='M')
+    future = m.make_future_dataframe(periods=1, freq='ME')
     forecast = m.predict(future)
 
     last_hist = df['ds'].max()
@@ -166,7 +178,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mongo", required=True)
     parser.add_argument("--db", required=True)
-    parser.add_argument("--coll", default="MeterReading")
+    parser.add_argument("--coll", default="meterreadings")
     parser.add_argument("--customer", required=True)
     parser.add_argument("--out", default="forecast.json")
     args = parser.parse_args()

@@ -26,9 +26,7 @@ const customerSchema = z.object({
   town: z.string().min(1, "Town is required"),
   powerApproved: z.coerce.number().min(0.1, "Enter valid KW"),
   killowat: z.coerce.number().min(0.1, "Enter valid KW"),
-  applicableTarif: z.enum(["Low Usage", "Medium Usage", "High Usage"], {
-    required_error: "Applicable Tarif is required",
-  }),
+  applicableTarif: z.coerce.number().min(0.1, "Enter valid Tarif"),
   volt: z.coerce.number().min(1, "Volt is required"),
   depositBirr: z.coerce.number().min(1, "Deposit amount required"),
   serviceChargeBirr: z.coerce.number().min(0, "Service Charge must be >= 0"),
@@ -57,7 +55,7 @@ const RegisterCustomer = () => {
     purpose: "",
     powerApproved: 0,
     killowat: 0,
-    applicableTarif: "",
+    applicableTarif: 0,
     volt: 0,
     depositBirr: 0,
     serviceChargeBirr: 0,
@@ -77,38 +75,50 @@ const RegisterCustomer = () => {
   };
 
   const handleSubmit = async (e: any) => {
-    e.preventDefault();
-    setLoading(true);
+  e.preventDefault();
+  setLoading(true);
 
-    const validation = customerSchema.safeParse(formData);
+  const validation = customerSchema.safeParse(formData);
 
-    if (!validation.success) {
-      console.log("Zod validation error:", validation.error);
-      const firstError =
-        validation.error?.errors?.[0]?.message || "Validation failed";
-      toast.error(firstError);
-      setLoading(false);
-      return;
-    }
+  if (!validation.success) {
+    const firstError =
+      validation.error?.errors?.[0]?.message || "Validation failed";
+    toast.error(firstError);
+    setLoading(false);
+    return;
+  }
 
-    try {
-      const data = await officerApi.createCustomer(formData);
-      toast.success(data.message || "Customer registered successfully");
-      navigate("/officer/customers");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to register customer");
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    const payload = {
+      regForm: formData, 
+      tarif: {
+        energyTariff: formData.applicableTarif,
+        serviceCharge: formData.serviceChargeBirr,
+      },
+    };
+
+    const data = await officerApi.createCustomer(payload);
+    toast.success(data.message || "Customer registered successfully");
+
+    navigate("/officer/customers");
+  } catch (err: any) {
+    const msg =
+      err?.response?.data?.message || err.message || "Failed to register customer";
+    toast.error(msg);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <div className="space-y-6">
       <Breadcrumb
         items={[
           { label: "Dashboard", href: "/officer/dashboard" },
+           { label: "View Customers", href: "/officer/customers" },
           { label: "Register Customer" },
-          { label: "View Customers", href: "/officer/customers" },
+         
         ]}
       />
 
@@ -216,11 +226,10 @@ const RegisterCustomer = () => {
                 handle={handleChange}
               />
 
-              <SelectField
+              <NumberField
                 label="Applicable Tarif"
                 name="applicableTarif"
                 value={formData.applicableTarif}
-                options={["Low Usage", "Medium Usage", "High Usage"]}
                 handle={handleChange}
               />
 
@@ -240,12 +249,6 @@ const RegisterCustomer = () => {
                 label="Service Charge (Birr)"
                 name="serviceChargeBirr"
                 value={formData.serviceChargeBirr}
-                handle={handleChange}
-              />
-              <NumberField
-                label="Tarif (Birr)"
-                name="tarifBirr"
-                value={formData.tarifBirr}
                 handle={handleChange}
               />
 
@@ -310,8 +313,8 @@ const SelectField = ({ label, name, value, options, handle }: any) => (
       required
     >
       <option value="">Select {label}</option>
-      {options.map((o: any) => (
-        <option key={o} value={o}>
+      {options.map((o:any) => (
+        <option key={o.value}  value={o}>
           {o}
         </option>
       ))}

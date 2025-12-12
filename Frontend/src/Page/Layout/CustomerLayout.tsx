@@ -25,7 +25,7 @@ const navigation = [
     href: "/customer/consumption",
     icon: BarChart3,
   },
-  { name: "Pay Bill", href: "/customer/bills", icon: FileText },
+  { name: "Bill History", href: "/customer/bills", icon: FileText },
   { name: "Complaints/Support", href: "/customer/support", icon: Headphones },
   { name: "Profile", href: "/customer/profile", icon: User },
 ];

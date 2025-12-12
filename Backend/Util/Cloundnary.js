@@ -7,6 +7,7 @@ cl.config({
   api_key: process.env.API_KEY,
   api_secret: process.env.API_SECRET,
   secure: true,
+  timeout: 120000,
 });
 
 export const cloud = cl;
