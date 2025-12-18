@@ -121,3 +121,27 @@ export interface MissedMonth {
   isSelected: boolean;
 }
 
+export interface BillRow {
+  _id: string;
+  killowatRead: number;
+  monthlyUsage: number;
+  fee: number;
+  monthName: string;
+  dateOfSubmission: string;
+  paymentStatus: "Paid" | "Unpaid" | "Pending";
+  anomalyStatus: "Normal" | "Anomaly";
+  txRef?: string;
+  photo?: {
+    secure_url: string;
+    public_id: string;
+  };
+  customerId: string;
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
+
+  month?: string;        
+  consumption?: number;  
+  amount?: number;      
+  status?: string;     
+}

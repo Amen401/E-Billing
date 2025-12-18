@@ -18,11 +18,11 @@ export async function handlePredictionRequest(req) {
   const pythonArgs = [
     PYTHON_SCRIPT,
     "--mongo",
-    process.env.URL, // raw URI
+    process.env.URL, 
     "--db",
     DB_NAME,
     "--coll",
-    "meterreadings", // match collection name exactly
+    "meterreadings", 
     "--customer",
     customerId,
     "--out",

@@ -117,8 +117,7 @@ const Consumption: React.FC = () => {
   console.log("graphData:", graphData, "isLoading:", loadingMonthly);
 
   const detailedData: BillRow[] = (billsDataRaw || []).map((b: any) => ({
-    month: b.paymentMonth || "Unknown",
-    reading: Number(b.killowatRead ?? b.reading ?? 0),
+    month: b.monthName || "Unknown",
     consumption: Number(b.monthlyUsage ?? b.consumption ?? 0),
     amount: Number(b.fee ?? 0),
     status: b.paymentStatus ?? "Pending",

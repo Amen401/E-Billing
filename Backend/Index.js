@@ -34,7 +34,7 @@ const PORT = process.env.PORT || 5000;
 
 const server = http.createServer(app);
 
-server.timeout = 120000;
+server.timeout = 140000;
 
 server.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);

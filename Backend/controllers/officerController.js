@@ -11,6 +11,7 @@ import { customerPayments } from "../models/Payments.js";
 import { paymentSchedule } from "../models/PaymentSchedule.js";
 import { merterReading } from "../models/MeterReading.js";
 import { CustomerTariff } from "../models/Tariff.js";
+import { extractKWAndMeterNo } from "../Util/photoAnalyzer.js";
 
 export const officerLogin = async (req, res) => {
   const { username, password } = req.body;
@@ -332,22 +333,37 @@ export const updateComplientStatus = async (req, res) => {
 
 export const checkMissedMonthes = async (req, res) => {
   try {
-    const findCustomer = await findById(req.query.id);
-    const findCustomerLastPayment = await customerPayments
-      .findOne({
-        customerId: req.query.id,
-        createdAt: { $gt: findCustomer.createdAt },
-      })
-      .sort({ createdAt: -1 })
-      .exec();
-    const missedMonthes = await paymentSchedule.find({
-      cratedAt: { $gt: findCustomerLastPayment.paymentMonth.cratedAt },
+    const { id } = req.query;
+
+    const lastPayment = await customerPayments
+      .findOne({ customerId: id })
+      .populate("paymentMonth")
+      .sort({ createdAt: -1 });
+
+    let lastPaidYearMonth = null;
+
+    if (lastPayment) {
+      lastPaidYearMonth = lastPayment.paymentMonth.yearAndMonth;
+    }
+
+    const query = lastPaidYearMonth
+      ? { yearAndMonth: { $gt: lastPaidYearMonth } }
+      : {};
+
+    const missedMonths = await paymentSchedule
+      .find(query)
+      .sort({ yearAndMonth: 1 });
+
+    res.status(200).json({
+      count: missedMonths.length,
+      missedMonths,
     });
-    res.status(200).json(missedMonthes);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
 export const createSchedule = async (req, res) => {
   try {
     const newSchedule = new paymentSchedule(req.body);
@@ -385,75 +401,160 @@ export const getAllSchedule = async (req, res) => {
 export const manualMeterReadingAndPayment = async (req, res) => {
   try {
     const photo = req.file;
-    const { cId, months, fine } = req.body;
+    const { cId, months, fine = 0 } = req.body;
+
+    if (!photo) {
+      return res.status(400).json({ message: "Meter image is required" });
+    }
+
+    if (!cId) {
+      return res.status(400).json({ message: "Customer ID is required" });
+    }
+
+    // Parse months and validate
+    let parsedMonths;
+    try {
+      parsedMonths = JSON.parse(months);
+    } catch (parseError) {
+      return res.status(400).json({ message: "Invalid months format" });
+    }
+
+    if (!parsedMonths || !Array.isArray(parsedMonths) || parsedMonths.length === 0) {
+      return res.status(400).json({ message: "No valid months provided" });
+    }
+
+    // Validate each month entry
+    for (const month of parsedMonths) {
+      if (!month || !month._id || !month.monthName) {
+        return res.status(400).json({ 
+          message: "Invalid month data. Each month must have _id and monthName" 
+        });
+      }
+    }
 
     const base64 = Buffer.from(photo.buffer).toString("base64");
     const mimeType = photo.mimetype;
+
+    const dataUri = `data:${mimeType};base64,${base64}`;
+
     const resp = await extractKWAndMeterNo(base64, mimeType);
     const findAccount = await Customer.findById(cId);
+    if (!findAccount) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
 
     if (resp.meterNo != findAccount.meterReaderSN) {
-      res.status(200).json({
-        message: "This meter is not your meter. please insert your meter image",
+      return res.status(403).json({
+        message: "This meter is not your meter. Please insert correct meter image",
       });
     }
 
-    const uploadImage = await cloud.uploader.upload(base64, {
+    const uploadImage = await cloud.uploader.upload(dataUri, {
       folder: "Meter-Readings",
       tags: [req.authUser.id, "meter-readings"],
     });
 
     const lastReading = await merterReading
-      .findOne({
-        customerId: req.authUser.id,
-      })
-      .sort({ createdAt: -1 })
-      .exec();
-    const monthlyUsage = resp.kilowatt - lastReading.killowatRead;
+      .findOne({ customerId: cId })
+      .sort({ createdAt: -1 });
 
-    const eachMonthUsage = monthlyUsage / months.length;
+    const previousRead = lastReading ? lastReading.killowatRead : 0;
+    const monthlyUsage = resp.kilowatt - previousRead;
+    const eachMonthUsage = monthlyUsage / parsedMonths.length;
 
-    const myTariff = await CustomerTariff.findOne({
-      customerId: cId,
-    });
+    const myTariff = await CustomerTariff.findOne({ customerId: cId });
+    if (!myTariff) {
+      return res.status(400).json({ message: "Tariff not found for customer" });
+    }
+
+    const energyTariff = Number(myTariff.energyTariff) || 0;
+    const serviceCharge = Number(myTariff.serviceCharge) || 0;
+    const vatRate = 0.15;
+
     let totalPayment = 0;
-    for (let index = 0; index < months.length; index++) {
+    const breakdowns = [];
+    const meterReadings = [];
+
+    for (let index = 0; index < parsedMonths.length; index++) {
+      const currentMonth = parsedMonths[index];
+      
+      const energyCharge = energyTariff * eachMonthUsage;
+      const subtotal = energyCharge + serviceCharge + Number(fine);
+      const vatAmount = subtotal * vatRate;
+      const totalFee = subtotal + vatAmount;
+
       const newReading = new merterReading({
         photo: {
           secure_url: uploadImage.secure_url,
           public_id: uploadImage.public_id,
         },
-        killowatRead: lastReading + eachMonthUsage * (index + 1),
+        killowatRead: previousRead + eachMonthUsage * (index + 1),
         monthlyUsage: eachMonthUsage,
         anomalyStatus: "Normal",
         paymentStatus: "Paid",
-        fee:
-          myTariff.energyTariff * eachMonthUsage +
-          myTariff.serviceCharge +
-          fine,
+        fee: totalFee,
         dateOfSubmission: formattedDate(),
-        paymentMonth: months[index],
+        paymentMonth: currentMonth._id, // Make sure this is a valid ObjectId
+        monthName: currentMonth.monthName, // Make sure monthName is included
         customerId: cId,
+        calculationDetails: {
+          previousReading: previousRead + eachMonthUsage * index,
+          currentReading: previousRead + eachMonthUsage * (index + 1),
+          consumption: eachMonthUsage,
+          energyCharge,
+          serviceCharge,
+          fine: Number(fine),
+          vatRate: vatRate * 100,
+          vatAmount,
+          totalFee,
+        },
       });
-      totalPayment +=
-        myTariff.energyTariff * eachMonthUsage + myTariff.serviceCharge + fine;
+
       const result = await newReading.save();
-      const newPayment = customerPayments({
+
+      await customerPayments.create({
         meterReading: result._id,
         customerId: cId,
-        paymentMonth: months[index],
+        paymentMonth: currentMonth._id,
+        monthName: currentMonth.monthName,
       });
-      await newPayment.save();
+
+      totalPayment += totalFee;
+      breakdowns.push(newReading.calculationDetails);
+      meterReadings.push(result._id);
     }
+
     await saveActivity(
       req.authUser.id,
-      `Manually paid ${findAccount.accountNumber} ${months.length} month payment`
+      `Manually paid ${findAccount.accountNumber} for ${parsedMonths.length} months`
     );
-    res
-      .status(200)
-      .json({ message: "Fixed problem sucessFully", totalPayment });
+
+    res.status(200).json({
+      message: "Manual payment processed successfully",
+      totalPayment,
+      meterReadingresult: {
+        kilowatt: resp.kilowatt,
+        monthlyUsage: eachMonthUsage,
+        totalMonths: parsedMonths.length,
+      },
+      calculationBreakdown: breakdowns,
+      processedMonths: parsedMonths.map(m => m.monthName),
+    });
   } catch (error) {
-    res.status(500).json({ message: "Internal server error" });
+    console.error("Manual Payment Error:", error);
+    
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({ 
+        message: "Validation error", 
+        errors: messages 
+      });
+    }
+    
+    res.status(500).json({ 
+      message: "Internal server error",
+      error: error.message 
+    });
   }
 };
 

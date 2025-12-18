@@ -25,7 +25,6 @@ import { officerApi } from "@/lib/api";
 import EthiopianCalendarDropdown from "@/Components/officer/EthiopianCalender";
 import type { EthiopianDate } from "@/Components/officer/EthiopianCalender";
 
-
 const SchedulePayment = () => {
   const [yearAndMonth, setYearAndMonth] = useState("");
   const [yearMonthOpen, setYearMonthOpen] = useState(false);
@@ -48,26 +47,38 @@ const SchedulePayment = () => {
     };
     fetchSchedule();
   }, []);
+  const isStartAfterEnd = (
+    start: EthiopianDate,
+    end: EthiopianDate
+  ): boolean => {
+    if (start.year !== end.year) return start.year > end.year;
+    if (start.month !== end.month) return start.month > end.month;
+    return start.day > end.day;
+  };
 
- const handleCreateSchedule = async () => {
-  if (!yearAndMonth || !startDate || !endDate) {
-    alert("Please fill all fields");
-    return;
-  }
+  const handleCreateSchedule = async () => {
+    if (!yearAndMonth || !startDate || !endDate) {
+      alert("Please fill all fields");
+      return;
+    }
 
-  try {
-    const res = await officerApi.createSchedule({
-      yearAndMonth,
-      normalPaymentStartDate: `${startDate.day}/${startDate.month}/${startDate.year}`,
-      normalPaymentEndDate: `${endDate.day}/${endDate.month}/${endDate.year}`,
-    });
+    if (isStartAfterEnd(startDate, endDate)) {
+      alert("Start date must be before or equal to end date");
+      return;
+    }
 
-    setSchedule(Array.isArray(res) ? res : []);
-  } catch (error) {
-    console.log(error);
-  }
-};
+    try {
+      const res = await officerApi.createSchedule({
+        yearAndMonth,
+        normalPaymentStartDate: `${startDate.day}/${startDate.month}/${startDate.year}`,
+        normalPaymentEndDate: `${endDate.day}/${endDate.month}/${endDate.year}`,
+      });
 
+      setSchedule(Array.isArray(res) ? res : []);
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
   const handleClose = async (id: string) => {
     try {
@@ -115,8 +126,16 @@ const SchedulePayment = () => {
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="start" className="p-0">
-               <EthiopianCalendarDropdown
-                  selectedDate={yearAndMonth ? { year: parseInt(yearAndMonth.split('/')[1]), month: parseInt(yearAndMonth.split('/')[0]), day: 1 } : null}
+                <EthiopianCalendarDropdown
+                  selectedDate={
+                    yearAndMonth
+                      ? {
+                          year: parseInt(yearAndMonth.split("/")[1]),
+                          month: parseInt(yearAndMonth.split("/")[0]),
+                          day: 1,
+                        }
+                      : null
+                  }
                   onSelect={(date: EthiopianDate) => {
                     setYearAndMonth(`${date.month}/${date.year}`);
                   }}
@@ -156,18 +175,16 @@ const SchedulePayment = () => {
             <label className="text-sm font-medium">End Date (Ethiopian)</label>
             <Popover open={endOpen} onOpenChange={setEndOpen}>
               <PopoverTrigger asChild>
-               <Button
+                <Button
                   variant="outline"
                   className="w-full md:w-[250px] flex justify-between"
                 >
-                  {endDate
-                    ? formatEthiopianDate(endDate)
-                    : "Select End Date"}
+                  {endDate ? formatEthiopianDate(endDate) : "Select End Date"}
                   <CalendarIcon className="h-4 w-4 opacity-60" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="start" className="p-0">
-                 <EthiopianCalendarDropdown
+                <EthiopianCalendarDropdown
                   selectedDate={endDate}
                   onSelect={(date: EthiopianDate) => {
                     setEndDate(date);

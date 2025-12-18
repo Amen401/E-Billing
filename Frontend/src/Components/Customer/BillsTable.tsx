@@ -8,14 +8,11 @@ import {
   TableRow,
 } from "@/Components/ui/table";
 import { CheckCircle2, Clock, AlertCircle } from "lucide-react";
-
-type BillRow = {
-  month: string;
-  reading: number;
-  consumption: number;
-  amount: number;
-  status: "Paid" | "Pending" | "Overdue" | string;
-};
+import { Button } from "../ui/button";
+import { Eye } from "lucide-react";
+import { useState } from "react";
+import BillDetailDialog from "./Billdialogdetails";
+import type {BillRow} from "@/Page/Types/type"
 
 interface BillsTableProps {
   data: BillRow[];
@@ -23,7 +20,7 @@ interface BillsTableProps {
   isError: boolean;
 }
 
-const StatusBadge = ({ status }: { status: string }) => {
+export const StatusBadge = ({ status }: { status: string }) => {
   const statusConfig = {
     Paid: {
       variant: "default" as const,
@@ -54,6 +51,12 @@ const StatusBadge = ({ status }: { status: string }) => {
 };
 
 export const BillsTable = ({ data, isLoading, isError }: BillsTableProps) => {
+   const [selectedBill, setSelectedBill] = useState<BillRow | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const handleViewDetails = (row: BillRow) => {
+    setSelectedBill(row);
+    setIsDialogOpen(true);
+  };
   if (isLoading) {
     return (
       <div className="border border-border rounded-lg overflow-hidden">
@@ -79,17 +82,18 @@ export const BillsTable = ({ data, isLoading, isError }: BillsTableProps) => {
       </div>
     );
   }
-
+ 
   return (
+    <>
     <div className="border border-border rounded-lg overflow-hidden bg-card">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50 hover:bg-muted/50">
             <TableHead className="font-semibold">Billing Month</TableHead>
-            <TableHead className="font-semibold">Meter Reading</TableHead>
             <TableHead className="font-semibold">Consumption (kWh)</TableHead>
             <TableHead className="font-semibold">Amount (ETB)</TableHead>
             <TableHead className="font-semibold">Status</TableHead>
+            <TableHead className="font-semibold">Actions</TableHead>
           </TableRow>
         </TableHeader>
 
@@ -111,7 +115,6 @@ export const BillsTable = ({ data, isLoading, isError }: BillsTableProps) => {
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 <TableCell className="font-medium">{row.month}</TableCell>
-                <TableCell className="font-mono text-muted-foreground">{row.reading.toLocaleString()}</TableCell>
                 <TableCell>
                   <span className="font-semibold text-primary">{row.consumption.toLocaleString()}</span>
                   <span className="text-muted-foreground text-sm ml-1">kWh</span>
@@ -120,12 +123,29 @@ export const BillsTable = ({ data, isLoading, isError }: BillsTableProps) => {
                 <TableCell>
                   <StatusBadge status={row.status} />
                 </TableCell>
+                <TableCell>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleViewDetails(row)}
+                    className="h-8 px-2"
+                  >
+                    <Eye className="h-4 w-4 mr-1" />
+                    View
+                  </Button>
+                </TableCell>
               </TableRow>
             ))
           )}
         </TableBody>
       </Table>
     </div>
+     <BillDetailDialog
+        bill={selectedBill}
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+      />
+      </>
   );
 };
 

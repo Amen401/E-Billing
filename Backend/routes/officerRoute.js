@@ -50,7 +50,6 @@ officerRouter.post("/create-schedule", verifyToken, createSchedule);
 officerRouter.post("/close-schedule", verifyToken, closePaymentSchedule);
 officerRouter.get("/get-schedule", verifyToken, getAllSchedule);
 
-officerRouter.post("/pay-manualy", verifyToken, manualMeterReadingAndPayment);
 officerRouter.get(
   "/customer-complient-infos",
   verifyToken,
@@ -70,8 +69,18 @@ officerRouter.get("/get-missed-payments", verifyToken, checkMissedMonthes);
 officerRouter.post("/pay-missed-payments", verifyToken, payMissedPaymentMonths);
 officerRouter.post("/update-comp-status", verifyToken, updateComplientStatus);
 officerRouter.get("/get-officer-stats", verifyToken, getOfficerStats);
-officerRouter.post("/change-reading-status", verifyToken, changeMeterReadingStatus);
+officerRouter.post(
+  "/change-reading-status",
+  verifyToken,
+  changeMeterReadingStatus
+);
 officerRouter.get("/search-meter-readings", verifyToken, searchMeterReadings);
 officerRouter.get("/get-all-meter-readings", verifyToken, getAllMeterReadings);
+officerRouter.post(
+  "/pay-manualy",
+  verifyToken,
+  upload.single("photo"),
+  manualMeterReadingAndPayment
+);
 
 export default officerRouter;
