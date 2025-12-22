@@ -2,7 +2,7 @@ import express from "express";
 import {
   addCustomer,
   changeProfilePicture,
-  checkMissedMonthes,
+  checkMissedMonths,
   closePaymentSchedule,
   createSchedule,
   customerComplientInformations,
@@ -22,6 +22,7 @@ import {
   searchMeterReadings,
   getAllMeterReadings,
   payMissedPaymentMonths,
+  generateReport,
 } from "../controllers/officerController.js";
 
 import { verifyToken } from "../Util/tokenVerify.js";
@@ -32,14 +33,15 @@ const officerRouter = express.Router();
 officerRouter.post("/add-customer", verifyToken, addCustomer);
 officerRouter.post("/login", officerLogin);
 officerRouter.get("/my-activities", verifyToken, myActivities);
-officerRouter.get("/search-my-activities", verifyToken, searchMyActivities);
+officerRouter.post("/search-my-activities", verifyToken, searchMyActivities);
 officerRouter.post("/search-customer", verifyToken, searchCustomer);
 officerRouter.get("/get-customers", verifyToken, getCustomer);
 officerRouter.post("/officer-logout", verifyToken, officerLogout);
 officerRouter.post(
   "/change-profile-pic",
-  upload.single("image"),
   verifyToken,
+  upload.single("image"),
+
   changeProfilePicture
 );
 
@@ -65,7 +67,7 @@ officerRouter.put(
   verifyToken,
   updateComplientStatus
 );
-officerRouter.get("/get-missed-payments", verifyToken, checkMissedMonthes);
+officerRouter.get("/get-missed-payments", verifyToken, checkMissedMonths);
 officerRouter.post("/pay-missed-payments", verifyToken, payMissedPaymentMonths);
 officerRouter.post("/update-comp-status", verifyToken, updateComplientStatus);
 officerRouter.get("/get-officer-stats", verifyToken, getOfficerStats);
@@ -82,5 +84,6 @@ officerRouter.post(
   upload.single("photo"),
   manualMeterReadingAndPayment
 );
+officerRouter.post("/reports/generate", verifyToken, generateReport);
 
 export default officerRouter;

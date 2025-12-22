@@ -13,7 +13,7 @@ import {
   chapaCallback,
   getPaidBills,
   getmeterbyId,
-  updateTestPaymentStatus
+  updateTestPaymentStatus,
 } from "../controllers/customerController.js";
 import { verifyToken } from "../Util/tokenVerify.js";
 import { upload } from "../middleware/multer.js";
@@ -41,10 +41,13 @@ customerRouter.post(
 customerRouter.post("/pay-bill", verifyToken, payBill);
 
 customerRouter.get("/payment-status/:txRef", verifyToken, checkPaymentStatus);
-customerRouter.post('/test-payment', updateTestPaymentStatus);
+customerRouter.post("/test-payment", updateTestPaymentStatus);
 customerRouter.get("/chapa-callback", chapaCallback);
 customerRouter.get("/paid-bill", verifyToken, getPaidBills);
 
-customerRouter.get("/meter-by-id/:id",verifyToken,getmeterbyId);
+customerRouter.get("/meter-by-id/:id", verifyToken, getmeterbyId);
+customerRouter.post("/logout", verifyToken, (req, res) => {
+  res.status(200).json({ message: "Logged out successfully." });
+});
 
 export default customerRouter;

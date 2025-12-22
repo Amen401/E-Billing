@@ -1,45 +1,102 @@
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { FileText, Calendar as CalendarIcon, FileDown, FileSpreadsheet, Loader2, Download, Eye } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  FileText,
+  Calendar as CalendarIcon,
+  FileSpreadsheet,
+  Loader2,
+  Eye,
+  X,
+  Download,
+  BarChart,
+  AlertCircle,
+  DollarSign,
+  Users,
+  TrendingUp,
+  CheckCircle2,
+  Clock,
+  Activity,
+} from "lucide-react";
 import { Breadcrumb } from "@/components/Breadcrumb";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { officerApi } from "@/lib/api";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import ExcelJS from "exceljs";
+import { saveAs } from "file-saver";
 
+const formatDateSafe = (dateString: string): string => {
+  if (!dateString) return "N/A";
+
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      return "Recent";
+    }
+    return date.toLocaleString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "Recent";
+  }
+};
 
 interface ReportData {
   reportType: string;
-  officerId: string;
+  generatedBy: string;
   generatedAt: string;
-  summary: {
-    customersRegistered: number;
-    meterReadingsSubmitted: number;
-    paymentsProcessed: number;
-    complaintsHandled: number;
-    pendingComplaints: number;
-    resolvedComplaints: number;
+  filters?: {
+    startDate: string;
+    endDate: string;
+    department?: string;
+    userGroup?: string;
   };
-  details: {
-    customersRegistered: any[];
-    meterReadings: any[];
-    payments: any[];
-    complaints: any[];
-    activities: any[];
-  };
+  data: any;
 }
 
 const Reports = () => {
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
   const [reportType, setReportType] = useState("officer-report");
-  const [department, setDepartment] = useState("");
-  const [userGroup, setUserGroup] = useState("");
+  const [department, setDepartment] = useState("all");
+  const [userGroup, setUserGroup] = useState("all");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -49,7 +106,6 @@ const Reports = () => {
       toast.error("Please select both start and end dates");
       return;
     }
-
     if (startDate > endDate) {
       toast.error("Start date cannot be after end date");
       return;
@@ -57,393 +113,1125 @@ const Reports = () => {
 
     setIsGenerating(true);
     try {
-      const params = new URLSearchParams({
+      const data = await officerApi.generateReport(reportType, {
         startDate: format(startDate, "yyyy-MM-dd"),
         endDate: format(endDate, "yyyy-MM-dd"),
-        ...(department && department !== "all" && { department }),
-        ...(userGroup && userGroup !== "all" && { userGroup }),
+        ...(department !== "all" && { department }),
+        ...(userGroup !== "all" && { userGroup }),
       });
 
-      let endpoint = "";
-      switch (reportType) {
-        case "officer-report":
-          endpoint = "/api/reports/officer";
-          break;
-        case "new-registrations":
-          endpoint = "/api/reports/registrations";
-          break;
-        case "meter-readings":
-          endpoint = "/api/reports/meter-readings";
-          break;
-        case "revenue":
-          endpoint = "/api/reports/revenue";
-          break;
-        case "customer-complaints":
-          endpoint = "/api/reports/complaints";
-          break;
-        default:
-          endpoint = "/api/reports/officer";
-      }
-
-      const response = await fetch(`${endpoint}?${params}`, {
-        headers: {
-          "Authorization": `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to generate report");
-      }
-
-      const data = await response.json();
       setReportData(data);
       toast.success("Report generated successfully");
-      
     } catch (error) {
       console.error("Error generating report:", error);
-      toast.error("Failed to generate report. Please try again.");
+      toast.error("Failed to generate report");
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleExport = async (format: "pdf" | "excel") => {
-    if (!reportData) {
-      toast.error("Please generate a report first");
-      return;
+  const exportExcelFrontend = async (reportData: ReportData) => {
+    const workbook = new ExcelJS.Workbook();
+    const ws = workbook.addWorksheet("Report Data");
+
+    ws.mergeCells("A1:F1");
+    const titleCell = ws.getCell("A1");
+    titleCell.value = `${formatReportType(reportData.reportType)}`;
+    titleCell.font = { size: 18, bold: true, color: { argb: "FF2563EB" } };
+    titleCell.alignment = { horizontal: "center" };
+
+    ws.mergeCells("A2:F2");
+    ws.getCell("A2").value = `Generated on: ${new Date(
+      reportData.generatedAt
+    ).toLocaleString()}`;
+    ws.getCell("A2").font = { size: 11, italic: true };
+
+    ws.mergeCells("A3:F3");
+    ws.getCell("A3").value = `Generated by: ${reportData.generatedBy}`;
+    ws.getCell("A3").font = { size: 11, italic: true };
+
+    ws.addRow([]);
+
+    if (reportData.data.summary) {
+      ws.addRow(["SUMMARY"]).font = { bold: true, size: 14 };
+      Object.entries(reportData.data.summary).forEach(([k, v]) => {
+        if (typeof v === "object") {
+          ws.addRow([k, JSON.stringify(v)]);
+        } else {
+          ws.addRow([k, v]);
+        }
+      });
+      ws.addRow([]);
     }
 
-    try {
-      const response = await fetch("/api/reports/export", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: JSON.stringify({
-          reportData,
-          format,
-          reportType,
-          startDate: startDate ? format(startDate, "yyyy-MM-dd") : null,
-          endDate: endDate ? format(endDate, "yyyy-MM-dd") : null,
-        }),
+    const dataKey =
+      reportData.reportType === "meter-readings"
+        ? "readings"
+        : reportData.reportType === "revenue"
+        ? "payments"
+        : reportData.reportType === "customer-complaints"
+        ? "complaints"
+        : "officers";
+
+    if (reportData.data[dataKey]?.length) {
+      ws.addRow(["DETAILED DATA"]).font = { bold: true, size: 14 };
+      
+      const headers = Object.keys(reportData.data[dataKey][0]);
+      const headerRow = ws.addRow(headers);
+      headerRow.eachCell((cell) => {
+        cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FF2563EB" },
+        };
+        cell.alignment = { horizontal: "center" };
       });
 
-      if (!response.ok) {
-        throw new Error("Export failed");
-      }
+      reportData.data[dataKey].forEach((item: any) => {
+        const values = Object.values(item).map((v) =>
+          typeof v === "object" ? JSON.stringify(v) : v
+        );
+        ws.addRow(values);
+      });
 
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `report_${format(new Date(), "yyyyMMdd_HHmmss")}.${format === "pdf" ? "pdf" : "xlsx"}`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      
-      toast.success(`Report exported as ${format.toUpperCase()} successfully`);
+      ws.columns.forEach((column) => {
+        column.width = 20;
+      });
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const fileName = `report_${reportData.reportType}_${format(
+      new Date(),
+      "yyyy-MM-dd_HH-mm"
+    )}.xlsx`;
+    saveAs(new Blob([buffer]), fileName);
+  };
+
+  const exportPDFFrontend = (reportData: ReportData) => {
+    const doc = new jsPDF();
+
+    doc.setFontSize(20);
+    doc.setTextColor(37, 99, 235);
+    doc.text(formatReportType(reportData.reportType), 14, 20);
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(
+      `Generated on: ${new Date(reportData.generatedAt).toLocaleString()}`,
+      14,
+      30
+    );
+    doc.text(`Generated by: ${reportData.generatedBy}`, 14, 36);
+
+    if (reportData.filters) {
+      doc.text(
+        `Period: ${reportData.filters.startDate} to ${reportData.filters.endDate}`,
+        14,
+        42
+      );
+    }
+
+    let startY = 55;
+
+    if (reportData.data.summary) {
+      const summaryData = Object.entries(reportData.data.summary)
+        .filter(([, v]) => typeof v !== "object")
+        .map(([k, v]) => [
+          k.replace(/([A-Z])/g, " $1").replace(/^./, (str) => str.toUpperCase()),
+          String(v),
+        ]);
+
+      if (summaryData.length > 0) {
+        autoTable(doc, {
+          startY,
+          head: [["Metric", "Value"]],
+          body: summaryData,
+          theme: "striped",
+          headStyles: { fillColor: [37, 99, 235] },
+          styles: { fontSize: 10 },
+        });
+        startY = (doc as any).lastAutoTable?.finalY + 15 || startY + 50;
+      }
+    }
+
+    // Detailed data
+    const dataKey =
+      reportData.reportType === "meter-readings"
+        ? "readings"
+        : reportData.reportType === "revenue"
+        ? "payments"
+        : reportData.reportType === "customer-complaints"
+        ? "complaints"
+        : "officers";
+
+    if (reportData.data[dataKey]?.length) {
+      const headers = Object.keys(reportData.data[dataKey][0]).map((h) =>
+        h.replace(/([A-Z])/g, " $1").replace(/^./, (str) => str.toUpperCase())
+      );
+      const body = reportData.data[dataKey].map((item: any) =>
+        Object.values(item).map((v) =>
+          typeof v === "object" ? JSON.stringify(v) : String(v)
+        )
+      );
+
+      autoTable(doc, {
+        startY,
+        head: [headers],
+        body: body.slice(0, 20), // Limit rows for PDF
+        theme: "striped",
+        headStyles: { fillColor: [37, 99, 235], fontSize: 8 },
+        styles: { fontSize: 8, cellPadding: 2 },
+        columnStyles: { 0: { cellWidth: 25 } },
+      });
+    }
+
+    // Footer
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.text(
+        `Page ${i} of ${pageCount}`,
+        doc.internal.pageSize.width / 2,
+        doc.internal.pageSize.height - 10,
+        { align: "center" }
+      );
+    }
+
+    doc.save(
+      `report_${reportData.reportType}_${format(
+        new Date(),
+        "yyyy-MM-dd_HH-mm"
+      )}.pdf`
+    );
+  };
+
+  const handleExport = async (formatType: "pdf" | "excel") => {
+    if (!reportData) {
+      toast.error("Generate a report first");
+      return;
+    }
+    setIsExporting(true);
+
+    try {
+      if (formatType === "pdf") {
+        exportPDFFrontend(reportData);
+      } else {
+        await exportExcelFrontend(reportData);
+      }
+      toast.success(`Report exported as ${formatType.toUpperCase()}`);
+      setShowExportModal(false);
     } catch (error) {
-      console.error("Export error:", error);
-      toast.error(`Failed to export as ${format.toUpperCase()}`);
+      console.error(error);
+      toast.error("Failed to export report");
+    } finally {
+      setIsExporting(false);
     }
   };
 
   const resetReport = () => {
     setReportData(null);
     setShowPreview(false);
+    setStartDate(undefined);
+    setEndDate(undefined);
+    setDepartment("all");
+    setUserGroup("all");
+  };
+
+  const formatReportType = (type: string) => {
+    const types: Record<string, string> = {
+      "officer-report": "Officer Activity Report",
+      "meter-readings": "Meter Readings Report",
+      revenue: "Revenue Analysis Report",
+      "customer-complaints": "Customer Complaints Report",
+    };
+    return types[type] || type;
+  };
+
+  const getReportIcon = (type: string) => {
+    switch (type) {
+      case "officer-report":
+        return <Users className="h-5 w-5" />;
+      case "meter-readings":
+        return <BarChart className="h-5 w-5" />;
+      case "revenue":
+        return <DollarSign className="h-5 w-5" />;
+      case "customer-complaints":
+        return <AlertCircle className="h-5 w-5" />;
+      default:
+        return <FileText className="h-5 w-5" />;
+    }
+  };
+
+  const getStatusClasses = (status: string) => {
+    const statusLower = status?.toLowerCase() || "";
+    switch (statusLower) {
+      case "resolved":
+      case "paid":
+        return "bg-success/10 text-success border-success/20";
+      case "pending":
+        return "bg-warning/10 text-warning border-warning/20";
+      case "in-progress":
+        return "bg-info/10 text-info border-info/20";
+      case "overdue":
+        return "bg-destructive/10 text-destructive border-destructive/20";
+      case "closed":
+        return "bg-muted text-muted-foreground border-muted";
+      default:
+        return "bg-muted text-muted-foreground border-muted";
+    }
+  };
+
+  const renderSummaryCards = () => {
+    if (!reportData?.data) return null;
+
+    const data = reportData.data;
+
+    switch (reportData.reportType) {
+      case "officer-report":
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            <Card className="glass-card">
+              <CardContent className="pt-4 sm:pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 sm:p-3 rounded-xl bg-primary/10">
+                    <Users className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                  </div>
+                  <div>
+                    <div className="text-xl sm:text-2xl font-bold">
+                      {data.summary?.totalOfficers || 0}
+                    </div>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
+                      Total Officers
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="glass-card">
+              <CardContent className="pt-4 sm:pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 sm:p-3 rounded-xl bg-accent/10">
+                    <Activity className="h-5 w-5 sm:h-6 sm:w-6 text-accent" />
+                  </div>
+                  <div>
+                    <div className="text-xl sm:text-2xl font-bold">
+                      {data.summary?.totalActivities || 0}
+                    </div>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
+                      Total Activities
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            {data.summary?.departments && (
+              <Card className="glass-card sm:col-span-2 lg:col-span-1">
+                <CardContent className="pt-4 sm:pt-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 sm:p-3 rounded-xl bg-info/10">
+                      <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-info" />
+                    </div>
+                    <div>
+                      <div className="text-xl sm:text-2xl font-bold">
+                        {Object.keys(data.summary.departments).length}
+                      </div>
+                      <p className="text-xs sm:text-sm text-muted-foreground">
+                        Departments
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        );
+
+      case "meter-readings":
+        return (
+          <Card className="glass-card">
+            <CardContent className="pt-4 sm:pt-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 sm:p-3 rounded-xl bg-primary/10">
+                  <BarChart className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                </div>
+                <div>
+                  <div className="text-xl sm:text-2xl font-bold">
+                    {data.totalReadings || 0}
+                  </div>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Total Meter Readings
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+
+      case "revenue":
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            <Card className="glass-card">
+              <CardContent className="pt-4 sm:pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 sm:p-3 rounded-xl bg-primary/10">
+                    <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                  </div>
+                  <div>
+                    <div className="text-xl sm:text-2xl font-bold">
+                      {data.totalPayments || 0}
+                    </div>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
+                      Total Payments
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="glass-card">
+              <CardContent className="pt-4 sm:pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 sm:p-3 rounded-xl bg-success/10">
+                    <DollarSign className="h-5 w-5 sm:h-6 sm:w-6 text-success" />
+                  </div>
+                  <div>
+                    <div className="text-xl sm:text-2xl font-bold">
+                      ${(data.totalRevenue || 0).toLocaleString()}
+                    </div>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
+                      Total Revenue
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="glass-card">
+              <CardContent className="pt-4 sm:pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 sm:p-3 rounded-xl bg-accent/10">
+                    <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-accent" />
+                  </div>
+                  <div>
+                    <div className="text-xl sm:text-2xl font-bold">
+                      $
+                      {data.totalPayments > 0
+                        ? Math.round(
+                            (data.totalRevenue || 0) / data.totalPayments
+                          )
+                        : 0}
+                    </div>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
+                      Average Payment
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+
+      case "customer-complaints":
+        return (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <Card className="glass-card">
+              <CardContent className="pt-4 sm:pt-6">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="p-2 rounded-xl bg-primary/10">
+                    <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                  </div>
+                  <div>
+                    <div className="text-lg sm:text-2xl font-bold">
+                      {data.totalComplaints || 0}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Total</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="glass-card">
+              <CardContent className="pt-4 sm:pt-6">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="p-2 rounded-xl bg-success/10">
+                    <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-success" />
+                  </div>
+                  <div>
+                    <div className="text-lg sm:text-2xl font-bold">
+                      {data.resolved || 0}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Resolved</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="glass-card">
+              <CardContent className="pt-4 sm:pt-6">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="p-2 rounded-xl bg-warning/10">
+                    <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-warning" />
+                  </div>
+                  <div>
+                    <div className="text-lg sm:text-2xl font-bold">
+                      {data.pending || 0}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Pending</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="glass-card">
+              <CardContent className="pt-4 sm:pt-6">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="p-2 rounded-xl bg-info/10">
+                    <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-info" />
+                  </div>
+                  <div>
+                    <div className="text-lg sm:text-2xl font-bold">
+                      {data.inProgress || 0}
+                    </div>
+                    <p className="text-xs text-muted-foreground">In Progress</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  const renderPreviewContent = () => {
+    if (!reportData) return null;
+
+    const data = reportData.data;
+
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        <div>
+          <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">
+            Summary
+          </h3>
+          {renderSummaryCards()}
+        </div>
+
+        {data && (
+          <div className="mt-4 sm:mt-6">
+            <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">
+              Detailed Data
+            </h3>
+
+            {/* Customer Complaints Table */}
+            {reportData.reportType === "customer-complaints" &&
+              data.complaints &&
+              data.complaints.length > 0 && (
+                <div className="table-container">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs sm:text-sm">
+                      <thead className="table-header">
+                        <tr>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium">
+                            Customer
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden sm:table-cell">
+                            Account #
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium">
+                            Subject
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden md:table-cell">
+                            Date
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium">
+                            Status
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden lg:table-cell">
+                            Resolved By
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.complaints
+                          .slice(0, 10)
+                          .map((complaint: any, idx: number) => (
+                            <tr
+                              key={complaint.id || idx}
+                              className="border-t border-border table-row-hover"
+                            >
+                              <td className="px-3 sm:px-4 py-2 sm:py-3 font-medium">
+                                <div className="max-w-[100px] sm:max-w-none truncate">
+                                  {complaint.customerName || "N/A"}
+                                </div>
+                              </td>
+                              <td className="px-3 sm:px-4 py-2 sm:py-3 hidden sm:table-cell font-mono text-muted-foreground">
+                                {complaint.customerAccNumber || "N/A"}
+                              </td>
+                              <td className="px-3 sm:px-4 py-2 sm:py-3 capitalize">
+                                <div className="max-w-[80px] sm:max-w-none truncate">
+                                  {complaint.subject || "N/A"}
+                                </div>
+                              </td>
+                              <td className="px-3 sm:px-4 py-2 sm:py-3 hidden md:table-cell text-muted-foreground">
+                                {formatDateSafe(complaint.date)}
+                              </td>
+                              <td className="px-3 sm:px-4 py-2 sm:py-3">
+                                <span
+                                  className={cn(
+                                    "status-badge border",
+                                    getStatusClasses(complaint.status)
+                                  )}
+                                >
+                                  {complaint.status || "Unknown"}
+                                </span>
+                              </td>
+                              <td className="px-3 sm:px-4 py-2 sm:py-3 hidden lg:table-cell text-muted-foreground">
+                                {complaint.resolvedBy || "Not assigned"}
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {data.complaints.length > 10 && (
+                    <div className="px-3 sm:px-4 py-2 sm:py-3 text-center text-xs sm:text-sm text-muted-foreground bg-muted/30 border-t border-border">
+                      Showing 10 of {data.complaints.length} complaints
+                    </div>
+                  )}
+                </div>
+              )}
+
+            {data.complaints && data.complaints.length === 0 && (
+              <div className="text-center py-6 sm:py-8 text-muted-foreground">
+                <AlertCircle className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-3 sm:mb-4 opacity-50" />
+                <p className="text-sm sm:text-base">
+                  No complaints found for the selected date range.
+                </p>
+              </div>
+            )}
+
+            {/* Meter Readings Table */}
+            {reportData.reportType === "meter-readings" &&
+              data.readings &&
+              data.readings.length > 0 && (
+                <div className="table-container">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs sm:text-sm">
+                      <thead className="table-header">
+                        <tr>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium">
+                            Customer
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden sm:table-cell">
+                            Account #
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium">
+                            kW Read
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden md:table-cell">
+                            Usage
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium">
+                            Status
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden lg:table-cell">
+                            Fee
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden xl:table-cell">
+                            Submitted
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.readings
+                          .slice(0, 10)
+                          .map((reading: any, idx: number) => (
+                            <tr
+                              key={reading._id || idx}
+                              className="border-t border-border table-row-hover"
+                            >
+                              <td className="px-3 sm:px-4 py-2 sm:py-3 font-medium">
+                                <div className="max-w-[100px] sm:max-w-none truncate">
+                                  {reading.customerId?.name || "N/A"}
+                                </div>
+                              </td>
+                              <td className="px-3 sm:px-4 py-2 sm:py-3 hidden sm:table-cell font-mono text-muted-foreground">
+                                {reading.customerId?.accountNumber || "N/A"}
+                              </td>
+                              <td className="px-3 sm:px-4 py-2 sm:py-3">
+                                {reading.killowatRead}
+                              </td>
+                              <td className="px-3 sm:px-4 py-2 sm:py-3 hidden md:table-cell">
+                                {reading.monthlyUsage}
+                              </td>
+                              <td className="px-3 sm:px-4 py-2 sm:py-3">
+                                <span
+                                  className={cn(
+                                    "status-badge border",
+                                    getStatusClasses(reading.paymentStatus)
+                                  )}
+                                >
+                                  {reading.paymentStatus}
+                                </span>
+                              </td>
+                              <td className="px-3 sm:px-4 py-2 sm:py-3 hidden lg:table-cell font-medium">
+                                ${reading.fee?.toLocaleString() ?? "N/A"}
+                              </td>
+                              <td className="px-3 sm:px-4 py-2 sm:py-3 hidden xl:table-cell text-muted-foreground">
+                                {formatDateSafe(reading.createdAt)}
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {data.readings.length > 10 && (
+                    <div className="px-3 sm:px-4 py-2 sm:py-3 text-center text-xs sm:text-sm text-muted-foreground bg-muted/30 border-t border-border">
+                      Showing 10 of {data.readings.length} meter readings
+                    </div>
+                  )}
+                </div>
+              )}
+
+            {/* Officer Report Table */}
+            {reportData.reportType === "officer-report" &&
+              data.officers &&
+              data.officers.length > 0 && (
+                <div className="table-container">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs sm:text-sm">
+                      <thead className="table-header">
+                        <tr>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium">
+                            Name
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden sm:table-cell">
+                            Department
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium">
+                            Activities
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden md:table-cell">
+                            Last Active
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.officers.map((officer: any, idx: number) => (
+                          <tr
+                            key={officer.id || idx}
+                            className="border-t border-border table-row-hover"
+                          >
+                            <td className="px-3 sm:px-4 py-2 sm:py-3 font-medium">
+                              {officer.name}
+                            </td>
+                            <td className="px-3 sm:px-4 py-2 sm:py-3 hidden sm:table-cell text-muted-foreground">
+                              {officer.department}
+                            </td>
+                            <td className="px-3 sm:px-4 py-2 sm:py-3">
+                              <span className="font-medium text-primary">
+                                {officer.activities}
+                              </span>
+                            </td>
+                            <td className="px-3 sm:px-4 py-2 sm:py-3 hidden md:table-cell text-muted-foreground">
+                              {officer.lastActive}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+            {/* Revenue Report Table */}
+            {reportData.reportType === "revenue" &&
+              data.payments &&
+              data.payments.length > 0 && (
+                <div className="table-container">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs sm:text-sm">
+                      <thead className="table-header">
+                        <tr>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium">
+                            Customer
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium">
+                            Amount
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden sm:table-cell">
+                            Date
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden md:table-cell">
+                            Method
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.payments.map((payment: any, idx: number) => (
+                          <tr
+                            key={payment.id || idx}
+                            className="border-t border-border table-row-hover"
+                          >
+                            <td className="px-3 sm:px-4 py-2 sm:py-3 font-medium">
+                              {payment.customer}
+                            </td>
+                            <td className="px-3 sm:px-4 py-2 sm:py-3 font-medium text-success">
+                              ${payment.amount.toLocaleString()}
+                            </td>
+                            <td className="px-3 sm:px-4 py-2 sm:py-3 hidden sm:table-cell text-muted-foreground">
+                              {payment.date}
+                            </td>
+                            <td className="px-3 sm:px-4 py-2 sm:py-3 hidden md:table-cell">
+                              <span className="status-badge bg-muted">
+                                {payment.method}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
-    <div className="space-y-6">
-      <Breadcrumb 
-        items={[
-          { label: "Dashboard", href: "/officer/dashboard" },
-          { label: "Reports" }
-        ]} 
-      />
+    <div className="min-h-screen bg-background p-3 sm:p-4 md:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
+        <Breadcrumb
+          items={[
+            { label: "Dashboard", href: "/" },
+            { label: "Reports" },
+          ]}
+        />
 
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Generate Reports</h1>
-        <p className="text-muted-foreground">Select your desired report parameters and generate custom reports</p>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
-              <CardTitle>Report Generation</CardTitle>
-            </div>
-            {reportData && (
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowPreview(true)}
-                >
-                  <Eye className="h-4 w-4 mr-2" />
-                  Preview
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={resetReport}
-                >
-                  Clear
-                </Button>
-              </div>
-            )}
+        <div className="flex flex-col gap-3 sm:gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+              Generate Reports
+            </h1>
+            <p className="text-sm sm:text-base text-muted-foreground mt-1">
+              Select your desired report parameters and generate custom reports
+            </p>
           </div>
-          <CardDescription>Configure options and click "Generate Report"</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Start Date *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !startDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {startDate ? format(startDate, "PPP") : "Pick a date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={startDate}
-                    onSelect={setStartDate}
-                    initialFocus
-                    className="pointer-events-auto"
-                    disabled={(date) => date > new Date()}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div className="space-y-2">
-              <Label>End Date *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !endDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {endDate ? format(endDate, "PPP") : "Pick a date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={endDate}
-                    onSelect={setEndDate}
-                    initialFocus
-                    className="pointer-events-auto"
-                    disabled={(date) => date > new Date()}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Report Type *</Label>
-            <Select value={reportType} onValueChange={(value) => {
-              setReportType(value);
-              resetReport();
-            }}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select report type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="officer-report">Officer Activity Report</SelectItem>
-                <SelectItem value="new-registrations">New Registrations Summary</SelectItem>
-                <SelectItem value="meter-readings">Meter Readings Report</SelectItem>
-                <SelectItem value="revenue">Revenue Analysis</SelectItem>
-                <SelectItem value="customer-complaints">Customer Complaints</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Department (Optional)</Label>
-              <Select value={department} onValueChange={setDepartment}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Departments" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Departments</SelectItem>
-                  <SelectItem value="operations">Operations</SelectItem>
-                  <SelectItem value="billing">Billing</SelectItem>
-                  <SelectItem value="customer-service">Customer Service</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>User Group (Optional)</Label>
-              <Select value={userGroup} onValueChange={setUserGroup}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Users" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Users</SelectItem>
-                  <SelectItem value="officers">Officers</SelectItem>
-                  <SelectItem value="managers">Managers</SelectItem>
-                  <SelectItem value="admins">Admins</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <Button 
-            onClick={handleGenerateReport} 
-            className="w-full" 
-            size="lg"
-            disabled={isGenerating || !startDate || !endDate}
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              "Generate Report"
-            )}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {reportData ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Report Overview</CardTitle>
-            <CardDescription>
-              Generated on {new Date(reportData.generatedAt).toLocaleDateString()} | 
-              Officer ID: {reportData.officerId}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="text-2xl font-bold text-primary">
-                    {reportData.summary.customersRegistered}
-                  </div>
-                  <p className="text-sm text-muted-foreground">Customers Registered</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="text-2xl font-bold text-green-600">
-                    {reportData.summary.meterReadingsSubmitted}
-                  </div>
-                  <p className="text-sm text-muted-foreground">Meter Readings</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="text-2xl font-bold text-blue-600">
-                    {reportData.summary.paymentsProcessed}
-                  </div>
-                  <p className="text-sm text-muted-foreground">Payments Processed</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="text-2xl font-bold text-amber-600">
-                    {reportData.summary.complaintsHandled}
-                  </div>
-                  <p className="text-sm text-muted-foreground">Complaints Handled</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="text-2xl font-bold text-red-600">
-                    {reportData.summary.pendingComplaints}
-                  </div>
-                  <p className="text-sm text-muted-foreground">Pending Complaints</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="text-2xl font-bold text-emerald-600">
-                    {reportData.summary.resolvedComplaints}
-                  </div>
-                  <p className="text-sm text-muted-foreground">Resolved Complaints</p>
-                </CardContent>
-              </Card>
-            </div>
-            
-            <div className="flex gap-4">
-              <Button 
-                onClick={() => setShowPreview(true)}
+          {reportData && (
+            <div className="flex flex-wrap gap-2">
+              <Button
                 variant="outline"
-                className="flex-1"
+                onClick={() => setShowPreview(true)}
+                className="gap-2 text-sm"
+                size="sm"
               >
-                <Eye className="mr-2 h-4 w-4" />
-                View Full Report
+                <Eye className="h-4 w-4" />
+                <span className="hidden sm:inline">Preview</span>
               </Button>
-              <Button 
+              <Button
+                variant="default"
                 onClick={() => setShowExportModal(true)}
-                className="flex-1"
+                className="gap-2 text-sm"
+                size="sm"
               >
-                <Download className="mr-2 h-4 w-4" />
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">Export</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={resetReport}
+                className="gap-2 text-sm"
+                size="sm"
+              >
+                <X className="h-4 w-4" />
+                <span className="hidden sm:inline">Clear</span>
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <Card className="glass-card">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-lg sm:text-xl">
+                  Report Configuration
+                </CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
+                  Configure options and click "Generate Report"
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4 sm:space-y-6">
+            {/* Dates */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              {["Start Date", "End Date"].map((label, idx) => {
+                const dateValue = idx === 0 ? startDate : endDate;
+                const setDateValue = idx === 0 ? setStartDate : setEndDate;
+                return (
+                  <div className="space-y-1.5 sm:space-y-2" key={label}>
+                    <Label className="text-sm font-medium">{label} *</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal h-9 sm:h-10 text-sm",
+                            !dateValue && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
+                          <span className="truncate">
+                            {dateValue ? format(dateValue, "PPP") : "Pick a date"}
+                          </span>
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={dateValue}
+                          onSelect={setDateValue}
+                          disabled={(date) => date > new Date()}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Report Type */}
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label className="text-sm font-medium">Report Type *</Label>
+              <Select
+                value={reportType}
+                onValueChange={(val) => {
+                  setReportType(val);
+                  setReportData(null);
+                }}
+              >
+                <SelectTrigger className="h-9 sm:h-10 text-sm">
+                  <SelectValue placeholder="Select report type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="officer-report">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Officer Activity Report
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="meter-readings">
+                    <div className="flex items-center gap-2">
+                      <BarChart className="h-4 w-4" />
+                      Meter Readings Report
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="revenue">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" />
+                      Revenue Analysis Report
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="customer-complaints">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4" />
+                      Customer Complaints Report
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Optional Filters */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm font-medium">
+                  Department (Optional)
+                </Label>
+                <Select value={department} onValueChange={setDepartment}>
+                  <SelectTrigger className="h-9 sm:h-10 text-sm">
+                    <SelectValue placeholder="All Departments" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Departments</SelectItem>
+                    <SelectItem value="operations">Operations</SelectItem>
+                    <SelectItem value="billing">Billing</SelectItem>
+                    <SelectItem value="customer-service">
+                      Customer Service
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm font-medium">
+                  User Group (Optional)
+                </Label>
+                <Select value={userGroup} onValueChange={setUserGroup}>
+                  <SelectTrigger className="h-9 sm:h-10 text-sm">
+                    <SelectValue placeholder="All Users" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Users</SelectItem>
+                    <SelectItem value="officers">Officers</SelectItem>
+                    <SelectItem value="managers">Managers</SelectItem>
+                    <SelectItem value="admins">Admins</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Button
+              onClick={handleGenerateReport}
+              className="w-full h-10 sm:h-12 text-sm sm:text-base font-medium"
+              disabled={isGenerating || !startDate || !endDate}
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating Report...
+                </>
+              ) : (
+                <>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Generate Report
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Quick Summary after generation */}
+        {reportData && (
+          <Card className="glass-card border-primary/20">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                {getReportIcon(reportData.reportType)}
+                <CardTitle className="text-base sm:text-lg">
+                  {formatReportType(reportData.reportType)}
+                </CardTitle>
+              </div>
+              <CardDescription className="text-xs sm:text-sm">
+                Generated on {formatDateSafe(reportData.generatedAt)}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>{renderSummaryCards()}</CardContent>
+          </Card>
+        )}
+
+        {/* Preview Dialog */}
+        <Dialog open={showPreview} onOpenChange={setShowPreview}>
+          <DialogContent className="max-w-[95vw] sm:max-w-4xl lg:max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+            <DialogHeader className="flex-shrink-0">
+              <div className="flex items-center gap-2">
+                {getReportIcon(reportData?.reportType || "")}
+                <DialogTitle className="text-base sm:text-lg">
+                  {reportData
+                    ? formatReportType(reportData.reportType)
+                    : "Report Preview"}
+                </DialogTitle>
+              </div>
+              <DialogDescription className="text-xs sm:text-sm">
+                {reportData ? (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <CalendarIcon className="h-3 w-3" />
+                      <span>
+                        Generated on {formatDateSafe(reportData.generatedAt)}
+                      </span>
+                    </div>
+                    {reportData?.filters && (
+                      <div className="flex items-center gap-2">
+                        <span>
+                          Date Range: {reportData.filters.startDate} to{" "}
+                          {reportData.filters.endDate}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  "Report Preview"
+                )}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto py-4">
+              {renderPreviewContent()}
+            </div>
+            <DialogFooter className="flex-shrink-0 flex flex-col-reverse sm:flex-row gap-2 sm:justify-between">
+              <Button
+                variant="outline"
+                onClick={() => setShowPreview(false)}
+                className="w-full sm:w-auto"
+              >
+                Close
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowPreview(false);
+                  setShowExportModal(true);
+                }}
+                className="gap-2 w-full sm:w-auto"
+              >
+                <Download className="h-4 w-4" />
                 Export Report
               </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Report Overview</CardTitle>
-            <CardDescription>A quick summary or preview of the generated report</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="h-24 w-24 mb-4 rounded-lg bg-primary/10 flex items-center justify-center">
-                <FileText className="h-12 w-12 text-primary" />
-              </div>
-              <p className="text-muted-foreground">
-                No report generated yet. Configure options and click "Generate Report".
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      {/* {reportData && (
-        <>
-          <ReportPreview
-            isOpen={showPreview}
-            onClose={() => setShowPreview(false)}
-            reportData={reportData}
-            startDate={startDate}
-            endDate={endDate}
-            reportType={reportType}
-          />
-          
-          <ReportExportModal
-            isOpen={showExportModal}
-            onClose={() => setShowExportModal(false)}
-            onExport={handleExport}
-            reportType={reportType}
-          />
-        </>
-      )} */}
+        {/* Export Modal */}
+        <Dialog open={showExportModal} onOpenChange={setShowExportModal}>
+          <DialogContent className="max-w-[95vw] sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Export Report</DialogTitle>
+              <DialogDescription>
+                Choose the format for exporting your report.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 py-4">
+              <Button
+                variant="outline"
+                onClick={() => handleExport("pdf")}
+                disabled={isExporting}
+                className="h-20 sm:h-24 flex flex-col gap-2 hover:border-primary hover:bg-primary/5 transition-colors"
+              >
+                <FileText className="h-6 w-6 sm:h-8 sm:w-8 text-destructive" />
+                <span className="text-xs sm:text-sm">Export as PDF</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleExport("excel")}
+                disabled={isExporting}
+                className="h-20 sm:h-24 flex flex-col gap-2 hover:border-accent hover:bg-accent/5 transition-colors"
+              >
+                <FileSpreadsheet className="h-6 w-6 sm:h-8 sm:w-8 text-accent" />
+                <span className="text-xs sm:text-sm">Export as Excel</span>
+              </Button>
+            </div>
+            <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-between items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowExportModal(false)}
+                className="w-full sm:w-auto"
+              >
+                Cancel
+              </Button>
+              {isExporting && (
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Exporting...
+                </div>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 };

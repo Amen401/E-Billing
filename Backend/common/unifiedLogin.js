@@ -62,7 +62,7 @@ export const unifiedLogin = async (req, res) => {
       userInfo: {
         id: user._id,
         name: user.name,
-        username: user.username || user.accountNumber,
+        username: user.username || user.accountNumber || user.name,
       },
       token,
     });

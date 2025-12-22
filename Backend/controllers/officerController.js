@@ -12,6 +12,8 @@ import { paymentSchedule } from "../models/PaymentSchedule.js";
 import { merterReading } from "../models/MeterReading.js";
 import { CustomerTariff } from "../models/Tariff.js";
 import { extractKWAndMeterNo } from "../Util/photoAnalyzer.js";
+import PDFDocument from "pdfkit";
+import ExcelJS from "exceljs";
 
 export const officerLogin = async (req, res) => {
   const { username, password } = req.body;
@@ -115,7 +117,7 @@ export const searchMyActivities = async (req, res) => {
     const { filter, value } = req.query;
     const result = await officerAT.find({
       [filter]: new RegExp(value, "i"),
-      adminId: req.authUser.id,
+      officerId: req.authUser.id,
     });
 
     res.status(200).json(result);
@@ -173,9 +175,10 @@ export const updateUsernameOrPassword = async (req, res) => {
 };
 export const changeProfilePicture = async (req, res) => {
   try {
+
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
 
-    const officer = await Officer.findById(req.authUser.id);
+    let officer = await Officer.findById(req.authUser.id);
 
     const base64 = Buffer.from(req.file.buffer).toString("base64");
     const dataUri = `data:${req.file.mimetype};base64,${base64}`;
@@ -189,21 +192,29 @@ export const changeProfilePicture = async (req, res) => {
       await cloud.uploader.destroy(officer.photo.public_id);
     }
 
-    officer.photo = {
-      secure_url: result.secure_url,
-      public_id: result.public_id,
-    };
-    officer = await Officer.findByIdAndUpdate(req.authUser.id, data, {
-      new: true,
+    officer = await Officer.findByIdAndUpdate(
+      req.authUser.id,
+      {
+        photo: {
+          secure_url: result.secure_url,
+          public_id: result.public_id,
+        },
+      },
+      { new: true }
+    );
+
+    await saveActivity(req.authUser.id, "Updated your profile picture");
+
+    res.status(200).json({
+      message: "Profile updated successfully",
+      photo: officer.photo,
     });
-    console.log(officer);
-    await saveActivity(req.authUser.id, `Updated your profile picture`);
-    res.status(200).json({ message: "Profile updated successfully" });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal server error", error });
   }
 };
+
 export const updateNameOrEmail = async (req, res) => {
   try {
     const { atribute, value } = req.body;
@@ -280,7 +291,7 @@ export const customerComplientInformations = async (req, res) => {
     ).length;
 
     if (complients.length <= 10) {
-      res.status(200).json({
+      return res.status(200).json({
         complients: complientCustomDto(complients),
         allComplients,
         urgentComplients,
@@ -295,7 +306,7 @@ export const customerComplientInformations = async (req, res) => {
       someComplients.push(complients[index]);
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       someComplients: complientCustomDto(someComplients),
       allComplients,
       urgentComplients,
@@ -303,7 +314,7 @@ export const customerComplientInformations = async (req, res) => {
       resolvedComplients,
     });
   } catch (error) {
-    res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -323,46 +334,53 @@ export const updateComplientStatus = async (req, res) => {
       req.authUser.id,
       `updated complient status to ${status} raised by ${complient.customerAccNumber} account number`
     );
-    res
+
+    return res
       .status(200)
       .json({ message: "Complient status updated successfully!!" });
   } catch (error) {
-    res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
-export const checkMissedMonthes = async (req, res) => {
+export const checkMissedMonths = async (req, res) => {
   try {
-    const { id } = req.query;
-
-    const lastPayment = await customerPayments
-      .findOne({ customerId: id })
-      .populate("paymentMonth")
-      .sort({ createdAt: -1 });
-
-    let lastPaidYearMonth = null;
-
-    if (lastPayment) {
-      lastPaidYearMonth = lastPayment.paymentMonth.yearAndMonth;
+    const { customerId } = req.query; 
+console.log(customerId);
+    if (!customerId) {
+      return res.status(400).json({ message: "Customer ID is required" });
     }
 
-    const query = lastPaidYearMonth
-      ? { yearAndMonth: { $gt: lastPaidYearMonth } }
-      : {};
+    const paidMeterReadings = await merterReading
+      .find({ customerId, paymentStatus: "Paid" })
+      .populate("paymentMonth")
+      .exec();
 
-    const missedMonths = await paymentSchedule
-      .find(query)
-      .sort({ yearAndMonth: 1 });
+    const paidMonthsSet = new Set();
+    paidMeterReadings.forEach((reading) => {
+      if (reading.paymentMonth?.yearAndMonth) {
+        paidMonthsSet.add(reading.paymentMonth.yearAndMonth);
+      }
+    });
+
+    const allScheduled = await paymentSchedule.find().sort({ yearAndMonth: 1 });
+
+    const missedMonths = allScheduled.filter(
+      (month) => !paidMonthsSet.has(month.yearAndMonth)
+    );
 
     res.status(200).json({
-      count: missedMonths.length,
+      customerId,
+      missedCount: missedMonths.length,
       missedMonths,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Check Missed Months Error:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
+
 
 export const createSchedule = async (req, res) => {
   try {
@@ -384,12 +402,25 @@ export const closePaymentSchedule = async (req, res) => {
       { isOpen: false },
       { new: true }
     );
+
+    if (!sch) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Schedule not found" });
+    }
+
     await saveActivity(
       req.authUser.id,
       `Closed payment schedule ${sch.yearAndMonth}`
     );
-  } catch (error) {}
+
+    return res.status(200).json({ success: true, data: sch });
+  } catch (error) {
+    console.error("Failed to close schedule:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
 };
+
 export const getAllSchedule = async (req, res) => {
   try {
     const schedules = await paymentSchedule.find();
@@ -419,15 +450,19 @@ export const manualMeterReadingAndPayment = async (req, res) => {
       return res.status(400).json({ message: "Invalid months format" });
     }
 
-    if (!parsedMonths || !Array.isArray(parsedMonths) || parsedMonths.length === 0) {
+    if (
+      !parsedMonths ||
+      !Array.isArray(parsedMonths) ||
+      parsedMonths.length === 0
+    ) {
       return res.status(400).json({ message: "No valid months provided" });
     }
 
     // Validate each month entry
     for (const month of parsedMonths) {
       if (!month || !month._id || !month.monthName) {
-        return res.status(400).json({ 
-          message: "Invalid month data. Each month must have _id and monthName" 
+        return res.status(400).json({
+          message: "Invalid month data. Each month must have _id and monthName",
         });
       }
     }
@@ -445,7 +480,8 @@ export const manualMeterReadingAndPayment = async (req, res) => {
 
     if (resp.meterNo != findAccount.meterReaderSN) {
       return res.status(403).json({
-        message: "This meter is not your meter. Please insert correct meter image",
+        message:
+          "This meter is not your meter. Please insert correct meter image",
       });
     }
 
@@ -477,7 +513,7 @@ export const manualMeterReadingAndPayment = async (req, res) => {
 
     for (let index = 0; index < parsedMonths.length; index++) {
       const currentMonth = parsedMonths[index];
-      
+
       const energyCharge = energyTariff * eachMonthUsage;
       const subtotal = energyCharge + serviceCharge + Number(fine);
       const vatAmount = subtotal * vatRate;
@@ -494,9 +530,10 @@ export const manualMeterReadingAndPayment = async (req, res) => {
         paymentStatus: "Paid",
         fee: totalFee,
         dateOfSubmission: formattedDate(),
-        paymentMonth: currentMonth._id, // Make sure this is a valid ObjectId
-        monthName: currentMonth.monthName, // Make sure monthName is included
+        paymentMonth: currentMonth._id,
+        monthName: currentMonth.monthName,
         customerId: cId,
+        officerId: req.authUser.id,
         calculationDetails: {
           previousReading: previousRead + eachMonthUsage * index,
           currentReading: previousRead + eachMonthUsage * (index + 1),
@@ -538,22 +575,22 @@ export const manualMeterReadingAndPayment = async (req, res) => {
         totalMonths: parsedMonths.length,
       },
       calculationBreakdown: breakdowns,
-      processedMonths: parsedMonths.map(m => m.monthName),
+      processedMonths: parsedMonths.map((m) => m.monthName),
     });
   } catch (error) {
     console.error("Manual Payment Error:", error);
-    
-    if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({ 
-        message: "Validation error", 
-        errors: messages 
+
+    if (error.name === "ValidationError") {
+      const messages = Object.values(error.errors).map((err) => err.message);
+      return res.status(400).json({
+        message: "Validation error",
+        errors: messages,
       });
     }
-    
-    res.status(500).json({ 
+
+    res.status(500).json({
       message: "Internal server error",
-      error: error.message 
+      error: error.message,
     });
   }
 };
@@ -605,9 +642,14 @@ export const changeMeterReadingStatus = async (req, res) => {
 };
 export const getAllMeterReadings = async (req, res) => {
   try {
-    const meterReadings = await merterReading.find();
+    const meterReadings = await merterReading
+      .find()
+      .populate("customerId", "name accountNumber")
+      .populate("paymentMonth", "yearAndMonth");
+
     res.status(200).json(meterReadings);
   } catch (error) {
+    console.error("Failed to fetch meter readings:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -688,5 +730,163 @@ export const getOfficerStats = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal server error", error });
+  }
+};
+
+const getDateRange = (startDate, endDate) => {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+};
+
+export const generateReport = async (req, res) => {
+  try {
+    const { reportType, startDate, endDate, department, userGroup } = req.body;
+    const { start, end } = getDateRange(startDate, endDate);
+
+    let report;
+
+    switch (reportType) {
+      case "officer-report":
+        report = await officerReport(start, end, department, userGroup);
+        break;
+
+      case "meter-readings":
+        report = await meterReadingsReport(start, end);
+        break;
+
+      case "revenue":
+        report = await revenueReport(start, end);
+        break;
+
+      case "customer-complaints":
+        report = await complaintsReport(start, end);
+        break;
+
+      default:
+        return res.status(400).json({ message: "Invalid report type" });
+    }
+
+    res.json({
+      reportType,
+      generatedBy: req.authUser.id,
+      generatedAt: new Date(),
+      filters: { startDate, endDate, department, userGroup },
+      data: report,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Failed to generate report" });
+  }
+};
+
+const officerReport = async (start, end, department, role) => {
+  const officers = await Officer.find({
+    ...(department !== "all" && { department }),
+    ...(role !== "all" && { role }),
+  });
+
+  const activities = await officerAT
+    .find({
+      officerId: { $in: officers.map((o) => o._id) },
+      date: { $gte: start, $lte: end },
+    })
+    .populate("officerId", "name department");
+
+  return {
+    summary: {
+      totalOfficers: officers.length,
+      totalActivities: activities.length,
+    },
+    activities,
+  };
+};
+const meterReadingsReport = async (start, end) => {
+  const readings = await merterReading
+    .find({
+      createdAt: { $gte: start, $lte: end },
+    })
+    .populate("customerId", "name accountNumber")
+    .populate("officerId", "name");
+
+  return {
+    totalReadings: readings.length,
+    readings,
+  };
+};
+
+const revenueReport = async (start, end) => {
+  const payments = await customerPayments.find({
+    createdAt: { $gte: start, $lte: end },
+  });
+
+  const totalRevenue = payments.reduce(
+    (sum, payment) => sum + payment.amount,
+    0
+  );
+
+  return {
+    totalPayments: payments.length,
+    totalRevenue,
+    payments,
+  };
+};
+const complaintsReport = async (start, end) => {
+  try {
+    const complaints = await CustomerComplient.find({
+      date: {
+        $gte: start.toISOString(),
+        $lte: end.toISOString(),
+      },
+    })
+      .populate("resolvedBy", "name")
+      .sort({ date: -1 });
+    const resolved = complaints.filter(
+      (c) => c.status && c.status.toLowerCase() === "resolved"
+    ).length;
+
+    const pending = complaints.filter(
+      (c) =>
+        c.status &&
+        (c.status.toLowerCase() === "pending" ||
+          c.status.toLowerCase() === "pending")
+    ).length;
+
+    const inProgress = complaints.filter(
+      (c) => c.status && c.status.toLowerCase() === "in-progress"
+    ).length;
+
+    const closed = complaints.filter(
+      (c) => c.status && c.status.toLowerCase() === "closed"
+    ).length;
+
+    return {
+      totalComplaints: complaints.length,
+      resolved,
+      pending,
+      inProgress,
+      closed,
+      complaints: complaints.map((complaint) => ({
+        id: complaint._id,
+        customerName: complaint.customerName,
+        customerAccNumber: complaint.customerAccNumber,
+        subject: complaint.subject,
+        date: complaint.date,
+        status: complaint.status,
+        description: complaint.description,
+        resolvedBy: complaint.resolvedBy?.name || "",
+      })),
+    };
+  } catch (error) {
+    console.error("Error fetching complaints:", error);
+    return {
+      totalComplaints: 0,
+      resolved: 0,
+      pending: 0,
+      inProgress: 0,
+      closed: 0,
+      complaints: [],
+    };
   }
 };

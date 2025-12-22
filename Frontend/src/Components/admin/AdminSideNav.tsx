@@ -1,4 +1,4 @@
-import { LayoutDashboard, UserCog, Activity, LogOut, User } from "lucide-react";
+import { LayoutDashboard, UserCog, Activity, LogOut, User ,FileText} from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../context/UnifiedContext";
 import {
@@ -20,6 +20,7 @@ const menuItems = [
   { title: "Dashboard", url: "/admin/dashboard", icon: LayoutDashboard },
   { title: "Officer Management", url: "/admin/officers", icon: UserCog },
   { title: "Customer Management", url: "/admin/customers", icon: User },
+  { title: "Reports", url: "/admin/admin-reports", icon: FileText },
   { title: "System Logs", url: "/admin/logs", icon: Activity },
 ];
 
@@ -64,39 +65,41 @@ export function AdminSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
-        <div className="p-2 space-y-2">
-          {user && (
-            <NavLink
-              to="/admin/profile"
-              className="flex items-center gap-2 p-2 rounded-md hover:bg-sidebar-accent transition-colors"
-            >
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-primary text-primary-foreground">
-                  {getInitials(user.name)}
-                </AvatarFallback>
-              </Avatar>
-              {open && (
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-sidebar-foreground truncate">
-                    {user.name}
-                  </p>
-                  <p className="text-xs text-sidebar-foreground/70">View Profile</p>
-                </div>
-              )}
-            </NavLink>
-          )}
+     <SidebarFooter>
+  <div className="p-2 space-y-2 flex flex-col items-start">
+    {user && (
+      <NavLink
+        to="/admin/profile"
+        className="flex items-center gap-2 p-2 rounded-md hover:bg-sidebar-accent transition-colors w-full"
+      >
+        <Avatar className="h-7 w-7">
+          <AvatarFallback className="bg-primary justify-center text-primary-foreground">
+            {getInitials(user.name)}
+          </AvatarFallback>
+        </Avatar>
+        {open && (
+          <div className="flex-1 min-w-0">
+            <p className="text-sm  font-medium text-sidebar-foreground truncate">
+              {user.name}
+            </p>
+            <p className="text-xs text-sidebar-foreground/70">View Profile</p>
+          </div>
+        )}
+      </NavLink>
+    )}
 
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent"
-            onClick={logout}
-          >
-            <LogOut className="h-4 w-4" />
-            {open && <span>Logout</span>}
-          </Button>
-        </div>
-      </SidebarFooter>
+    <Button
+      variant="ghost"
+      className={`w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent ${
+        !open ? "justify-center" : ""
+      }`}
+      onClick={logout}
+    >
+      <LogOut className="h-4 w-4" />
+      {open && <span>Logout</span>}
+    </Button>
+  </div>
+</SidebarFooter>
     </Sidebar>
   );
 }

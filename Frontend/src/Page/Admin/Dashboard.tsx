@@ -1,265 +1,194 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Users, DollarSign, Activity, TrendingUp, Loader2 } from 'lucide-react';
-import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { useEffect, useState } from 'react';
-import { adminApi, officerApi } from '@/lib/api';
-import { toast } from 'sonner';
-
-interface SystemMetrics {
-  activeUsers: number;
-  totalRevenue: number;
-  systemUptime: number;
-  aiModelAccuracy: number;
-}
-
-interface ConsumptionData {
-  month: string;
-  residential: number;
-  commercial: number;
-  industrial: number;
-}
-
-interface PaymentStatusData {
-  name: string;
-  value: number;
-  color: string;
-}
-
-interface SystemActivity {
-  _id: string;
-  event: string;
-  user: string;
-  timestamp: string;
-  status: string;
-}
-
-interface UserData {
-  _id: string;
-  name: string;
-  email: string;
-  role: string;
-  statusNo: string;
-  status: string;
-}
+import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
+import { Badge } from "@/Components/ui/badge";
+import {
+  Users,
+  Shield,
+  DollarSign,
+  AlertCircle,
+  Loader2,
+  RefreshCw,
+  Bell,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { adminApi } from "@/lib/api";
+import { toast } from "sonner";
+import { Button } from "@/Components/ui/button";
+import type { DashboardResponse } from "../Types/type";
 
 const AdminDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
-  const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
-  const [consumptionData, setConsumptionData] = useState<ConsumptionData[]>([]);
-  const [paymentStatusData, setPaymentStatusData] = useState<PaymentStatusData[]>([]);
-  const [systemActivities, setSystemActivities] = useState<SystemActivity[]>([]);
-  const [allUsers, setAllUsers] = useState<UserData[]>([]);
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
+  const [data, setData] = useState<DashboardResponse | null>(null);
+  const [lastUpdated, setLastUpdated] = useState("");
 
   const fetchDashboardData = async () => {
-    setIsLoading(true);
     try {
-      const [metricsRes, consumptionRes, paymentRes, activitiesRes, usersRes] = await Promise.all([
-        adminApi.getSystemMetrics(),
-        adminApi.getConsumptionTrends(),
-        adminApi.getPaymentStatus(),
-        adminApi.getSystemActivities(),
-        officerApi.getCustomers(),
-      ]);
-
-      setMetrics(metricsRes);
-      setConsumptionData(consumptionRes.data || []);
-      setPaymentStatusData(paymentRes.data || []);
-      setSystemActivities(activitiesRes.activities || []);
-      setAllUsers(usersRes.users || []);
+      setIsLoading(true);
+      const res = await adminApi.getadmindashboard();
+      setData(res);
+      setLastUpdated(new Date().toLocaleTimeString());
     } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
-      toast.error('Failed to load dashboard data');
+      toast.error("Failed to load dashboard data");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const stats = [
-    { title: 'Active Users', value: metrics?.activeUsers?.toLocaleString() || '0', icon: Users, color: 'text-primary', bgColor: 'bg-primary/10' },
-    { title: 'Total Revenue', value: `$${metrics?.totalRevenue?.toLocaleString() || '0'}`, icon: DollarSign, color: 'text-green-600', bgColor: 'bg-green-100' },
-    { title: 'System Uptime', value: `${metrics?.systemUptime || 0}%`, icon: Activity, color: 'text-blue-600', bgColor: 'bg-blue-100' },
-    { title: 'AI Model Accuracy', value: `${metrics?.aiModelAccuracy || 0}%`, icon: TrendingUp, color: 'text-purple-600', bgColor: 'bg-purple-100' },
-  ];
-
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'active':
-      case 'success':
-        return 'default';
-      case 'inactive':
-      case 'warning':
-        return 'destructive';
-      case 'pending':
-      case 'info':
-        return 'secondary';
-      default:
-        return 'outline';
-    }
-  };
+  useEffect(() => {
+    fetchDashboardData();
+    const interval = setInterval(fetchDashboardData, 120000);
+    return () => clearInterval(interval);
+  }, []);
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        <span className="ml-2 text-muted-foreground">Loading dashboard...</span>
+        <span className="ml-2 text-muted-foreground">
+          Loading dashboard...
+        </span>
       </div>
     );
   }
 
+  if (!data) return null;
+
+  const { stats, recent } = data;
+
+  const quickStats = [
+    {
+      title: "Active Officers",
+      value: stats.users.officers.active,
+      total: stats.users.officers.total,
+      icon: Shield,
+      color: "text-blue-600",
+      bg: "bg-blue-50",
+    },
+    {
+      title: "Active Customers",
+      value: stats.users.customers.active,
+      total: stats.users.customers.total,
+      icon: Users,
+      color: "text-green-600",
+      bg: "bg-green-50",
+    },
+    {
+      title: "Pending Bills",
+      value: stats.payments.pending,
+      icon: AlertCircle,
+      color: "text-amber-600",
+      bg: "bg-amber-50",
+    },
+    {
+      title: "Paid Bills",
+      value: stats.payments.paid,
+      icon: DollarSign,
+      color: "text-green-700",
+      bg: "bg-green-100",
+    },
+  ];
+
+  const statusBadge = (active: boolean) =>
+    active ? (
+      <Badge className="bg-green-100 text-green-800">Active</Badge>
+    ) : (
+      <Badge variant="outline">Inactive</Badge>
+    );
+
   return (
     <div className="space-y-6">
-      {/* Key System Metrics */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4">Key System Metrics</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {stats.map((stat, index) => (
-            <Card key={index}>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className={`p-3 rounded-lg ${stat.bgColor}`}>
-                    <stat.icon className={`w-6 h-6 ${stat.color}`} />
-                  </div>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Dashboard Overview</h1>
+          <p className="text-muted-foreground">
+            Last updated: {lastUpdated}
+          </p>
+        </div>
+        <Button
+          onClick={fetchDashboardData}
+          variant="outline"
+          size="sm"
+          className="gap-2"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Refresh
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {quickStats.map((stat, i) => (
+          <Card key={i}>
+            <CardContent className="p-6 flex justify-between items-center">
+              <div>
+                <p className="text-sm text-muted-foreground">{stat.title}</p>
+                <p className="text-3xl font-bold">{stat.value}</p>
+                {stat.total !== undefined && (
+                  <p className="text-xs text-muted-foreground">
+                    / {stat.total}
+                  </p>
+                )}
+              </div>
+              <div className={`p-3 rounded-full ${stat.bg}`}>
+                <stat.icon className={`w-6 h-6 ${stat.color}`} />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Officers</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {recent.officers.length ? (
+              recent.officers.map((o) => (
+                <div
+                  key={o._id}
+                  className="flex justify-between items-center p-2 hover:bg-muted rounded"
+                >
                   <div>
-                    <p className="text-2xl font-bold">{stat.value}</p>
-                    <p className="text-sm text-muted-foreground">{stat.title}</p>
+                    <p className="font-medium">{o.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {o.department}
+                    </p>
                   </div>
+                  {statusBadge(o.isActive)}
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground">No officers</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Customers</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {recent.customers.length ? (
+              recent.customers.map((c) => (
+                <div
+                  key={c._id}
+                  className="flex justify-between items-center p-2 hover:bg-muted rounded"
+                >
+                  <div>
+                    <p className="font-medium">{c.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Acc: {c.accountNumber}
+                    </p>
+                  </div>
+                  {statusBadge(c.isActive)}
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground">No customers</p>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Data Visualization */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4">Data Visualization</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Consumption Trends */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Consumption Trends City-Wide</CardTitle>
-              <p className="text-sm text-muted-foreground">Monthly kWh for Residential, Commercial and Industrial</p>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={consumptionData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="residential" stroke="#8884d8" name="Residential" />
-                  <Line type="monotone" dataKey="commercial" stroke="#82ca9d" name="Commercial" />
-                  <Line type="monotone" dataKey="industrial" stroke="#ffc658" name="Industrial" />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          {/* Payment Status Distribution */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Payment Status Distribution</CardTitle>
-              <p className="text-sm text-muted-foreground">Percentage of payment statuses for all transactions</p>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={paymentStatusData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {paymentStatusData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Recent System Activity */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent System Activity</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Event</TableHead>
-                <TableHead>User</TableHead>
-                <TableHead>Timestamp</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {systemActivities.map((activity) => (
-                <TableRow key={activity._id}>
-                  <TableCell>{activity.event}</TableCell>
-                  <TableCell>{activity.user}</TableCell>
-                  <TableCell>{activity.timestamp}</TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusBadgeVariant(activity.status)}>
-                      {activity.status}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* All Users */}
-      <Card>
-        <CardHeader>
-          <CardTitle>All Users</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Status No</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {allUsers.map((user) => (
-                <TableRow key={user._id}>
-                  <TableCell>{user.name}</TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>{user.role}</TableCell>
-                  <TableCell>{user.statusNo}</TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusBadgeVariant(user.status)}>
-                      {user.status}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
     </div>
   );
 };
