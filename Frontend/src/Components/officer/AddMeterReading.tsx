@@ -40,8 +40,8 @@ const AddMeterReading: React.FC = () => {
     }
   };
 
-  const handleProcessPayment = (customer: Customer) => {
-    setSelectedCustomer(customer);
+  const handleProcessPayment = (customers: Customer) => {
+    setSelectedCustomer(customers);
     setIsPaymentDialogOpen(true);
   };
 

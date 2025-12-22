@@ -30,7 +30,9 @@ const meterReadingSchema = mongoose.Schema(
     anomalyStatus: {
       type: String,
       required: true,
+      default: "Unknown",
     },
+
     paymentStatus: {
       type: String,
       enum: ["Pending", "Paid", "Failed"],
@@ -52,19 +54,22 @@ const meterReadingSchema = mongoose.Schema(
     },
     paymentMonth: {
       type: Schema.Types.ObjectId,
-      required: true,
       ref: "PaymentSchedule",
+      required: true,
     },
     customerId: {
       type: Schema.Types.ObjectId,
-      required: true,
       ref: "Customer",
+      required: true,
+    },
+
+    officerId: {
+      type: Schema.Types.ObjectId,
+      ref: "Officer",
+      required: false,
     },
   },
-
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
 export const merterReading = mongoose.model(

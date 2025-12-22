@@ -61,7 +61,7 @@ const Complaints = () => {
         resolvedComplients: res.resolvedComplients ?? 0,
       });
 
-      const list = res?.someComplients ?? [];
+      const list = res?.complients ?? [];
 
       const data: Complaint[] = list.map((item: any) => ({
         id: item.id,

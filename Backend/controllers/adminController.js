@@ -9,6 +9,11 @@ import { passwordResetHistory } from "../models/PasswordResetHistory.js";
 import { formattedDate } from "../Util/FormattedDate.js";
 import { comparePassword, endcodePassword } from "../Util/passwordEncDec.js";
 import { generateToken } from "../Util/tokenGenrator.js";
+import { merterReading } from "../models/MeterReading.js";
+import { CustomerComplient } from "../models/CustomerComplient.js";
+import ExcelJS from "exceljs";
+import PDFDocument from "pdfkit";
+import { PassThrough } from "stream";
 
 export const createOfficer = async (req, res) => {
   try {
@@ -388,12 +393,12 @@ export const activateDeactivateCustomer = async (req, res) => {
     await history.save();
 
     await saveActivity(
-      adminId,
-      `${
-        getCustomerAndUPdate.isActive ? "Activated" : "Deactivated"
-      } getCustomerAndUPdate.accountNumber
-      }  account number`
-    );
+  adminId,
+  `${
+    getCustomerAndUPdate.isActive ? "Activated" : "Deactivated"
+  } ${getCustomerAndUPdate.accountNumber} account number`
+);
+
 
     res.status(200).json({
       message: `Customer ${
@@ -423,3 +428,278 @@ async function saveActivity(id, activity) {
   });
   await AdminActivity.save();
 }
+export const getAdminDashboard = async (req, res) => {
+  try {
+    const [totalOfficers, activeOfficers, totalCustomers, activeCustomers] =
+      await Promise.all([
+        Officer.countDocuments(),
+        Officer.countDocuments({ isActive: true }),
+        Customer.countDocuments(),
+        Customer.countDocuments({ isActive: true }),
+      ]);
+
+    const [paidReadings, pendingReadings, failedReadings] = await Promise.all([
+      merterReading.countDocuments({ paymentStatus: "Paid" }),
+      merterReading.countDocuments({ paymentStatus: "Pending" }),
+      merterReading.countDocuments({ paymentStatus: "Failed" }),
+    ]);
+
+    const pendingComplaints = await CustomerComplient.countDocuments({
+      status: "pending",
+    });
+
+    const recentOfficers = await Officer.find()
+      .sort({ createdAt: -1 })
+      .limit(3)
+      .select("name email department isActive createdAt");
+
+    const recentCustomers = await Customer.find()
+      .sort({ createdAt: -1 })
+      .limit(3)
+      .select("name email accountNumber isActive createdAt");
+
+    const recentUnpaidReadings = await merterReading
+      .find({ paymentStatus: "Pending" })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .populate("customerId", "name accountNumber")
+      .select("fee monthName paymentStatus createdAt");
+
+    return res.status(200).json({
+      success: true,
+      stats: {
+        users: {
+          officers: {
+            total: totalOfficers,
+            active: activeOfficers,
+            inactive: totalOfficers - activeOfficers,
+          },
+          customers: {
+            total: totalCustomers,
+            active: activeCustomers,
+            inactive: totalCustomers - activeCustomers,
+          },
+        },
+        payments: {
+          paid: paidReadings,
+          pending: pendingReadings,
+          failed: failedReadings,
+        },
+        complaints: {
+          pending: pendingComplaints,
+        },
+      },
+      recent: {
+        officers: recentOfficers,
+        customers: recentCustomers,
+        unpaidBills: recentUnpaidReadings,
+      },
+    });
+  } catch (error) {
+    console.error("Admin dashboard error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load dashboard data",
+    });
+  }
+};
+
+const buildDateFilter = (startDate, endDate) => {
+  const filter = {};
+  if (startDate) filter.$gte = new Date(startDate);
+  if (endDate) filter.$lte = new Date(endDate);
+  return filter;
+};
+
+export const generateAdminReport = async (req, res) => {
+  try {
+    const { type, startDate, endDate, department, userGroup } = req.body;
+    console.log("type", type);
+    if (!type)
+      return res
+        .status(400)
+        .json({ success: false, message: "Report type is required" });
+
+    const dateFilter = buildDateFilter(startDate, endDate);
+    let reportData = {};
+
+    switch (type) {
+      case "officer-report":
+        reportData = await generateOfficerReport({
+          department,
+          userGroup,
+          dateFilter,
+        });
+        break;
+
+      case "meter-readings":
+        reportData = await generateMeterReadingsReport({ dateFilter });
+        break;
+
+      case "revenue":
+        reportData = await generateRevenueReport({ dateFilter });
+        break;
+
+      case "customer-complaints":
+        reportData = await generateCustomerComplaintsReport({ dateFilter });
+        break;
+
+      default:
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid report type" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      reportType: type,
+      generatedBy: req.user?.name || "Admin",
+      generatedAt: new Date(),
+      filters: { startDate, endDate, department, userGroup },
+      data: reportData,
+    });
+  } catch (error) {
+    console.error("Admin report error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to generate report" });
+  }
+};
+
+export const exportReport = async (req, res) => {
+  try {
+    const { reportData, format } = req.body;
+    if (!reportData || !format)
+      return res
+        .status(400)
+        .json({ success: false, message: "Missing report data or format" });
+
+    const fileName = `report_${reportData.reportType}_${
+      new Date().toISOString().split("T")[0]
+    }`;
+
+    if (format === "excel") return exportExcel(reportData, fileName, res);
+    if (format === "pdf") return exportPDF(reportData, fileName, res);
+
+    return res
+      .status(400)
+      .json({ success: false, message: "Unsupported format" });
+  } catch (error) {
+    console.error("Export report error:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to export report" });
+  }
+};
+
+const generateOfficerReport = async ({ department, userGroup, dateFilter }) => {
+  const filter = {};
+  if (department && department !== "all") filter.department = department;
+  if (userGroup && userGroup !== "all") filter.role = userGroup;
+
+  const officers = await Officer.find(filter).select(
+    "name email department role isActive createdAt"
+  );
+  const officerIds = officers.map((o) => o._id);
+
+  const totalActivities = await adminAT.countDocuments({
+    adminId: { $in: officerIds },
+    ...(dateFilter.$gte || dateFilter.$lte ? { createdAt: dateFilter } : {}),
+  });
+
+  const departmentsSummary = {};
+  officers.forEach((o) => {
+    departmentsSummary[o.department] =
+      (departmentsSummary[o.department] || 0) + 1;
+  });
+
+  return {
+    totalOfficers: officers.length,
+    totalActivities,
+    departments: departmentsSummary,
+    officers,
+  };
+};
+
+const generateMeterReadingsReport = async ({ dateFilter }) => {
+  const filter = dateFilter ? { readingDate: dateFilter } : {};
+  const readings = await merterReading
+    .find(filter)
+    .populate("customerId", "name accountNumber")
+    .sort({ readingDate: -1 });
+
+  return {
+    totalReadings: readings.length,
+    summary: {
+      paid: readings.filter((r) => r.paymentStatus === "Paid").length,
+      pending: readings.filter((r) => r.paymentStatus === "Pending").length,
+      failed: readings.filter((r) => r.paymentStatus === "Failed").length,
+    },
+    readings: readings.map((r) => ({
+      customerName: r.customerId?.name,
+      accountNumber: r.customerId?.accountNumber,
+      readingDate: r.readingDate,
+      currentReading: r.currentReading,
+      previousReading: r.previousReading,
+      consumption: r.consumption,
+      fee: r.fee,
+      paymentStatus: r.paymentStatus,
+      readingMethod: r.readingMethod,
+      officer: r.readBy,
+    })),
+  };
+};
+
+const generateRevenueReport = async ({ dateFilter }) => {
+  const filter = {
+    paymentStatus: "Paid",
+    ...(dateFilter.$gte || dateFilter.$lte ? { paymentDate: dateFilter } : {}),
+  };
+  const payments = await merterReading
+    .find(filter)
+    .populate("customerId", "name accountNumber")
+    .sort({ paymentDate: -1 });
+
+  const totalRevenue = payments.reduce((sum, p) => sum + (p.fee || 0), 0);
+  return {
+    totalPayments: payments.length,
+    totalRevenue,
+    averagePayment: totalRevenue / (payments.length || 1),
+    payments: payments.map((p) => ({
+      customerName: p.customerId?.name,
+      accountNumber: p.customerId?.accountNumber,
+      paymentDate: p.paymentDate,
+      amount: p.fee,
+      readingDate: p.readingDate,
+      consumption: p.consumption,
+    })),
+  };
+};
+
+const generateCustomerComplaintsReport = async ({ dateFilter }) => {
+  const filter = dateFilter ? { createdAt: dateFilter } : {};
+  const complaints = await CustomerComplient.find(filter)
+    .populate("resolvedBy", "name email")
+    .sort({ createdAt: -1 });
+
+  return {
+    totalComplaints: complaints.length,
+    summary: {
+      resolved: complaints.filter((c) => c.status === "resolved").length,
+      pending: complaints.filter((c) => c.status === "pending").length,
+      inProgress: complaints.filter((c) => c.status === "in-Progress").length,
+    },
+    complaints: complaints.map((c) => ({
+      accountNumber: c.customerAccNumber || "NA",
+      subject: c.subject,
+      description: c.description,
+      status: c.status,
+      priority: c.priority,
+      assignedTo: c.resolvedBy?.name || "Unassigned",
+      createdAt: c.createdAt,
+      resolvedAt: c.resolvedAt,
+    })),
+  };
+};
+
+

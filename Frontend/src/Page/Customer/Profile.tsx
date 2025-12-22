@@ -61,8 +61,7 @@ const CustomerProfile: React.FC = () => {
         <h2 className="text-xl font-semibold text-black mb-4">Account Details</h2>
 
         <div className="space-y-2 text-gray-700">
-          <p><strong className="text-black">ID:</strong> {user.id}</p>
-          <p><strong className="text-black">Username:</strong> {user.username}</p>
+          <p><strong className="text-black">Name:</strong> {user.name}</p>
           <p><strong className="text-black">Account Number:</strong> {user.username}</p>
           <p><strong className="text-black">Name:</strong> {user.name}</p>
         </div>

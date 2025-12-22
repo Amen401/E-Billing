@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   AlertCircle,
   Calendar,
@@ -9,25 +9,25 @@ import {
   Receipt,
   User,
   Hash,
-} from 'lucide-react';
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Card } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import type { Customer, MissedMonth, SubmissionResult } from '@/Types/type';
-import MeterImageUpload from './MeterImageUpload';
-import { toast } from 'sonner';
-import { customerApi, officerApi } from '@/lib/api';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Card } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import type { Customer, MissedMonth, SubmissionResult } from "@/types";
+import MeterImageUpload from "./MeterImageUpload";
+import { toast } from "sonner";
+import {officerApi} from "@/lib/api";
 
 interface PaymentDialogProps {
   isOpen: boolean;
@@ -42,13 +42,14 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
 }) => {
   const [missedMonths, setMissedMonths] = useState<MissedMonth[]>([]);
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
-  const [fine, setFine] = useState('0');
+  const [fine, setFine] = useState("0");
   const [meterImage, setMeterImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingMonths, setIsLoadingMonths] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
-  const [extractionResult, setExtractionResult] = useState<SubmissionResult | null>(null);
+  const [extractionResult, setExtractionResult] =
+    useState<SubmissionResult | null>(null);
 
   useEffect(() => {
     if (isOpen && customer) {
@@ -57,15 +58,19 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
   }, [isOpen, customer]);
 
   const fetchMissedMonths = async () => {
-    if (!customer) return;
+    console.log(customer._id)
+    if (!customer?._id) {
+      toast.error("Customer ID is required");
+      return;
+    }
     setIsLoadingMonths(true);
 
     try {
-      const data = await officerApi.checkMissedMonths(customer._id) as { missedMonths: MissedMonth[] };
-      setMissedMonths(data.missedMonths || []);
+      const missed = await officerApi.checkMissedMonths(customer._id);
+      setMissedMonths(missed.missedMonths || []);
     } catch (error) {
-      console.error('Fetch missed months error:', error);
-      toast.error('Failed to load missed months');
+      console.error("Fetch missed months error:", error);
+      toast.error("Failed to load missed months");
     } finally {
       setIsLoadingMonths(false);
     }
@@ -94,75 +99,58 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
   };
 
   const handleExtractAndCalculate = async () => {
-  if (!meterImage || !customer) {
-    toast.error('Please upload a meter image first');
-    return;
-  }
-
-  if (selectedMonths.length === 0) {
-    toast.error('Please select at least one month to pay');
-    return;
-  }
-
-  setIsExtracting(true);
-
-  try {
-    // Get the full month objects for selected months
-    const selectedMonthObjects = missedMonths.filter(month => 
-      selectedMonths.includes(month._id)
-    );
-
-    const formData = new FormData();
-    formData.append("photo", meterImage);
-    formData.append('cId', customer._id);
-    
-    // Send the full month objects with _id and monthName
-    formData.append('months', JSON.stringify(selectedMonthObjects.map(month => ({
-      _id: month._id,
-      monthName: `${month.month} ${month.year}`
-    }))));
-    
-    formData.append('fine', fine);
-
-    const response = await officerApi.PayManual(formData);
-
-    if (response.message?.includes('not your meter')) {
-      toast.error('Meter number does not match customer record');
+    if (!meterImage || !customer) {
+      toast.error("Please upload a meter image first");
       return;
     }
 
-    setExtractionResult(response);
-    toast.success('Meter reading extracted successfully');
-  } catch (error: any) {
-    console.error('Extraction error:', error);
-    
-
-    if (error.response?.data?.message) {
-      toast.error(error.response.data.message);
-    } else if (error.message) {
-      toast.error(error.message);
-    } else {
-      toast.error('Failed to extract meter reading');
+    if (selectedMonths.length === 0) {
+      toast.error("Please select at least one month to pay");
+      return;
     }
-  } finally {
-    setIsExtracting(false);
-  }
-};
+
+    setIsExtracting(true);
+
+    try {
+      const response = await officerApi.PayManual(
+        customer._id,
+        selectedMonths,
+        parseFloat(fine) || 0
+      );
+
+      setExtractionResult({
+        success: true,
+        totalPayment: response.totalPayment,
+        meterReadingresult: response.meterReadingresult,
+      });
+      toast.success("Meter reading extracted successfully");
+    } catch (error: unknown) {
+      console.error("Extraction error:", error);
+      toast.error("Failed to extract meter reading");
+    } finally {
+      setIsExtracting(false);
+    }
+  };
 
   const handleConfirmPayment = async () => {
     if (!extractionResult) {
-      toast.error('Please extract meter reading first');
+      toast.error("Please extract meter reading first");
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      toast.success(`Payment of ${extractionResult.totalPayment?.toFixed(2)} Birr processed successfully!`);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      toast.success(
+        `Payment of ${extractionResult.totalPayment?.toFixed(
+          2
+        )} Birr processed successfully!`
+      );
       resetForm();
       onClose();
     } catch (error) {
-      toast.error('Failed to confirm payment');
+      toast.error("Failed to confirm payment");
     } finally {
       setIsSubmitting(false);
     }
@@ -170,10 +158,11 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
 
   const resetForm = () => {
     setSelectedMonths([]);
-    setFine('0');
+    setFine("0");
     setMeterImage(null);
     setImagePreview(null);
     setExtractionResult(null);
+    setMissedMonths([]);
   };
 
   const handleClose = () => {
@@ -188,8 +177,8 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-full bg-primary/10">
-              <CreditCard className="h-5 w-5 text-primary" />
+            <div className="p-2 rounded-full gradient-primary shadow-glow">
+              <CreditCard className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
               <DialogTitle className="text-xl">Process Payment</DialogTitle>
@@ -201,7 +190,7 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Customer Info Card */}
+       
           <Card className="p-4 bg-muted/30">
             <div className="grid grid-cols-3 gap-4 text-sm">
               <div className="flex items-center gap-2">
@@ -215,20 +204,24 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
                 <Hash className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <p className="text-muted-foreground text-xs">Account</p>
-                  <p className="font-mono font-medium">{customer.accountNumber}</p>
+                  <p className="font-mono font-medium">
+                    {customer.accountNumber}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <Zap className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <p className="text-muted-foreground text-xs">Meter SN</p>
-                  <p className="font-mono font-medium">{customer.meterReaderSN}</p>
+                  <p className="font-mono font-medium">
+                    {customer.meterReaderSN}
+                  </p>
                 </div>
               </div>
             </div>
           </Card>
 
-          {/* Missed Months Section */}
+        
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -238,8 +231,8 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
               {missedMonths.length > 0 && (
                 <Button variant="ghost" size="sm" onClick={handleSelectAll}>
                   {selectedMonths.length === missedMonths.length
-                    ? 'Deselect All'
-                    : 'Select All'}
+                    ? "Deselect All"
+                    : "Select All"}
                 </Button>
               )}
             </div>
@@ -253,14 +246,14 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
               </Card>
             ) : missedMonths.length === 0 ? (
               <Card className="p-6">
-                <div className="flex items-center justify-center gap-2 text-green-600">
+                <div className="flex items-center justify-center gap-2 text-success">
                   <CheckCircle2 className="h-4 w-4" />
                   <span>No missed payments found</span>
                 </div>
               </Card>
             ) : (
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 dark:bg-amber-950/30 p-2 rounded-md">
+                <div className="flex items-center gap-2 text-sm text-warning bg-warning/10 p-2 rounded-md">
                   <AlertCircle className="h-4 w-4" />
                   <span>{missedMonths.length} missed payment(s) found</span>
                 </div>
@@ -268,10 +261,10 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
                   {missedMonths.map((month) => (
                     <Card
                       key={month._id}
-                      className={`p-3 cursor-pointer transition-colors ${
+                      className={`p-3 cursor-pointer transition-all duration-200 ${
                         selectedMonths.includes(month._id)
-                          ? 'border-primary bg-primary/5'
-                          : 'hover:bg-muted/50'
+                          ? "border-primary bg-primary/5 shadow-md"
+                          : "hover:bg-muted/50"
                       }`}
                       onClick={() => handleMonthToggle(month._id)}
                     >
@@ -286,7 +279,10 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
                               {month.month} {month.year}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              Due: {new Date(month.normalPaymentStartDate).toLocaleDateString()}
+                              Due:{" "}
+                              {new Date(
+                                month.normalPaymentStartDate
+                              ).toLocaleDateString()}
                             </p>
                           </div>
                         </div>
@@ -335,16 +331,16 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
               onClick={handleExtractAndCalculate}
               disabled={isExtracting}
               className="w-full"
-              variant="secondary"
+              variant="gradient"
             >
               {isExtracting ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Extracting & Calculating...
                 </>
               ) : (
                 <>
-                  <Zap className="h-4 w-4 mr-2" />
+                  <Zap className="h-4 w-4" />
                   Extract Reading & Calculate
                 </>
               )}
@@ -353,37 +349,44 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
 
           {/* Payment Summary */}
           {extractionResult && (
-            <Card className="p-4 bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
+            <Card className="p-4 bg-success/10 border-success/20">
               <div className="flex items-center gap-2 mb-3">
-                <CheckCircle2 className="h-5 w-5 text-green-600" />
-                <h3 className="font-semibold text-green-800 dark:text-green-200">
+                <CheckCircle2 className="h-5 w-5 text-success" />
+                <h3 className="font-semibold text-success">
                   Payment Summary
                 </h3>
               </div>
               <Separator className="mb-3" />
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Selected Months:</span>
+                  <span className="text-muted-foreground">
+                    Selected Months:
+                  </span>
                   <span className="font-medium">{selectedMonths.length}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Meter Reading:</span>
                   <span className="font-mono font-medium">
-                    {extractionResult.meterReadingresult?.kilowatt || 'N/A'} kWh
+                    {extractionResult.meterReadingresult?.kilowatt || "N/A"} kWh
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Monthly Usage:</span>
                   <span className="font-mono font-medium">
-                    {extractionResult.meterReadingresult?.monthlyUsage?.toFixed(2) || 'N/A'} kWh
+                    {extractionResult.meterReadingresult?.monthlyUsage?.toFixed(
+                      2
+                    ) || "N/A"}{" "}
+                    kWh
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Fine:</span>
-                  <span className="font-medium">{parseFloat(fine).toFixed(2)} Birr</span>
+                  <span className="font-medium">
+                    {parseFloat(fine).toFixed(2)} Birr
+                  </span>
                 </div>
                 <Separator />
-                <div className="flex justify-between text-lg font-bold text-green-700 dark:text-green-300">
+                <div className="flex justify-between text-lg font-bold text-success">
                   <span>Total Payment:</span>
                   <span>{extractionResult.totalPayment?.toFixed(2)} Birr</span>
                 </div>
@@ -398,17 +401,18 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
             </Button>
             <Button
               className="flex-1"
+              variant="success"
               onClick={handleConfirmPayment}
               disabled={!extractionResult || isSubmitting}
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Processing...
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  <CheckCircle2 className="h-4 w-4" />
                   Confirm Payment
                 </>
               )}

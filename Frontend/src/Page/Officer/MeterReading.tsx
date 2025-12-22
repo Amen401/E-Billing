@@ -27,7 +27,7 @@ import { useNavigate } from "react-router-dom";
 
 interface MeterReading {
   _id: string;
-  customerId: string;
+  customerId: { _id: string; name: string; accountNumber: string };
   killowatRead: number;
   anomalyStatus: "Normal" | "Anomaly" | "Need Investigation";
   paymentStatus: "Paid" | "Not Paid";
@@ -68,9 +68,14 @@ const MeterReadings = () => {
 
   const filteredReadings = readings.filter((reading) => {
     const search = searchTerm.toLowerCase();
+    const customerName = reading.customerId?.name?.toLowerCase() || "";
+    const accountNumber = reading.customerId?.accountNumber?.toLowerCase() || "";
+    const paymentStatus = reading.paymentStatus?.toLowerCase() || "";
+
     return (
-      reading.customerId.toLowerCase().includes(search) ||
-      reading.paymentStatus.toLowerCase().includes(search)
+      customerName.includes(search) ||
+      accountNumber.includes(search) ||
+      paymentStatus.includes(search)
     );
   });
 
@@ -78,8 +83,7 @@ const MeterReadings = () => {
     total: readings.length,
     active: readings.filter((r) => r.anomalyStatus === "Normal").length,
     anomalies: readings.filter((r) => r.anomalyStatus === "Anomaly").length,
-    flagged: readings.filter((r) => r.anomalyStatus === "Need Investigation")
-      .length,
+    flagged: readings.filter((r) => r.anomalyStatus === "Need Investigation").length,
   };
 
   return (
@@ -140,7 +144,7 @@ const MeterReadings = () => {
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by Customer ID or Payment Status..."
+                placeholder="Search by Customer Name, Account or Payment Status..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onBlur={handleSearch}
@@ -157,7 +161,8 @@ const MeterReadings = () => {
           <Table className="min-w-[700px]">
             <TableHeader>
               <TableRow>
-                <TableHead>Customer ID</TableHead>
+                <TableHead>Customer Name</TableHead>
+                <TableHead>Account Number</TableHead>
                 <TableHead>Reading (kWh)</TableHead>
                 <TableHead>Date of Submission</TableHead>
                 <TableHead>Status</TableHead>
@@ -168,13 +173,13 @@ const MeterReadings = () => {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-4">
+                  <TableCell colSpan={7} className="text-center py-4">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : filteredReadings.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-4">
+                  <TableCell colSpan={7} className="text-center py-4">
                     {searchTerm
                       ? "No meter readings found matching your search"
                       : "No meter readings available"}
@@ -189,7 +194,8 @@ const MeterReadings = () => {
                       navigate(`/officer/meter-readings/${reading._id}`)
                     }
                   >
-                    <TableCell>{reading.customerId}</TableCell>
+                    <TableCell>{reading.customerId?.name || "-"}</TableCell>
+                    <TableCell>{reading.customerId?.accountNumber || "-"}</TableCell>
                     <TableCell>{reading.killowatRead}</TableCell>
                     <TableCell>{reading.dateOfSubmission}</TableCell>
                     <TableCell>
@@ -213,9 +219,7 @@ const MeterReadings = () => {
                     <TableCell>
                       <Badge
                         variant={
-                          reading.paymentStatus === "Paid"
-                            ? "default"
-                            : "destructive"
+                          reading.paymentStatus === "Paid" ? "default" : "destructive"
                         }
                         size="sm"
                       >
@@ -244,14 +248,11 @@ const StatCard = ({ title, value, icon }) => (
       </div>
 
       <div className="flex flex-col">
-        <span className="text-sm font-medium text-muted-foreground">
-          {title}
-        </span>
+        <span className="text-sm font-medium text-muted-foreground">{title}</span>
         <span className="text-xl font-bold">{value.toLocaleString()}</span>
       </div>
     </CardContent>
   </Card>
 );
-
 
 export default MeterReadings;

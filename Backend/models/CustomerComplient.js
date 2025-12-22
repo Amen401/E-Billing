@@ -14,7 +14,7 @@ const customerComp = mongoose.Schema({
     required: true,
   },
   date: {
-    type: String,
+    type: Date,
     required: true,
   },
   status: {
@@ -29,6 +29,10 @@ const customerComp = mongoose.Schema({
     type: Schema.Types.ObjectId,
     ref: "OfficerModel",
     default: null,
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
   },
 });
 

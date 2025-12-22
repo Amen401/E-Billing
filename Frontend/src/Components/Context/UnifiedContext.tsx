@@ -166,20 +166,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const changeProfilePicture = async (file: File) => {
-    if (!user || user.role !== "officer") return;
 
-    try {
-      const response = await officerApi.changeProfilePicture(file);
-      const updatedUser = { ...user, photo: response.photo.secure_url };
-      setUser(updatedUser);
-      localStorage.setItem("user", JSON.stringify(updatedUser));
-      toast.success("Profile picture updated");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to update profile picture");
-      throw err;
-    }
-  };
+const changeProfilePicture = async (file: File) => {
+  if (!user || user.role !== "officer") return;
+
+  const formData = new FormData();
+  formData.append("image", file); 
+
+  try {
+    const response = await officerApi.changeProfilePicture(file); 
+    const updatedUser = {
+      ...user,
+      photo:response.photo
+    };
+    setUser(updatedUser);
+    localStorage.setItem("user", JSON.stringify(updatedUser));
+    toast.success("Profile picture updated");
+  } catch (err: any) {
+    toast.error(err.message || "Failed to update profile picture");
+    throw err;
+  }
+};
+
+
 
   return (
     <AuthContext.Provider

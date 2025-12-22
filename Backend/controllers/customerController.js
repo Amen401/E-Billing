@@ -18,34 +18,34 @@ import crypto from "crypto";
 
 export const customerLogin = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { name, password } = req.body;
 
-    const checkUsername = await Customer.findOne({
-      accountNumber: username,
+    const checkName = await Customer.findOne({
+      accountNumber: name,
     });
 
-    if (!checkUsername) {
+    if (!checkName) {
       res.status(200).json({ message: "bad credentials" });
     }
 
     const checkPassword = await comparePassword(
       password,
-      checkUsername.password
+      checkName.password
     );
 
     if (!checkPassword) {
       res.status(200).json({ message: "bad credentials" });
     }
 
-    if (!checkUsername.isActive) {
+    if (!checkName.isActive) {
       res
         .status(200)
         .json({ message: "Account deactivated. Please contact the district" });
     }
     res.status(200).json({
       message: "login successful",
-      customerInfo: checkUsername,
-      token: generateToken(checkUsername._id, username),
+      customerInfo: checkName,
+      token: generateToken(checkName._id, name),
     });
   } catch (error) {
     res.status(500).json({ message: "Internal server error" });
@@ -140,6 +140,8 @@ export const checkPaymentSchedule = async (req, res) => {
 };
 export const submitReading = async (req, res) => {
   const customerId = req.authUser.id;
+  const officerId =
+    req.authUser.role === "officer" ? req.authUser.id : undefined;
   const photo = req.file;
 
   try {
@@ -149,16 +151,10 @@ export const submitReading = async (req, res) => {
 
     const base64 = Buffer.from(photo.buffer).toString("base64");
     const mimeType = photo.mimetype;
-
     const resp = await extractKWAndMeterNo(base64, mimeType);
     const { kilowatt: currentRead, meterNo: extractedMeterNo } = resp;
 
-    if (
-      typeof currentRead !== "number" ||
-      currentRead === null ||
-      isNaN(currentRead) ||
-      currentRead < 0
-    ) {
+    if (typeof currentRead !== "number" || currentRead < 0) {
       return res.status(400).json({
         message: "Extracted kilowatt reading is invalid or unreadable.",
       });
@@ -169,10 +165,9 @@ export const submitReading = async (req, res) => {
       return res.status(404).json({ message: "Customer account not found." });
     }
 
-    if (extractedMeterNo != findAccount.meterReaderSN) {
+    if (extractedMeterNo !== findAccount.meterReaderSN) {
       return res.status(403).json({
-        message:
-          "This meter is not linked to your account. Please insert your meter image.",
+        message: "This meter is not linked to your account.",
       });
     }
 
@@ -180,7 +175,6 @@ export const submitReading = async (req, res) => {
       .findOne({ customerId })
       .sort({ createdAt: -1 })
       .exec();
-    
     const previousRead = lastReading ? lastReading.killowatRead : 0;
     const monthlyUsage = currentRead - previousRead;
 
@@ -197,10 +191,7 @@ export const submitReading = async (req, res) => {
           tags: [customerId, "meter-readings"],
           quality: "auto:low",
         },
-        (error, result) => {
-          if (error) return reject(error);
-          resolve(result);
-        }
+        (error, result) => (error ? reject(error) : resolve(result))
       );
       streamifier.createReadStream(photo.buffer).pipe(uploadStream);
     });
@@ -214,66 +205,57 @@ export const submitReading = async (req, res) => {
         detectAnomaly(customerId, currentRead, monthlyUsage),
       ]);
 
-    if (!tariffDetails) {
-      return res.status(400).json({ 
-        message: "Tariff details not found for customer." 
-      });
-    }
-
-    if (!paymentScheduleDetails) {
-      return res.status(400).json({ 
-        message: "No active payment schedule found." 
-      });
-    }
+    if (!tariffDetails)
+      return res.status(400).json({ message: "Tariff details not found." });
+    if (!paymentScheduleDetails)
+      return res
+        .status(400)
+        .json({ message: "No active payment schedule found." });
 
     const energyTariff = Number(tariffDetails.energyTariff) || 0;
     const serviceCharge = Number(tariffDetails.serviceCharge) || 0;
-    
-    if (energyTariff <= 0) {
-      return res.status(400).json({ 
-        message: "Invalid energy tariff rate." 
-      });
-    }
-
     const energyCharge = energyTariff * monthlyUsage;
-
     const subtotal = energyCharge + serviceCharge;
-    const vatRate = 0.15; 
+    const vatRate = 0.15;
     const vat = subtotal * vatRate;
 
     const HIGH_CONSUMPTION_THRESHOLD = 200;
     const HIGH_CONSUMPTION_RATE = 0.005;
-    let highConsumptionCharge = 0;
-    
-    if (monthlyUsage > HIGH_CONSUMPTION_THRESHOLD) {
-      highConsumptionCharge = energyCharge * HIGH_CONSUMPTION_RATE;
+    const highConsumptionCharge =
+      monthlyUsage > HIGH_CONSUMPTION_THRESHOLD
+        ? energyCharge * HIGH_CONSUMPTION_RATE
+        : 0;
+
+    let totalFee = energyCharge + serviceCharge + vat + highConsumptionCharge;
+
+    if (totalFee <= 0 || !isFinite(totalFee)) {
+      return res
+        .status(400)
+        .json({ message: "Invalid total fee calculation." });
     }
 
-    const totalFee = energyCharge + serviceCharge + vat + highConsumptionCharge;
-    
-    if (totalFee <= 0 || !isFinite(totalFee)) {
-      return res.status(400).json({ 
-        message: "Invalid total fee calculation." 
-      });
+    const CHAPA_MAX_AMOUNT = 1000000;
+    if (totalFee > CHAPA_MAX_AMOUNT) {
+      console.warn(
+        `Total fee ${totalFee} exceeds Chapa max. Capping to ${CHAPA_MAX_AMOUNT}`
+      );
+      totalFee = CHAPA_MAX_AMOUNT;
     }
 
     const MAX_PAYMENT_PER_CHUNK = 100000;
-    let paymentChunks = [];
-    
+    const paymentChunks = [];
     if (totalFee > MAX_PAYMENT_PER_CHUNK) {
-      const numberOfChunks = Math.ceil(totalFee / MAX_PAYMENT_PER_CHUNK);
-      const baseChunkAmount = totalFee / numberOfChunks;
-      
+      const numChunks = Math.ceil(totalFee / MAX_PAYMENT_PER_CHUNK);
+      const baseChunk = totalFee / numChunks;
       let remaining = totalFee;
-      for (let i = 0; i < numberOfChunks; i++) {
-        let chunkAmount;
-        if (i === numberOfChunks - 1) {
-          chunkAmount = Math.round(remaining * 100) / 100;
-        } else {
-          chunkAmount = Math.round(baseChunkAmount * 100) / 100;
-          remaining -= chunkAmount;
-        }
-        paymentChunks.push(chunkAmount);
+
+      for (let i = 0; i < numChunks; i++) {
+        const chunk =
+          i === numChunks - 1
+            ? Math.round(remaining * 100) / 100
+            : Math.round(baseChunk * 100) / 100;
+        paymentChunks.push(chunk);
+        remaining -= chunk;
       }
     } else {
       paymentChunks.push(Math.round(totalFee * 100) / 100);
@@ -286,20 +268,21 @@ export const submitReading = async (req, res) => {
       },
       killowatRead: currentRead,
       monthlyUsage,
-      energyTariff: energyTariff,
-      serviceCharge: serviceCharge,
-      vatRate: vatRate,
+      energyTariff,
+      serviceCharge,
+      vatRate,
       vatAmount: vat,
-      highConsumptionCharge: highConsumptionCharge,
-      energyCharge: energyCharge,
-      anomalyStatus: anomalyResult.anomalyStatus,
+      highConsumptionCharge,
+      energyCharge,
+      anomalyStatus: anomalyResult?.anomalyStatus || "Unknown",
       paymentStatus: "Pending",
       fee: Math.round(totalFee * 100) / 100,
       paymentChunks,
       dateOfSubmission: formattedDate(),
       paymentMonth: paymentScheduleDetails._id,
       monthName: `${paymentScheduleDetails.yearAndMonth}`,
-      customerId: customerId,
+      customerId,
+      officerId,
       calculationDetails: {
         previousReading: previousRead,
         currentReading: currentRead,
@@ -307,8 +290,8 @@ export const submitReading = async (req, res) => {
         tariffRate: energyTariff,
         vatPercentage: vatRate * 100,
         highConsumptionThreshold: HIGH_CONSUMPTION_THRESHOLD,
-        highConsumptionRate: HIGH_CONSUMPTION_RATE * 100
-      }
+        highConsumptionRate: HIGH_CONSUMPTION_RATE * 100,
+      },
     });
 
     await newMeterReading.save();
@@ -318,13 +301,13 @@ export const submitReading = async (req, res) => {
       meterReadingresult: newMeterReading,
       calculationBreakdown: {
         consumption: monthlyUsage,
-        energyCharge: energyCharge,
-        serviceCharge: serviceCharge,
-        vat: vat,
-        highConsumptionCharge: highConsumptionCharge,
-        totalFee: totalFee,
-        paymentChunks: paymentChunks
-      }
+        energyCharge,
+        serviceCharge,
+        vat,
+        highConsumptionCharge,
+        totalFee,
+        paymentChunks,
+      },
     });
   } catch (error) {
     console.error("Submission Error:", error);
@@ -538,17 +521,17 @@ export const getPaidBills = async (req, res) => {
 export const updateTestPaymentStatus = async (req, res) => {
   try {
     if (process.env.CHAPA_TEST_MODE !== "true") {
-      return res.status(400).json({ 
-        message: "Test mode only endpoint" 
+      return res.status(400).json({
+        message: "Test mode only endpoint",
       });
     }
 
     const { readingId } = req.body;
     const reading = await merterReading.findById(readingId);
-    
+
     if (!reading) {
-      return res.status(404).json({ 
-        message: "Reading not found" 
+      return res.status(404).json({
+        message: "Reading not found",
       });
     }
 
@@ -561,15 +544,14 @@ export const updateTestPaymentStatus = async (req, res) => {
       paymentMonth: reading.paymentMonth,
     }).save();
 
-    res.json({ 
-      success: true, 
-      paymentStatus: reading.paymentStatus 
+    res.json({
+      success: true,
+      paymentStatus: reading.paymentStatus,
     });
-    
   } catch (error) {
     console.error("Test payment update error:", error);
-    res.status(500).json({ 
-      message: "Failed to update test payment" 
+    res.status(500).json({
+      message: "Failed to update test payment",
     });
   }
 };

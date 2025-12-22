@@ -11,6 +11,7 @@ import AddMeterReading from "./Components/officer/AddMeterReading";
 import UnifiedLogin from "./Page/Auth/Login";
 import SchedulePayment from "./Page/Officer/SchedulePayment";
 import MeterReadingDetail from "./Page/Officer/DetailmeterReading";
+import AdminReports from "./Page/Admin/Reports";
 
 
 const Home = lazy(() => import("./Page/Home"));
@@ -87,6 +88,7 @@ const App = () => (
               <Route path="logs" element={<SystemLogs />} />
               <Route path="profile" element={<AdminProfile />} />
               <Route path="customers/:id" element={<CustomerDetailPage />} />
+              <Route path="admin-reports" element={<AdminReports/>}/>
             </Route>
 
             <Route

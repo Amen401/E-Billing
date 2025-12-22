@@ -145,3 +145,63 @@ export interface BillRow {
   amount?: number;      
   status?: string;     
 }
+export interface DashboardStats {
+  users: {
+    officers: {
+      total: number;
+      active: number;
+      inactive: number;
+    };
+    customers: {
+      total: number;
+      active: number;
+      inactive: number;
+    };
+  };
+  payments: {
+    paid: number;
+    pending: number;
+    failed: number;
+  };
+  complaints: {
+    pending: number;
+  };
+}
+
+export interface DashboardResponse {
+  success: boolean;
+  stats: DashboardStats;
+  recent: {
+    officers: Officer[];
+    customers: Customer[];
+    unpaidBills: unknown[];
+  };
+}
+export interface ReportFilters {
+  startDate: string;
+  endDate: string;
+  department?: string;
+  userGroup?: string;
+}
+
+export interface ApiResponses<T> {
+  success: boolean;
+  message?: string;
+  reportType?: string;
+  generatedBy?: string;
+  generatedAt?: string;
+  filters?: ReportFilters;
+  data: T;
+}
+export interface ReportData {
+  reportType: string;               // e.g., "officer-report", "revenue", etc.
+  generatedBy?: string;             // e.g., "Admin"
+  generatedAt: string;              // ISO string timestamp
+  filters?: {
+    startDate: string;              // "YYYY-MM-DD"
+    endDate: string;                // "YYYY-MM-DD"
+    department?: string;            // optional, e.g., "IT"
+    userGroup?: string;             // optional, e.g., "Manager"
+  };
+  data: unknown;                        // actual report content, can be array or object
+}

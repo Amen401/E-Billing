@@ -162,7 +162,6 @@ const SystemLogs = () => {
                   <TableHead>Event</TableHead>
                   <TableHead>User</TableHead>
                   <TableHead>Timestamp</TableHead>
-                  <TableHead>IP Address</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -189,7 +188,6 @@ const SystemLogs = () => {
                       <TableCell>
                         {new Date(activity.date).toLocaleString()}
                       </TableCell>
-                      <TableCell className="text-slate-600">Unknown</TableCell>
                       <TableCell>
                         <Badge variant="default">Success</Badge>
                       </TableCell>

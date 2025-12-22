@@ -1,7 +1,8 @@
-import type { ComplaintType } from "@/Page/Types/type";
+import type { ComplaintType,ApiResponses, ReportFilters,ReportData } from "@/Page/Types/type";
 import { get } from "react-hook-form";
 
 const API_BASE_URL = "http://localhost:3000";
+
 
 interface ApiResponse<T = any> {
   data?: T;
@@ -97,6 +98,7 @@ class ApiService {
   }
 }
 
+
 export const api = new ApiService();
 
 const ENDPOINTS = {
@@ -152,7 +154,10 @@ export const adminApi = {
     const response = await api.post(ENDPOINTS.adminlogout);
     return response;
   },
-
+validateToken: async (token: string) => {
+    const response = await api.post("/admin/validate-token", { token });
+    return response;
+  },
   searchOfficer: async (query: string) => {
     const response = await api.get(
       `${ENDPOINTS.searchOfficer}?q=${encodeURIComponent(query)}`
@@ -216,7 +221,7 @@ export const adminApi = {
     oldPass: string,
     newPass: string
   ) => {
-    const response = await api.put(ENDPOINTS.updateUsernameOrPassword, {
+    const response = await api.post(ENDPOINTS.updateUsernameOrPassword, {
       id,
       username,
       oldPass,
@@ -254,6 +259,29 @@ export const adminApi = {
     const response = await api.get(ENDPOINTS.systemActivities);
     return response;
   },
+  getadmindashboard: async () => {
+    const response = await api.post("/admin/admin-dashboard");
+    return response;
+  },
+
+  generateReport: async (
+  type: string,
+  params: {
+    startDate: string;
+    endDate: string;
+    department?: string;
+    userGroup?: string;
+  }
+) => {
+  const response = await api.post("/admin/report", {
+    type,
+    ...params, 
+  });
+
+  return response;
+},
+
+
 };
 export const customerApi = {
   login: async (username: string, password: string) => {
@@ -345,7 +373,7 @@ export const customerApi = {
     const token = localStorage.getItem("authToken");
     if (!token) throw new Error("Not authenticated");
 
-    const response = await fetch(`${API_BASE_URL}/customer/customer-logout`, {
+    const response = await fetch(`${API_BASE_URL}/customer/logout`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -407,6 +435,14 @@ export const customerApi = {
   forceChapaCallback: async (tx_ref: string) => {
     const res = await api.get(`/customer/chapa-callback?tx_ref=${tx_ref}`);
     return res.json();
+  },
+  validateToken: async (token: string) => {
+    const response = await api.get("/customer/validate-token", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response;
   },
 };
 
@@ -501,30 +537,32 @@ export const officerApi = {
   },
 
   changeProfilePicture: async (file: File) => {
-    const token = localStorage.getItem("authToken");
-    if (!token) throw new Error("Not authenticated");
+  const token = localStorage.getItem("authToken");
+  if (!token) throw new Error("Not authenticated");
 
-    const formData = new FormData();
-    formData.append("image", file);
-    console.log("FormData keys:", [...formData.keys()]);
-    const response = await fetch(
-      `${API_BASE_URL}${ENDPOINTS.changeProfilePic}`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      }
-    );
+  const formData = new FormData();
+  formData.append("image", file);
+  console.log("FormData keys:", [...formData.keys()]);
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || "Upload failed");
+  const response = await fetch(
+    `${API_BASE_URL}${ENDPOINTS.changeProfilePic}`,
+    {
+      method: "POST",
+       
+      headers: {
+        Authorization: `Bearer ${token}`, 
+      },
+       body: formData,
     }
+  );
 
-    return response.json();
-  },
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Upload failed");
+  }
+
+  return response.json();
+},
 
   updateUsernameOrPassword: async (data: {
     id: string;
@@ -580,14 +618,14 @@ export const officerApi = {
     return response;
   },
 
-  searchMyActivities: async (query: string, filter: string) => {
-    const response = await api.get(
-      `${
-        ENDPOINTS.searchmyactitiesofOfficer
-      }?filter=${filter}&value=${encodeURIComponent(query)}`
-    );
-    return response;
-  },
+searchMyActivities: async (query: string, filter: string) => {
+  const res = await api.post(
+    `${ENDPOINTS.searchmyactitiesofOfficer}?filter=${filter}&value=${encodeURIComponent(query)}`
+  );
+  return res;
+},
+
+
   updatecomplaintstatus: async (cId: string, status: string) => {
     const response = await api.put(ENDPOINTS.updateComplaintstatus, {
       cId,
@@ -623,13 +661,17 @@ export const officerApi = {
     const response = await api.post(ENDPOINTS.closeSchedule, { id });
     return response;
   },
-  checkMissedMonths: async (id: string) => {
-  const response = await api.get("/officer/get-missed-payments", {
-    params: { id },
-  });
-  return response;
-},
-PayManual: async (formData: FormData) => {
+
+checkMissedMonths: async (customerId: string) => {
+  if (!customerId) throw new Error("Customer ID is required");
+
+  const response = await api.get(`/officer/get-missed-payments?customerId=${customerId}`);
+
+  return response; 
+}
+,
+
+PayManual: async (formData: FormData, selectedMonths: string[], p0: number) => {
   const token = localStorage.getItem("authToken");
     if (!token) throw new Error("Not authenticated");
 
@@ -673,4 +715,30 @@ PayManual: async (formData: FormData) => {
     const response = await api.get("/officer/get-all-meter-readings");
     return response;
   },
+ generateReport: async (
+  reportType: string,
+  params: {
+    startDate: string;
+    endDate: string;
+    department?: string;
+    userGroup?: string;
+  }
+) => {
+  const response = await api.post("/officer/reports/generate", {
+    reportType,
+    ...params, 
+  });
+
+  return response;
+},
+validateToken: async (token: string) => {
+  const response = await api.get("/officer/validate-token", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response;
+},
+
+
 };

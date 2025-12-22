@@ -5,7 +5,6 @@ import { Button } from "@/Components/ui/button";
 import { Input } from "@/Components/ui/input";
 import { Label } from "@/Components/ui/label";
 import {
-  Download,
   RefreshCw,
   Filter,
   Zap,
@@ -17,11 +16,7 @@ import { ConsumptionChart } from "@/Components/Customer/ConsumptionChart";
 import { BillsTable } from "@/Components/Customer/BillsTable";
 import PredictionCard from "@/Components/Customer/PredictionCard";
 
-type ConsumptionPoint = {
-  month: string;
-  consumption: number;
-  average?: number;
-};
+
 
 type BillRow = {
   month: string;
@@ -123,39 +118,7 @@ const Consumption: React.FC = () => {
     status: b.paymentStatus ?? "Pending",
   }));
 
-  function downloadCSV() {
-    const headers = [
-      "Billing Month",
-      "Meter Reading",
-      "Consumption (kWh)",
-      "Amount (ETB)",
-      "Status",
-    ];
-
-    const rows = detailedData.map((r) => [
-      `"${r.month}"`,
-      r.reading,
-      r.consumption,
-      r.amount.toFixed(2),
-      r.status,
-    ]);
-
-    const csvContent = [headers.join(",")]
-      .concat(rows.map((r) => r.join(",")))
-      .join("\n");
-
-    const blob = new Blob([csvContent], {
-      type: "text/csv;charset=utf-8;",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `consumption_${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
+  
   const applyFilters = () => refetchBills();
   const refreshAll = () => {
     refetchMonthly();
@@ -254,11 +217,6 @@ const Consumption: React.FC = () => {
             <Button variant="outline" onClick={applyFilters}>
               <Filter className="w-4 h-4 mr-2" />
               Apply Filter
-            </Button>
-
-            <Button variant="outline" onClick={downloadCSV}>
-              <Download className="w-4 h-4 mr-2" />
-              Export CSV
             </Button>
 
             <Button variant="ghost" onClick={refreshAll}>
