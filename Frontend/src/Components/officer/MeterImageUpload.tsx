@@ -1,132 +1,97 @@
-import React, { useRef, useState } from "react";
-import { Upload, Camera, X, Image as ImageIcon } from "lucide-react";
-import { Button } from "@/Components/ui/button";
+import React, { useState, useRef } from 'react';
+import { Camera, Upload, X, RotateCcw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 interface MeterImageUploadProps {
-  onImageSelect: (file: File | null) => void;
-  selectedImage: File | null;
+  onImageSelect: (file: File | null, preview: string | null) => void;
+  imagePreview: string | null;
 }
 
-const MeterImageUpload: React.FC<MeterImageUploadProps> = ({
-  onImageSelect,
-  selectedImage,
-}) => {
+const MeterImageUpload: React.FC<MeterImageUploadProps> = ({ onImageSelect, imagePreview }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [dragOver, setDragOver] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      handleFile(file);
-    }
-  };
+  const file = e.target.files?.[0];
+  if (!file) return;
 
-  const handleFile = (file: File) => {
-    if (file.type.startsWith("image/")) {
-      onImageSelect(file);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setPreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      handleFile(file);
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(true);
-  };
-
-  const handleDragLeave = () => {
-    setDragOver(false);
-  };
-
-  const clearImage = () => {
-    onImageSelect(null);
-    setPreview(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
-
-  if (preview) {
-    return (
-      <div className="relative rounded-xl overflow-hidden border-2 border-primary/20 bg-muted/30">
-        <img
-          src={preview}
-          alt="Meter reading preview"
-          className="w-full h-48 object-contain bg-background"
-        />
-        <Button
-          variant="destructive"
-          size="icon"
-          className="absolute top-2 right-2 h-8 w-8 rounded-full"
-          onClick={clearImage}
-        >
-          <X className="h-4 w-4" />
-        </Button>
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background/90 to-transparent p-3">
-          <p className="text-sm font-medium truncate">{selectedImage?.name}</p>
-          <p className="text-xs text-muted-foreground">
-            {selectedImage && (selectedImage.size / 1024).toFixed(1)} KB
-          </p>
-        </div>
-      </div>
-    );
+  if (!file.type.startsWith('image/')) {
+    toast.error('Please select a valid image file');
+    return;
   }
 
+  if (file.size > 5 * 1024 * 1024) {
+    toast.error('File size must be less than 5MB');
+    return;
+  }
+
+  const previewUrl = URL.createObjectURL(file);
+  onImageSelect(file, previewUrl);
+};
+
+  const handleClear = () => {
+    onImageSelect(null, null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   return (
-    <div
-      className={`border-2 border-dashed rounded-xl p-6 text-center transition-all duration-200 ${
-        dragOver
-          ? "border-primary bg-primary/5"
-          : "border-muted-foreground/25 hover:border-primary/50"
-      }`}
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-    >
+    <div className="space-y-3">
+      {imagePreview ? (
+        <div className="relative rounded-lg overflow-hidden border border-border">
+          <img
+            src={imagePreview}
+            alt="Meter reading"
+            className="w-full h-48 object-cover"
+          />
+          <div className="absolute top-2 right-2 flex gap-2">
+            <Button
+              type="button"
+              size="icon"
+              variant="secondary"
+              className="h-8 w-8"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              size="icon"
+              variant="destructive"
+              className="h-8 w-8"
+              onClick={handleClear}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div
+          onClick={() => fileInputRef.current?.click()}
+          className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors"
+        >
+          <div className="flex flex-col items-center gap-2">
+            <div className="p-3 rounded-full bg-primary/10">
+              <Upload className="h-6 w-6 text-primary" />
+            </div>
+            <p className="text-sm font-medium text-foreground">
+              Click to upload meter image
+            </p>
+            <p className="text-xs text-muted-foreground">
+              PNG, JPG up to 5MB
+            </p>
+          </div>
+        </div>
+      )}
+
       <input
-        type="file"
         ref={fileInputRef}
-        className="hidden"
-        accept="image/jpeg,image/png,image/webp"
+        type="file"
+        accept="image/*"
         onChange={handleFileChange}
+        className="hidden"
       />
-      <div className="flex flex-col items-center">
-        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-          <ImageIcon className="h-6 w-6 text-primary" />
-        </div>
-        <p className="text-sm font-medium mb-1">Upload meter image</p>
-        <p className="text-xs text-muted-foreground mb-4">
-          JPG, PNG or WebP • Max 5MB
-        </p>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            Browse
-          </Button>
-          <Button type="button" variant="outline" size="sm" disabled>
-            <Camera className="h-4 w-4 mr-2" />
-            Camera
-          </Button>
-        </div>
-      </div>
     </div>
   );
 };

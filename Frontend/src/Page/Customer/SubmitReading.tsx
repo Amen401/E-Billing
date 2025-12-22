@@ -3,7 +3,17 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, Camera, Edit3, CheckCircle, History, Zap, TrendingUp, Calendar, AlertCircle } from "lucide-react";
+import {
+  Upload,
+  Camera,
+  Edit3,
+  CheckCircle,
+  History,
+  Zap,
+  TrendingUp,
+  Calendar,
+  AlertCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 import Webcam from "react-webcam";
 import { motion, AnimatePresence } from "framer-motion";
@@ -46,7 +56,11 @@ const SubmitReading = () => {
   const [showReview, setShowReview] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [submissionResult, setSubmissionResult] = useState<MeterReadingResult | null>(null);
+  const [selectedReadingId, setSelectedReadingId] = useState<string | null>(
+    null
+  );
+  const [submissionResult, setSubmissionResult] =
+    useState<MeterReadingResult | null>(null);
 
   const webcamRef = useRef<Webcam>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -57,15 +71,10 @@ const SubmitReading = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please select a valid image file");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("File size must be less than 5MB");
-      return;
-    }
+    if (!file.type.startsWith("image/"))
+      return toast.error("Please select a valid image file");
+    if (file.size > 5 * 1024 * 1024)
+      return toast.error("File size must be less than 5MB");
 
     setSelectedFile(file);
     setCapturedImage(null);
@@ -92,37 +101,31 @@ const SubmitReading = () => {
     }
 
     setIsProcessing(true);
-
     try {
       const formData = new FormData();
 
-      if (selectedFile) {
-        formData.append("image", selectedFile);
-      }
+      if (selectedFile) formData.append("image", selectedFile);
       else if (capturedImage) {
         const res = await fetch(capturedImage);
         const blob = await res.blob();
-
-        if (blob.size === 0) {
-          toast.error("Captured image is empty. Please try again.");
-          setIsProcessing(false);
-          return;
-        }
-
         const file = new File([blob], "meter.jpg", { type: "image/jpeg" });
         formData.append("image", file);
       }
 
-      if (manualEntry && readingValue) {
+      if (manualEntry && readingValue)
         formData.append("readingValue", readingValue);
-      }
 
       const response = await customerApi.submitMeterReading(formData);
-      console.log(response);
-      
-      setSubmissionResult(response);
-      toast.success("Meter reading submitted successfully!");
 
+      toast.success(response?.message || "Reading submitted successfully");
+      if (response?.meterReadingresult) {
+        setSubmissionResult(response);
+        setShowReview(true);
+        const readingId = response.meterReadingresult._id;
+        setSelectedReadingId(readingId);
+      } else {
+        toast.error("Invalid submission result from server");
+      }
     } catch (error: any) {
       console.error("Submission error:", error);
       toast.error(error?.response?.data?.message || "Failed to submit reading");
@@ -142,23 +145,38 @@ const SubmitReading = () => {
     submitToBackend();
   };
 
-  const handlePaymentComplete = () => {
-    toast.success("Payment completed!");
-    setShowPayment(false);
+  const handlePaymentComplete = async () => {
+    try {
+      if (!selectedReadingId || !submissionResult) {
+        setShowPayment(false);
+        return;
+      }
+
+      if (import.meta.env.NEXT_PUBLIC_CHAPA_TEST_MODE === "true") {
+        await customerApi.updateTestPayment(selectedReadingId);
+      }
+
+      const updatedReading = await customerApi.getReadingById(
+        selectedReadingId
+      );
+
+      setSubmissionResult({
+        meterReadingresult: updatedReading,
+        message: "Payment completed successfully",
+      });
+
+      setShowPayment(false);
+      toast.success("Payment completed! Status updated to Paid");
+    } catch (error) {
+      console.error("Error updating payment status:", error);
+      toast.error("Payment completed but failed to update status");
+      setShowPayment(false);
+    }
   };
 
-  const handleNewSubmission = () => {
-    setSubmissionResult(null);
-    setSelectedFile(null);
-    setCapturedImage(null);
-    setImagePreview(null);
-    setReadingValue("");
-    setManualEntry(false);
-    setSubmissionMode("upload");
-  };
+  const result = submissionResult?.meterReadingresult;
 
-  if (submissionResult) {
-    const result = submissionResult.meterReadingresult;
+  if (result) {
     const isAnomalyDetected = result.anomalyStatus !== "Normal";
 
     return (
@@ -197,7 +215,9 @@ const SubmitReading = () => {
                   Current Reading
                 </p>
                 <p className="text-2xl font-bold font-mono text-primary mb-1">
-                  {result.killowatRead.toLocaleString('en-US',{useGrouping:false})}
+                  {result.killowatRead.toLocaleString("en-US", {
+                    useGrouping: false,
+                  })}
                 </p>
                 <p className="text-lg text-muted-foreground font-medium">kWh</p>
               </div>
@@ -209,9 +229,12 @@ const SubmitReading = () => {
                       <TrendingUp className="w-5 h-5 text-primary" />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Monthly Usage</p>
+                      <p className="text-sm text-muted-foreground">
+                        Monthly Usage
+                      </p>
                       <p className="text-2xl font-bold font-mono">
-                        {result.monthlyUsage} <span className="text-sm font-normal">kWh</span>
+                        {result.monthlyUsage}{" "}
+                        <span className="text-sm font-normal">kWh</span>
                       </p>
                     </div>
                   </div>
@@ -223,7 +246,9 @@ const SubmitReading = () => {
                       <CheckCircle className="w-5 h-5 text-green-600" />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Fee Amount</p>
+                      <p className="text-sm text-muted-foreground">
+                        Fee Amount
+                      </p>
                       <p className="text-2xl font-bold">
                         {result.fee.toFixed(2)}birr
                       </p>
@@ -232,43 +257,49 @@ const SubmitReading = () => {
                 </Card>
               </div>
 
-           
               <div className="space-y-3 mb-6">
                 <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
                   <span className="text-sm font-medium flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-muted-foreground" />
                     Submission Date
                   </span>
-                  <span className="font-mono font-semibold">{result.dateOfSubmission}</span>
+                  <span className="font-mono font-semibold">
+                    {result.dateOfSubmission}
+                  </span>
                 </div>
 
                 <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
                   <span className="text-sm font-medium">Payment Status</span>
-                  <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                    result.paymentStatus === "Paid" 
-                      ? "bg-green-500/10 text-green-700" 
-                      : "bg-amber-500/10 text-amber-700"
-                  }`}>
+                  <span
+                    className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                      result.paymentStatus === "Paid"
+                        ? "bg-green-500/10 text-green-700"
+                        : "bg-amber-500/10 text-amber-700"
+                    }`}
+                  >
                     {result.paymentStatus}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
                   <span className="text-sm font-medium flex items-center gap-2">
-                    {isAnomalyDetected && <AlertCircle className="w-4 h-4 text-amber-600" />}
+                    {isAnomalyDetected && (
+                      <AlertCircle className="w-4 h-4 text-amber-600" />
+                    )}
                     Anomaly Status
                   </span>
-                  <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                    isAnomalyDetected
-                      ? "bg-amber-500/10 text-amber-700" 
-                      : "bg-green-500/10 text-green-700"
-                  }`}>
+                  <span
+                    className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                      isAnomalyDetected
+                        ? "bg-amber-500/10 text-amber-700"
+                        : "bg-green-500/10 text-green-700"
+                    }`}
+                  >
                     {result.anomalyStatus}
                   </span>
                 </div>
               </div>
 
-         
               <div className="flex gap-3">
                 {result.paymentStatus !== "Paid" && (
                   <Button
@@ -278,13 +309,6 @@ const SubmitReading = () => {
                     Pay {result.fee.toFixed(2)} birr
                   </Button>
                 )}
-                <Button
-                  variant="outline"
-                  onClick={handleNewSubmission}
-                  className="flex-1 h-12 text-lg"
-                >
-                  Submit New Reading
-                </Button>
               </div>
             </Card>
           </motion.div>
@@ -293,15 +317,17 @@ const SubmitReading = () => {
         <EthiopianPaymentDialog
           open={showPayment}
           onOpenChange={setShowPayment}
-          amount={result.fee}
-          readingValue={result.killowatRead.toString()}
+          amount={submissionResult?.meterReadingresult.fee ?? 0}
+          readingId={submissionResult?.meterReadingresult._id ?? ""}
+          readingValue={
+            submissionResult?.meterReadingresult.killowatRead.toString() ?? ""
+          }
           onPaymentComplete={handlePaymentComplete}
         />
       </div>
     );
   }
 
- 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
       <div className="container max-w-5xl mx-auto px-4 py-8">
@@ -499,7 +525,6 @@ const SubmitReading = () => {
             </Card>
           </motion.div>
 
-        
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -564,8 +589,11 @@ const SubmitReading = () => {
       <EthiopianPaymentDialog
         open={showPayment}
         onOpenChange={setShowPayment}
-        amount={estimatedAmount}
-        readingValue={readingValue}
+        amount={submissionResult?.meterReadingresult.fee ?? 0}
+        readingId={submissionResult?.meterReadingresult._id ?? ""}
+        readingValue={
+          submissionResult?.meterReadingresult.killowatRead.toString() ?? ""
+        }
         onPaymentComplete={handlePaymentComplete}
       />
     </div>

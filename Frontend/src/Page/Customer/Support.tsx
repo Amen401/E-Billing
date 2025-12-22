@@ -247,7 +247,7 @@ const Support = () => {
                   {complaintHistory.map((complaint) => (
                     <TableRow key={complaint.id}>
                       <TableCell className="font-mono text-xs">
-                        Comp-{complaint.id.substring(0,2)}
+                        Comp-{complaint.id.slice(-4)}
                       </TableCell>
                       <TableCell className="font-medium capitalize">
                         {complaint.subject}

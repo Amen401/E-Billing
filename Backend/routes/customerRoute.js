@@ -8,6 +8,12 @@ import {
   searchMyComplain,
   submitReading,
   writeComplain,
+  payBill,
+  checkPaymentStatus,
+  chapaCallback,
+  getPaidBills,
+  getmeterbyId,
+  updateTestPaymentStatus
 } from "../controllers/customerController.js";
 import { verifyToken } from "../Util/tokenVerify.js";
 import { upload } from "../middleware/multer.js";
@@ -31,4 +37,14 @@ customerRouter.post(
   upload.single("image"),
   submitReading
 );
+
+customerRouter.post("/pay-bill", verifyToken, payBill);
+
+customerRouter.get("/payment-status/:txRef", verifyToken, checkPaymentStatus);
+customerRouter.post('/test-payment', updateTestPaymentStatus);
+customerRouter.get("/chapa-callback", chapaCallback);
+customerRouter.get("/paid-bill", verifyToken, getPaidBills);
+
+customerRouter.get("/meter-by-id/:id",verifyToken,getmeterbyId);
+
 export default customerRouter;

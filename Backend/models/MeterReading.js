@@ -2,6 +2,11 @@ import mongoose, { Schema } from "mongoose";
 
 const meterReadingSchema = mongoose.Schema(
   {
+    txRef: {
+      type: String,
+      unique: true,
+    },
+
     photo: {
       secure_url: {
         type: String,
@@ -28,9 +33,14 @@ const meterReadingSchema = mongoose.Schema(
     },
     paymentStatus: {
       type: String,
+      enum: ["Pending", "Paid", "Failed"],
+      default: "Pending",
       required: true,
-      enum: ["Paid", "Not Paid"],
-      default: "Not Paid",
+    },
+    monthName: {
+      type: String,
+      required: true,
+      default: "",
     },
     fee: {
       type: Number,
@@ -51,6 +61,7 @@ const meterReadingSchema = mongoose.Schema(
       ref: "Customer",
     },
   },
+
   {
     timestamps: true,
   }

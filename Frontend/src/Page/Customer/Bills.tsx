@@ -7,17 +7,28 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from "@/Components/ui/table";
+import { useEffect, useState } from "react";
+import type { Bill } from "@/types/types";
+import { customerApi } from "@/lib/api";
 
-const previousBills = [
-  { id: "B-001", month: "June 2024", consumption: 120, amount: 320.50, dueDate: "2024-06-15", status: "Paid" },
-  { id: "B-002", month: "May 2024", consumption: 110, amount: 295.00, dueDate: "2024-05-15", status: "Paid" },
-  { id: "B-003", month: "April 2024", consumption: 130, amount: 350.25, dueDate: "2024-04-15", status: "Paid" },
-  { id: "B-004", month: "March 2024", consumption: 105, amount: 280.00, dueDate: "2024-03-15", status: "Paid" },
-  { id: "B-005", month: "February 2024", consumption: 95, amount: 260.00, dueDate: "2024-02-15", status: "Paid" },
-];
+
 
 const Bills = () => {
+  const [previousBills, setPreviousBills] = useState<Bill[]>([]);
+  useEffect(() => {
+  const fetchPaidBills = async () => {
+    try {
+    const res=await customerApi.getpaidbills();
+       setPreviousBills(res.bills);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  fetchPaidBills();
+}, []);
+
   return (
     <div className="space-y-6">
       <div>
@@ -40,13 +51,13 @@ const Bills = () => {
             <TableBody>
               {previousBills.map((bill) => (
                 <TableRow key={bill.id}>
-                  <TableCell className="font-medium">{bill.id}</TableCell>
+                  <TableCell className="font-medium">{`Bill-${bill.id.slice(-4)}`}</TableCell>
                   <TableCell>{bill.month}</TableCell>
                   <TableCell>{bill.consumption}</TableCell>
                   <TableCell>ETB {bill.amount.toFixed(2)}</TableCell>
                   <TableCell>{bill.dueDate}</TableCell>
                   <TableCell>
-                    <Badge className="bg-success hover:bg-success/90">
+                    <Badge className="bg-success bg-black text-white hover:bg-success/90">
                       {bill.status}
                     </Badge>
                   </TableCell>

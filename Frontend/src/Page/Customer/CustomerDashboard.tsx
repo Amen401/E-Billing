@@ -40,51 +40,104 @@ const StatsCard = ({
 );
 
 const CustomerDashboard = () => {
- const {user} = useAuth();
+  const { user } = useAuth();
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [latestComplaint, setLatestComplaint] = useState<Complaint | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
-
-      const token = localStorage.getItem("authToken");
-      if (!token) return;
+      setIsLoading(true);
+      setError(null);
 
       try {
-        const result = await customerApi.getComplaints(); 
+        // Using customerApi from your backend integration
+        const result = await customerApi.getComplaints();
 
-        if (result && Array.isArray(result.complains)) {
-          setComplaints(result.complains);
+        if (result && Array.isArray(result.myComplains)) {
+          // Note: The backend returns "myComplains" not "complains"
+          const fetchedComplaints: Complaint[] = result.myComplains.map((complaint: any) => ({
+            _id: complaint._id || complaint.id,
+            complainType: complaint.complainType || complaint.type || "General",
+            description: complaint.description || "No description provided",
+            status: complaint.status || "Pending",
+            createdAt: complaint.createdAt || new Date().toISOString()
+          }));
 
-          if (result.complains.length > 0) {
-            setLatestComplaint(result.complains[result.complains.length - 1]);
+          setComplaints(fetchedComplaints);
+
+          // Sort complaints by date to get the latest one
+          const sortedComplaints = [...fetchedComplaints].sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+
+          if (sortedComplaints.length > 0) {
+            setLatestComplaint(sortedComplaints[0]);
+          } else {
+            setLatestComplaint(null);
           }
+        } else {
+          setComplaints([]);
+          setLatestComplaint(null);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to load complaints:", err);
+        setError(err.message || "Failed to load your complaints data");
+        setComplaints([]);
+        setLatestComplaint(null);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchData();
   }, []);
 
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-1/4 mb-2"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="animate-pulse">
+              <div className="h-32 bg-gray-200 rounded"></div>
+            </div>
+          ))}
+        </div>
+        <div className="animate-pulse">
+          <div className="h-48 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground mb-2">
-          Welcome, {user?.name || "Customer"}!
+          Welcome, {user?.name || user?.username || "Customer"}!
         </h1>
         <p className="text-muted-foreground">
-          Here’s a quick overview of your customer dashboard.
+          Here's a quick overview of your customer dashboard.
         </p>
       </div>
 
+      {error && (
+        <div className="bg-destructive/10 border border-destructive text-destructive px-4 py-3 rounded-md">
+          <p className="font-medium">Error loading data</p>
+          <p className="text-sm mt-1">{error}</p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatsCard
           icon={User}
           title="Account Number"
-          value={user?.username || "---"}
+          value={user?.username || user?.accountNumber || "---"}
           subtitle="Your registered account number"
           iconBg="bg-primary/10 text-primary"
         />
@@ -93,7 +146,7 @@ const CustomerDashboard = () => {
           icon={ClipboardList}
           title="Total Complaints"
           value={complaints.length}
-          subtitle="Your submitted complaints"
+          subtitle={`Your submitted complaints`}
           iconBg="bg-warning/10 text-warning"
         />
 
@@ -107,20 +160,73 @@ const CustomerDashboard = () => {
       </div>
 
       <Card className="p-6">
-        <h2 className="text-xl font-semibold mb-4">Latest Complaint</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">Latest Complaint</h2>
+          {complaints.length > 0 && (
+            <span className="text-sm text-muted-foreground">
+              Total: {complaints.length} complaint{complaints.length !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
 
-        {!latestComplaint && (
-          <p className="text-muted-foreground text-sm">You have no complaints yet.</p>
+        {!latestComplaint && !error && (
+          <div className="text-center py-8">
+            <FileWarning className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
+            <p className="text-muted-foreground">You have no complaints yet.</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Submit a complaint through the Complaints section.
+            </p>
+          </div>
         )}
 
-        {latestComplaint && (
-          <div className="space-y-2">
-            <p><strong>Type:</strong> {latestComplaint.complainType}</p>
-            <p><strong>Status:</strong> {latestComplaint.status}</p>
-            <p><strong>Description:</strong> {latestComplaint.description}</p>
-            <p className="text-sm text-muted-foreground">
-              Submitted: {new Date(latestComplaint.createdAt).toLocaleString()}
+        {error && !latestComplaint && (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">Unable to load complaint data.</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Please try refreshing the page or contact support.
             </p>
+          </div>
+        )}
+
+        {latestComplaint && !error && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Type</p>
+                <p className="font-medium">{latestComplaint.complainType}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Status</p>
+                <p className="font-medium">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    latestComplaint.status === 'Resolved' 
+                      ? 'bg-green-100 text-green-800'
+                      : latestComplaint.status === 'In Progress'
+                      ? 'bg-blue-100 text-blue-800'
+                      : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {latestComplaint.status}
+                  </span>
+                </p>
+              </div>
+            </div>
+            
+            <div>
+              <p className="text-sm text-muted-foreground">Description</p>
+              <p className="text-foreground mt-1">{latestComplaint.description}</p>
+            </div>
+            
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Submitted: {new Date(latestComplaint.createdAt).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </p>
+            </div>
           </div>
         )}
       </Card>
