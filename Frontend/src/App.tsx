@@ -61,7 +61,7 @@ const App = () => (
           <Routes>
 
             <Route path="/" element={<Home />} />
-     <Route path="/login/:role?" element={<UnifiedLogin />} />
+     <Route path="/login" element={<UnifiedLogin />} />
 
             <Route
               path="/dashboard"
