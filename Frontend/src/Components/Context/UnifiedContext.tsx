@@ -22,19 +22,22 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<Role>;
   logout: () => void;
 
-
-  updateNameOrEmail?: (attribute: "name" | "email", value: string) => Promise<void>;
+  updateNameOrEmail?: (
+    attribute: "name" | "email",
+    value: string
+  ) => Promise<void>;
   updateProfile?: (data: { name?: string }) => Promise<void>;
-  changePassword: (oldPass: string, newPass: string) => Promise<void>;
+  changePasswordOrUsername: (oldPass: string, newPass: string) => Promise<void>;
   changeProfilePicture?: (file: File) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
 
   useEffect(() => {
     const saved = localStorage.getItem("user");
@@ -49,7 +52,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     setIsLoading(false);
   }, []);
-
 
   const login = async (username: string, password: string) => {
     try {
@@ -86,7 +88,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-
   const logout = async () => {
     try {
       if (!user) return;
@@ -103,9 +104,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     toast.success("Logged out");
   };
 
- 
-
-  const updateNameOrEmail = async (attribute: "name" | "email", value: string) => {
+  const updateNameOrEmail = async (
+    attribute: "name" | "email",
+    value: string
+  ) => {
     if (!user) return;
 
     try {
@@ -122,73 +124,122 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.setItem("user", JSON.stringify(updatedUser));
         }
       }
-      toast.success(`${attribute.charAt(0).toUpperCase() + attribute.slice(1)} updated successfully`);
+      toast.success(
+        `${
+          attribute.charAt(0).toUpperCase() + attribute.slice(1)
+        } updated successfully`
+      );
     } catch (err: any) {
       toast.error(err.message || "Failed to update profile");
       throw err;
     }
   };
 
- const updateProfile = async (data: { name?: string }) => {
-  if (!user) return;
-
-  try {
-    if (user.role === "admin" && data.name && data.name !== user.name) {
-      const response = await adminApi.updateName(user.id, data.name);
-      const updatedName = response.result?.name || data.name;
-      const updatedUser = { ...user, name: updatedName };
-      setUser(updatedUser);
-      localStorage.setItem("user", JSON.stringify(updatedUser));
-      toast.success("Profile updated successfully");
-    }
-  } catch (err: any) {
-    toast.error(err.message || "Failed to update profile");
-    throw err;
-  }
-};
-
-
-  const changePassword = async (oldPass: string, newPass: string) => {
+  const updateProfile = async (data: { name?: string }) => {
     if (!user) return;
 
     try {
-      if (user.role === "officer") {
-        await officerApi.updateUsernameOrPassword({ id: user.id, username: user.username, oldPass, newPass });
-      } else if (user.role === "customer") {
-        await customerApi.updatepassword({ id: user.id, oldPass, newPass });
-      } else if (user.role === "admin") {
-        await adminApi.updateUsernameOrPassword(user.id, user.username, oldPass, newPass);
+      if (user.role === "admin" && data.name && data.name !== user.name) {
+        const response = await adminApi.updateName(user.id, data.name);
+        const updatedName = response.result?.name || data.name;
+        const updatedUser = { ...user, name: updatedName };
+        setUser(updatedUser);
+        localStorage.setItem("user", JSON.stringify(updatedUser));
+        toast.success("Profile updated successfully");
       }
-      toast.success("Password changed successfully");
     } catch (err: any) {
-      toast.error(err.message || "Failed to change password");
+      toast.error(err.message || "Failed to update profile");
       throw err;
     }
   };
 
+  const changePasswordOrUsername = async (
+    username?: string,
+    oldPass?: string,
+    newPass?: string
+  ) => {
+    if (!user) {
+      toast.error("User not found.");
+      return;
+    }
 
-const changeProfilePicture = async (file: File) => {
-  if (!user || user.role !== "officer") return;
+    if (!username && (!oldPass || !newPass)) {
+      toast.error(
+        "Please provide a new username or both old and new passwords."
+      );
+      return;
+    }
 
-  const formData = new FormData();
-  formData.append("image", file); 
+    try {
+      switch (user.role) {
+        case "officer":
+          await officerApi.updateUsernameOrPassword({
+            id: user.id,
+            username: username || user.username,
+            oldPass,
+            newPass,
+          });
+          break;
 
-  try {
-    const response = await officerApi.changeProfilePicture(file); 
-    const updatedUser = {
-      ...user,
-      photo:response.photo
-    };
-    setUser(updatedUser);
-    localStorage.setItem("user", JSON.stringify(updatedUser));
-    toast.success("Profile picture updated");
-  } catch (err: any) {
-    toast.error(err.message || "Failed to update profile picture");
-    throw err;
-  }
-};
+        case "customer":
+          if (!oldPass || !newPass) {
+            toast.error(
+              "To change password, provide both old and new passwords."
+            );
+            return;
+          }
+          await customerApi.updatepassword({
+            id: user.id,
+            oldPass,
+            newPass,
+          });
+          break;
 
+        case "admin":
+          await adminApi.updateUsernameOrPassword(
+            user.id,
+            username || user.username,
+            oldPass,
+            newPass
+          );
+          break;
 
+        default:
+          toast.error("Invalid user role.");
+          return;
+      }
+
+      toast.success(
+        `${username ? "Username" : ""}${
+          username && oldPass && newPass ? " and " : ""
+        }${oldPass && newPass ? "Password" : ""} changed successfully!`
+      );
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update username or password.");
+      throw err;
+    }
+  };
+
+  const changeProfilePicture = async (file: File) => {
+    if (!user || user.role !== "officer") return;
+
+    const formData = new FormData();
+    formData.append("image", file);
+
+    try {
+      const response = await officerApi.changeProfilePicture(file);
+      const updatedUser = {
+        ...user,
+        photo: response.photo,
+      };
+      setUser(updatedUser);
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      toast.success("Profile picture updated");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update profile picture");
+      throw err;
+    }
+  };
 
   return (
     <AuthContext.Provider
@@ -200,7 +251,7 @@ const changeProfilePicture = async (file: File) => {
         isLoading,
         updateNameOrEmail,
         updateProfile,
-        changePassword,
+        changePasswordOrUsername,
         changeProfilePicture,
       }}
     >

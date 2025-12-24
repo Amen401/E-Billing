@@ -4,6 +4,7 @@ import { Customer } from "../models/CustomerModel.js";
 import { Officer } from "../models/OfficerModel.js";
 import { admin } from "../models/AdminModel.js";
 import { officerAT } from "../models/OfficerActivityTracker.js";
+import { PhishBlockThreshold } from "@google/genai";
 
 export const unifiedLogin = async (req, res) => {
   const { username, password } = req.body;
@@ -34,12 +35,13 @@ export const unifiedLogin = async (req, res) => {
     ];
 
     for (const check of loginChecks) {
-      const foundUser = await check.model.findOne({ [check.identifier]: username });
+      const foundUser = await check.model.findOne({
+        [check.identifier]: username,
+      });
       if (!foundUser) continue;
 
       const valid = await comparePassword(password, foundUser.password);
-      if (!valid)
-        return res.status(200).json({ message: "bad credentials" });
+      if (!valid) return res.status(200).json({ message: "bad credentials" });
 
       if (check.role !== "admin" && !foundUser.isActive)
         return res.status(200).json({ message: "Account deactivated" });
@@ -51,8 +53,7 @@ export const unifiedLogin = async (req, res) => {
       break;
     }
 
-    if (!user)
-      return res.status(200).json({ message: "bad credentials" });
+    if (!user) return res.status(200).json({ message: "bad credentials" });
 
     const token = generateToken(user._id, user.username || user.accountNumber);
 
@@ -63,6 +64,7 @@ export const unifiedLogin = async (req, res) => {
         id: user._id,
         name: user.name,
         username: user.username || user.accountNumber || user.name,
+        photo: user.photo?.secure_url || null,
       },
       token,
     });
@@ -70,7 +72,6 @@ export const unifiedLogin = async (req, res) => {
     return res.status(500).json({ message: "Internal server error", error });
   }
 };
-
 
 export async function saveActivity(userId, activity, role = "officer") {
   try {
@@ -84,9 +85,9 @@ export async function saveActivity(userId, activity, role = "officer") {
     });
 
     const activityLog = new officerAT({
-      officerId: userId, 
+      officerId: userId,
       activity,
-      role, 
+      role,
       date: formattedDate,
     });
 
