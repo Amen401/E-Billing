@@ -127,55 +127,49 @@ export const searchMyActivities = async (req, res) => {
 };
 export const updateUsernameOrPassword = async (req, res) => {
   try {
-    const username = req.body.username;
-    const oldPassword = req.body.oldPass;
-    const newPass = req.body.newPass;
+    const { username, oldPass, newPass } = req.body;
     const id = req.authUser.id;
-    let result;
-    if (oldPassword == "" && newPass == "" && username != "") {
-      result = await Officer.findByIdAndUpdate(id, { username }, { new: true });
 
+    const myProfile = await Officer.findById(id);
+    if (!myProfile) return res.status(404).json({ message: "User not found" });
+
+    let updates = {};
+
+    if (username && username !== myProfile.username) {
+      updates.username = username;
       await saveActivity(id, `Updated your username to ${username}`);
-
-      res.status(200).json({
-        message: "Username updated Successfully!!",
-        result: {
-          _id: result._id,
-          name: result.name,
-          username: result.username,
-        },
-      });
-    } else if ((oldPassword != "" && newPass != "") || username != "") {
-      const myProfile = await Officer.findById(id);
-      const password = await endcodePassword(newPass);
-      if (await comparePassword(oldPassword, myProfile.password)) {
-        result = await Officer.findByIdAndUpdate(
-          id,
-          { password },
-          { new: true }
-        );
-
-        await saveActivity(id, `Updated your username  and password`);
-
-        res.status(200).json({
-          message: "Username and password updated Successfully!!",
-          result: {
-            _id: result._id,
-            name: result.name,
-            username: result.username,
-          },
-        });
-      } else {
-        res.status(200).json({ message: "your old password is incorrect!!" });
-      }
     }
+
+    if (oldPass && newPass) {
+      const isMatch = await comparePassword(oldPass, myProfile.password);
+      if (!isMatch)
+        return res.status(400).json({ message: "Old password is incorrect" });
+
+      updates.password = await endcodePassword(newPass);
+      await saveActivity(id, "Updated your password");
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: "Nothing to update" });
+    }
+
+    const result = await Officer.findByIdAndUpdate(id, updates, { new: true });
+
+    res.status(200).json({
+      message: "Profile updated successfully",
+      result: {
+        _id: result._id,
+        name: result.name,
+        username: result.username,
+      },
+    });
   } catch (error) {
-    res.status(500).json({ message: "Internal server error", error: error });
+    res.status(500).json({ message: "Internal server error", error });
   }
 };
+
 export const changeProfilePicture = async (req, res) => {
   try {
-
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
 
     let officer = await Officer.findById(req.authUser.id);
@@ -345,8 +339,8 @@ export const updateComplientStatus = async (req, res) => {
 
 export const checkMissedMonths = async (req, res) => {
   try {
-    const { customerId } = req.query; 
-console.log(customerId);
+    const { customerId } = req.query;
+    console.log(customerId);
     if (!customerId) {
       return res.status(400).json({ message: "Customer ID is required" });
     }
@@ -379,8 +373,6 @@ console.log(customerId);
     res.status(500).json({ message: "Internal server error" });
   }
 };
-
-
 
 export const createSchedule = async (req, res) => {
   try {

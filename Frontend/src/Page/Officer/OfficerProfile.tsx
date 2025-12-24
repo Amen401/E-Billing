@@ -22,7 +22,7 @@ import {
 import { useAuth } from "@/components/context/UnifiedContext";
 
 const OfficerProfile = () => {
-  const { user, updateNameOrEmail, changeProfilePicture, changePassword } =
+  const { user, updateNameOrEmail, changeProfilePicture, changePasswordOrUsername } =
     useAuth();
 
   const [isEditingName, setIsEditingName] = useState(false);
@@ -99,7 +99,7 @@ const OfficerProfile = () => {
 
     try {
       setPasswordLoading(true);
-      await changePassword(passwordData.oldPass, passwordData.newPass);
+      await changePasswordOrUsername(passwordData.oldPass, passwordData.newPass);
       setPasswordData({ oldPass: "", newPass: "", confirmPass: "" });
       setIsChangingPassword(false);
       toast.success("Password changed successfully");
@@ -109,6 +109,32 @@ const OfficerProfile = () => {
       setPasswordLoading(false);
     }
   };
+  const handleUsernameUpdate = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  if (!username.trim()) {
+    toast.error("Username cannot be empty");
+    return;
+  }
+
+  if (username === user?.username) {
+    toast.info("Username is unchanged");
+    setisEditingUsername(false);
+    return;
+  }
+
+  try {
+    setLoading(true);
+    await changePasswordOrUsername?.("username", username);
+    setisEditingUsername(false);
+    toast.success("Username updated successfully");
+  } catch (err: any) {
+    toast.error(err.message || "Failed to update username");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-secondary/30 via-background to-background">
@@ -130,7 +156,7 @@ const OfficerProfile = () => {
                   <div className="w-32 h-32 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-4xl font-bold text-primary-foreground shadow-lg">
                     {user?.photo ? (
                       <img
-                        src={user.photo.secure_url || ""}
+                        src={user.photo || ""}
                         alt={user.name}
                         className="w-full h-full rounded-full object-cover"
                       />
@@ -253,7 +279,7 @@ const OfficerProfile = () => {
                 )}
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleEmailUpdate} className="space-y-4">
+                <form onSubmit={handleUsernameUpdate} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="username" className="text-sm font-medium">
                       Username

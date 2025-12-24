@@ -6,11 +6,11 @@
   "mae_last_month": null,
   "prediction": {
     "next_month_date": "2026-01-31",
-    "predicted_monthlyUsage": -247560039.53002217,
+    "predicted_monthlyUsage": -8252001.316750432,
     "usage_range": {
-      "lower": -247560039.53024334,
-      "upper": -247560039.5298039
+      "lower": -8252001.316962983,
+      "upper": -8252001.316518427
     },
-    "predicted_killowatRead": -247532311.03002217
+    "predicted_killowatRead": -8224800.816750432
   }
 }

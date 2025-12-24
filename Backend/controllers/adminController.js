@@ -393,12 +393,11 @@ export const activateDeactivateCustomer = async (req, res) => {
     await history.save();
 
     await saveActivity(
-  adminId,
-  `${
-    getCustomerAndUPdate.isActive ? "Activated" : "Deactivated"
-  } ${getCustomerAndUPdate.accountNumber} account number`
-);
-
+      adminId,
+      `${getCustomerAndUPdate.isActive ? "Activated" : "Deactivated"} ${
+        getCustomerAndUPdate.accountNumber
+      } account number`
+    );
 
     res.status(200).json({
       message: `Customer ${
@@ -550,10 +549,22 @@ export const generateAdminReport = async (req, res) => {
           .json({ success: false, message: "Invalid report type" });
     }
 
+   let generatedBy = "Admin";
+
+    if (req.authUser?.id) {
+      const adminDoc = await admin
+        .findById(req.authUser.id)
+        .select("name");
+
+      if (adminDoc?.name) {
+        generatedBy = adminDoc.name;
+      }
+    }
+
     return res.status(200).json({
       success: true,
       reportType: type,
-      generatedBy: req.user?.name || "Admin",
+      generatedBy,
       generatedAt: new Date(),
       filters: { startDate, endDate, department, userGroup },
       data: reportData,
@@ -685,9 +696,9 @@ const generateCustomerComplaintsReport = async ({ dateFilter }) => {
   return {
     totalComplaints: complaints.length,
     summary: {
-      resolved: complaints.filter((c) => c.status === "resolved").length,
-      pending: complaints.filter((c) => c.status === "pending").length,
-      inProgress: complaints.filter((c) => c.status === "in-Progress").length,
+      resolved: complaints.filter((c) => c.status.toLowerCase() === "resolved").length,
+      pending: complaints.filter((c) => c.status.toLowerCase() === "pending").length,
+      inProgress: complaints.filter((c) => c.status.toLowerCase() === "in-progress").length,
     },
     complaints: complaints.map((c) => ({
       accountNumber: c.customerAccNumber || "NA",
@@ -701,5 +712,3 @@ const generateCustomerComplaintsReport = async ({ dateFilter }) => {
     })),
   };
 };
-
-
