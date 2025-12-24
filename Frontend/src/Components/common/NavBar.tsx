@@ -13,7 +13,7 @@ const Navbar = () => {
             <div className="bg-primary text-primary-foreground p-2 rounded-lg">
               <Zap className="h-6 w-6" />
             </div>
-            <span className="text-2xl font-bold">PowerPulse</span>
+            <span className="text-2xl font-bold">E-billing</span>
           </Link>
 
           <div className="hidden md:flex items-center gap-8">

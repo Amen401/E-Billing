@@ -1,11 +1,12 @@
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Camera, Globe, CreditCard } from 'lucide-react';
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Camera, Globe, CreditCard } from "lucide-react";
 
-import heroRobot from '@/assets/hero-robot (1).jpg';
-import Navbar from '@/Components/common/NavBar';
-import Footer from '@/Components/common/Footer';
+import heroRobot from "@/assets/hero-robot (1).jpg";
+import Navbar from "@/Components/common/NavBar";
+import Footer from "@/Components/common/Footer";
+import ScrollToHash from "./ScrollToHash";
 
 const Home = () => {
   const navigate = useNavigate();
@@ -13,119 +14,197 @@ const Home = () => {
   const features = [
     {
       icon: Camera,
-      title: 'Upload Meter Photo',
-      description: 'Snap a picture of your meter, and our AI instantly reads and processes the data, eliminating manual entry errors.',
+      title: "Upload Meter Photo",
+      description:
+        "Simply snap a photo of your meter. Our AI reads it instantly with high accuracy.",
     },
     {
       icon: Globe,
-      title: 'AI-Powered Insights',
-      description: 'Unlock detailed analytics and personalized recommendations to optimize energy usage and identify cost-saving opportunities.',
+      title: "AI-Powered Insights",
+      description:
+        "Visualize your energy usage and receive smart recommendations to reduce costs.",
     },
     {
       icon: CreditCard,
-      title: 'Pay Online Securely',
-      description: 'Enjoy peace of mind with secure, convenient online payment options and automated billing reminders.',
+      title: "Secure Online Payments",
+      description:
+        "Pay your electricity bills safely online with automated reminders.",
     },
   ];
 
   const steps = [
     {
       number: 1,
-      title: 'Login & Upload Meter',
-      description: 'Securely log into your PowerPulse account and easily upload a photo of your electricity meter.',
+      title: "Login & Upload",
+      description:
+        "Access your account securely and upload a photo of your meter.",
     },
     {
       number: 2,
-      title: 'AI Calculates & Analyzes',
-      description: 'Our advanced AI immediately processes your meter reading, calculates your bill, and generates usage insights.',
+      title: "AI Processing",
+      description:
+        "Our AI calculates usage, generates bills, and analyzes consumption.",
     },
     {
       number: 3,
-      title: 'View, Pay & Optimize',
-      description: 'Access your detailed bill, make secure payments online, and apply insights to optimize future energy consumption.',
+      title: "Pay & Optimize",
+      description:
+        "Pay online and apply insights to lower your future bills.",
     },
   ];
 
   return (
     <div className="min-h-screen bg-background">
+      <ScrollToHash />
       <Navbar />
 
-      {/* Hero Section */}
-      <section className="container mx-auto px-4 py-20">
-        <div className="grid md:grid-cols-2 gap-12 items-center">
+      {/* ================= HERO ================= */}
+      <section className="relative overflow-hidden">
+        <div className="container mx-auto px-4 py-28 grid md:grid-cols-2 gap-16 items-center">
           <div>
-            <h1 className="text-5xl font-bold mb-6 leading-tight">
-              Smart, AI-Powered Electricity Billing
+            <h1 className="text-5xl md:text-6xl font-extrabold leading-tight mb-6">
+              Smart{" "}
+              <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                AI-Powered
+              </span>{" "}
+              Electricity Billing
             </h1>
-            <p className="text-lg text-muted-foreground mb-8">
-              Gain unparalleled control and understanding of your energy consumption with PowerPulse. 
-              Our intelligent platform provides accurate, real-time billing insights, helping you save money and 
-              reduce your environmental footprint effortlessly.
+
+            <p className="text-lg text-muted-foreground mb-10 max-w-xl">
+              PowerPulse helps you understand, manage, and optimize your
+              electricity usage with intelligent AI insights and seamless
+              billing.
             </p>
+
             <div className="flex gap-4">
-              <Button 
-                variant="outline" 
+              <Button
                 size="lg"
-                onClick={() => navigate('/login?role=customer')}
+                onClick={() => navigate("/login")}
+                className="px-10 shadow-lg hover:shadow-xl transition-all"
               >
-                Customer Login
+                Get Started
               </Button>
-              <Button 
+              <Button
                 size="lg"
-                onClick={() => navigate('/login?role=officer')}
+                variant="outline"
+                onClick={() =>
+                  document
+                    .getElementById("features")
+                    ?.scrollIntoView({ behavior: "smooth" })
+                }
               >
-                Register Now
+                Learn More
               </Button>
             </div>
           </div>
 
           <div className="relative">
-            <div className="bg-gradient-to-br from-primary/20 to-accent/20 rounded-2xl p-8">
-              <img 
-                src={heroRobot} 
-                alt="AI Robot Assistant" 
-                className="w-full h-auto rounded-lg"
-              />
-            </div>
+            <div className="absolute inset-0 bg-gradient-to-tr from-primary/30 to-accent/30 blur-3xl rounded-full" />
+            <img
+              src={heroRobot}
+              alt="AI Assistant"
+              className="relative rounded-2xl shadow-2xl"
+            />
           </div>
         </div>
       </section>
 
-      {/* Key Features */}
-      <section id="features" className="container mx-auto px-4 py-20">
-        <h2 className="text-4xl font-bold text-center mb-16">Key Features</h2>
-        
-        <div className="grid md:grid-cols-3 gap-8">
+      {/* ================= STATS ================= */}
+      <section className="container mx-auto px-4 py-16">
+        <div className="grid md:grid-cols-3 gap-8 text-center">
+          {[
+            { value: "99.8%", label: "Reading Accuracy" },
+            { value: "24/7", label: "AI Availability" },
+            { value: "100%", label: "Secure Payments" },
+          ].map((stat, i) => (
+            <div
+              key={i}
+              className="rounded-2xl border bg-card p-8 shadow-sm hover:shadow-md transition"
+            >
+              <h3 className="text-4xl font-bold text-primary">
+                {stat.value}
+              </h3>
+              <p className="text-muted-foreground mt-2">{stat.label}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ================= FEATURES ================= */}
+      <section id="features" className="container mx-auto px-4 py-24">
+        <h2 className="text-4xl font-bold text-center mb-16">
+          Powerful Features
+        </h2>
+
+        <div className="grid md:grid-cols-3 gap-10">
           {features.map((feature, index) => (
-            <Card key={index} className="border-2 hover:border-primary transition-colors">
-              <CardContent className="p-8 text-center">
-                <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <feature.icon className="h-8 w-8 text-primary" />
+            <Card
+              key={index}
+              className="group border backdrop-blur bg-card/70 hover:-translate-y-2 transition-all duration-300 hover:shadow-xl"
+            >
+              <CardContent className="p-10 text-center">
+                <div className="mx-auto mb-6 w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition">
+                  <feature.icon className="w-8 h-8" />
                 </div>
-                <h3 className="text-xl font-semibold mb-4">{feature.title}</h3>
-                <p className="text-muted-foreground">{feature.description}</p>
+                <h3 className="text-xl font-semibold mb-4">
+                  {feature.title}
+                </h3>
+                <p className="text-muted-foreground">
+                  {feature.description}
+                </p>
               </CardContent>
             </Card>
           ))}
         </div>
       </section>
 
-      {/* How It Works */}
-      <section id="about" className="bg-muted py-20">
+      {/* ================= HOW IT WORKS ================= */}
+      <section id="about" className="bg-muted py-24">
         <div className="container mx-auto px-4">
-          <h2 className="text-4xl font-bold text-center mb-16">How PowerPulse Works</h2>
-          
-          <div className="grid md:grid-cols-3 gap-8">
+          <h2 className="text-4xl font-bold text-center mb-20">
+            How PowerPulse Works
+          </h2>
+
+          <div className="grid md:grid-cols-3 gap-12">
             {steps.map((step, index) => (
-              <div key={index} className="text-center">
-                <div className="bg-primary text-primary-foreground w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 text-2xl font-bold">
+              <div
+                key={index}
+                className="text-center p-6 rounded-2xl hover:bg-background transition"
+              >
+                <div className="mx-auto mb-6 w-16 h-16 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-2xl font-bold shadow">
                   {step.number}
                 </div>
-                <h3 className="text-xl font-semibold mb-4">{step.title}</h3>
-                <p className="text-muted-foreground">{step.description}</p>
+                <h3 className="text-xl font-semibold mb-3">
+                  {step.title}
+                </h3>
+                <p className="text-muted-foreground">
+                  {step.description}
+                </p>
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ================= CTA ================= */}
+      <section className="relative py-24 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-primary to-accent opacity-90" />
+        <div className="relative container mx-auto px-4 text-center text-primary-foreground">
+          <h2 className="text-4xl font-bold mb-6">
+            Ready to Take Control?
+          </h2>
+          <p className="text-lg mb-10 opacity-90">
+            Join thousands of users managing electricity smarter with
+            PowerPulse.
+          </p>
+          <Button
+            size="lg"
+            variant="secondary"
+            className="px-12 shadow-xl"
+            onClick={() => navigate("/login")}
+          >
+            Start Now
+          </Button>
         </div>
       </section>
 
