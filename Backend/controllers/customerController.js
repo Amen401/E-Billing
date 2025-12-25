@@ -28,10 +28,7 @@ export const customerLogin = async (req, res) => {
       res.status(200).json({ message: "bad credentials" });
     }
 
-    const checkPassword = await comparePassword(
-      password,
-      checkName.password
-    );
+    const checkPassword = await comparePassword(password, checkName.password);
 
     if (!checkPassword) {
       res.status(200).json({ message: "bad credentials" });
@@ -132,8 +129,46 @@ export const searchMyComplain = async (req, res) => {
 };
 export const checkPaymentSchedule = async (req, res) => {
   try {
-    const openedPaymentSchedule = await paymentSchedule.find({ isOpen: true });
-    res.status(200).json(openedPaymentSchedule);
+    let searchDate;
+
+    const lastPayment = await paymentSchedule
+      .findOne({ customerId: req.authUser.id })
+      .sort({ createdAt: -1 });
+
+    if (lastPayment) {
+      searchDate = lastPayment.createdAt;
+    } else {
+      const customer = await Customer.findById(req.authUser.id);
+      searchDate = customer.createdAt;
+    }
+
+    const missedPayments = await paymentSchedule.find({
+      customerId: req.authUser.id,
+      createdAt: { $gt: searchDate },
+    });
+
+    const isAnyMissedMonth = missedPayments.length > 0;
+
+    const openedPaymentSchedule = await paymentSchedule.findOne({
+      isOpen: true,
+    });
+
+    let isItPaid = false;
+
+    if (openedPaymentSchedule) {
+      const payment = await customerPayments.findOne({
+        customerId: req.authUser.id,
+        paymentMonth: openedPaymentSchedule._id,
+      });
+
+      isItPaid = !!payment;
+    }
+
+    res.status(200).json({
+      openedPaymentSchedule,
+      isItPaid,
+      isAnyMissedMonth,
+    });
   } catch (error) {
     res.status(500).json({ message: "Internal server error" });
   }
@@ -212,10 +247,10 @@ export const submitReading = async (req, res) => {
         .status(400)
         .json({ message: "No active payment schedule found." });
 
-    const energyTariff = Number(tariffDetails.energyTariff) || 0;
-    const serviceCharge = Number(tariffDetails.serviceCharge) || 0;
+    const energyTariff = tariffDetails.energyTarif;
+    const serviceCharge = tariffDetails.serviceCharge;
     const energyCharge = energyTariff * monthlyUsage;
-    const subtotal = energyCharge + serviceCharge;
+    const subtotal = energyCharge;
     const vatRate = 0.15;
     const vat = subtotal * vatRate;
 
@@ -244,21 +279,24 @@ export const submitReading = async (req, res) => {
 
     const MAX_PAYMENT_PER_CHUNK = 100000;
     const paymentChunks = [];
-    if (totalFee > MAX_PAYMENT_PER_CHUNK) {
-      const numChunks = Math.ceil(totalFee / MAX_PAYMENT_PER_CHUNK);
-      const baseChunk = totalFee / numChunks;
-      let remaining = totalFee;
+
+    const round2 = (num) => Math.round((num + Number.EPSILON) * 100) / 100;
+
+    let total = round2(totalFee);
+
+    if (total > MAX_PAYMENT_PER_CHUNK) {
+      const numChunks = Math.ceil(total / MAX_PAYMENT_PER_CHUNK);
+      const baseChunk = round2(total / numChunks);
+      let remaining = total;
 
       for (let i = 0; i < numChunks; i++) {
-        const chunk =
-          i === numChunks - 1
-            ? Math.round(remaining * 100) / 100
-            : Math.round(baseChunk * 100) / 100;
+        const chunk = i === numChunks - 1 ? round2(remaining) : baseChunk;
+
         paymentChunks.push(chunk);
-        remaining -= chunk;
+        remaining = round2(remaining - chunk);
       }
     } else {
-      paymentChunks.push(Math.round(totalFee * 100) / 100);
+      paymentChunks.push(round2(total));
     }
 
     const newMeterReading = new merterReading({
