@@ -59,16 +59,16 @@ const ComplaintDetailsDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl">Complaint Details</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="break-all">
             Ticket ID: <span className="font-mono">CUPM.{complaint.id.substring(0, 8).toUpperCase()}</span>
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <Badge className={getStatusColor(complaint.status)}>
               {formatStatus(complaint.status)}
             </Badge>
@@ -81,20 +81,20 @@ const ComplaintDetailsDialog = ({
           <Separator />
 
           <div className="grid gap-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <User className="h-4 w-4" />
                   <span>Customer Name</span>
                 </div>
-                <p className="font-medium">{complaint.customerName || "N/A"}</p>
+                <p className="font-medium break-words">{complaint.customerName || "N/A"}</p>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Hash className="h-4 w-4" />
                   <span>Account Number</span>
                 </div>
-                <p className="font-medium font-mono">{complaint.customerAccNumber}</p>
+                <p className="font-medium font-mono break-words">{complaint.customerAccNumber}</p>
               </div>
             </div>
 
@@ -103,7 +103,7 @@ const ComplaintDetailsDialog = ({
                 <FileText className="h-4 w-4" />
                 <span>Category</span>
               </div>
-              <p className="font-medium capitalize">{complaint.category}</p>
+              <p className="font-medium capitalize break-words">{complaint.category}</p>
             </div>
 
             {complaint.resolvedBy && (
@@ -112,22 +112,18 @@ const ComplaintDetailsDialog = ({
                   <Mail className="h-4 w-4" />
                   <span>Resolved By</span>
                 </div>
-                <p className="font-medium">{complaint.resolvedBy}</p>
+                <p className="font-medium break-words">{complaint.resolvedBy}</p>
               </div>
             )}
 
             <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">
-                Subject
-              </p>
-              <p className="text-lg font-semibold">{complaint.subject}</p>
+              <p className="text-sm font-medium text-muted-foreground">Subject</p>
+              <p className="text-lg font-semibold break-words">{complaint.subject}</p>
             </div>
 
             <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">
-                Description
-              </p>
-              <div className="rounded-lg bg-muted p-4 min-h-[100px]">
+              <p className="text-sm font-medium text-muted-foreground">Description</p>
+              <div className="rounded-lg bg-muted p-4 min-h-[100px] break-words">
                 <p className="whitespace-pre-wrap">
                   {complaint.description || "No description provided"}
                 </p>

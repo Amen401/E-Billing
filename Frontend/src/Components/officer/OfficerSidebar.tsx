@@ -110,7 +110,10 @@ export function OfficerSidebar() {
           <Button
             variant="ghost"
             className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent"
-            onClick={logout}
+            onClick={async () => {
+              await logout();
+              navigate("/login");
+            }}
           >
             <LogOut className="h-4 w-4" />
             {open && <span>Logout</span>}

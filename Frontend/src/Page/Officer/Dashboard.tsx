@@ -10,19 +10,12 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
 import { Badge } from "@/Components/ui/badge";
 import { Input } from "@/Components/ui/input";
-import {
-  UserPlus,
-  Gauge,
-  FileText,
-  AlertTriangle,
-  Search,
-} from "lucide-react";
+import { UserPlus, Gauge, FileText, AlertTriangle, Search } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { officerApi } from "@/lib/api";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/components/context/UnifiedContext";
-
 
 interface Activity {
   activity: string;
@@ -39,7 +32,6 @@ interface Stat {
 type SortType = "newest" | "oldest" | "name";
 type FilterType = "name" | "time";
 
-
 const OfficerDashboard = () => {
   const { user, logout } = useAuth();
 
@@ -50,11 +42,10 @@ const OfficerDashboard = () => {
   const [sortType, setSortType] = useState<SortType>("newest");
   const [searchParams, setSearchParams] = useSearchParams();
   const [stats, setStats] = useState<Stat[]>([]);
-
+  const navigate = useNavigate();
 
   const mapFilterToBackend = (filter: FilterType) =>
     filter === "name" ? "activity" : "date";
-
 
   const fetchStats = async () => {
     try {
@@ -90,7 +81,6 @@ const OfficerDashboard = () => {
     }
   };
 
-
   const fetchActivities = async () => {
     try {
       setIsLoading(true);
@@ -102,7 +92,6 @@ const OfficerDashboard = () => {
       setIsLoading(false);
     }
   };
-
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
@@ -122,10 +111,7 @@ const OfficerDashboard = () => {
 
     try {
       setIsLoading(true);
-      const data = await officerApi.searchMyActivities(
-        query,
-        backendFilter
-      );
+      const data = await officerApi.searchMyActivities(query, backendFilter);
       setActivities(data);
     } catch {
       toast.error("Search failed");
@@ -134,7 +120,6 @@ const OfficerDashboard = () => {
       setIsLoading(false);
     }
   };
-
 
   useEffect(() => {
     const value = searchParams.get("value");
@@ -152,7 +137,6 @@ const OfficerDashboard = () => {
     fetchStats();
   }, []);
 
-
   const sortedActivities = [...activities].sort((a, b) => {
     if (sortType === "name") {
       return a.activity.localeCompare(b.activity);
@@ -162,7 +146,6 @@ const OfficerDashboard = () => {
     }
     return new Date(b.date).getTime() - new Date(a.date).getTime();
   });
-
 
   return (
     <div className="min-h-screen bg-background">
@@ -174,7 +157,13 @@ const OfficerDashboard = () => {
               Welcome back, {user?.name}
             </p>
           </div>
-          <Button onClick={logout} variant="outline">
+          <Button
+            onClick={async () => {
+              await logout();
+              navigate("/login");
+            }}
+            variant="outline"
+          >
             Logout
           </Button>
         </div>
@@ -210,7 +199,7 @@ const OfficerDashboard = () => {
                 />
               </div>
 
-             <select
+              <select
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value as FilterType)}
                 className="border rounded-md px-3 py-2"
@@ -248,9 +237,7 @@ const OfficerDashboard = () => {
                   sortedActivities.map((a, i) => (
                     <TableRow key={i}>
                       <TableCell>{a.activity}</TableCell>
-                      <TableCell>
-                        {new Date(a.date).toLocaleString()}
-                      </TableCell>
+                      <TableCell>{new Date(a.date).toLocaleString()}</TableCell>
                       <TableCell>
                         <Badge>Success</Badge>
                       </TableCell>

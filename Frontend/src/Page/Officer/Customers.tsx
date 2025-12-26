@@ -26,9 +26,8 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Breadcrumb } from "@/components/BreadCrumb";
-import { Search, Eye, Users, AlertCircle, Plus } from "lucide-react";
+import { Search, Eye, Users, Plus } from "lucide-react";
 import { officerApi } from "@/lib/api";
 
 interface Customer {
@@ -40,7 +39,6 @@ interface Customer {
   powerApproved: number;
   depositBirr: number;
   accountNumber: string;
-  isActive: boolean;
   createdAt: string;
 }
 
@@ -49,26 +47,21 @@ const DEBOUNCE_DELAY = 500;
 
 const BREADCRUMB_ITEMS = [
   { label: "Dashboard", href: "/officer/dashboard" },
-
   { label: "Customers" },
-  { label: "Register Customer", href: "/officer/register-customer" },
 ];
+
 const Customers = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState(
     searchParams.get("search") || ""
   );
-  const [currentPage, setCurrentPage] = useState(1);
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
+  const [currentPage, setCurrentPage] = useState(1);
   const navigate = useNavigate();
+
   const shouldSearch = debouncedSearch.trim().length > 0;
 
-  const {
-    data: apiResponse,
-    isLoading,
-    isError,
-    error,
-  } = useQuery({
+  const { data = [], isLoading } = useQuery({
     queryKey: ["customers", debouncedSearch],
     queryFn: () =>
       shouldSearch
@@ -77,20 +70,17 @@ const Customers = () => {
     keepPreviousData: true,
   });
 
-  const customers: Customer[] = apiResponse || [];
-  const totalCustomers = customers.length;
+  const customers: Customer[] = data;
 
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(searchTerm);
       setCurrentPage(1);
-
-      const newSearchParams = searchTerm ? { search: searchTerm } : {};
-      setSearchParams(newSearchParams);
+      setSearchParams(searchTerm ? { search: searchTerm } : {});
     }, DEBOUNCE_DELAY);
 
     return () => clearTimeout(handler);
-  }, [searchTerm, setSearchParams]);
+  }, [searchTerm]);
 
   const totalPages = Math.ceil(customers.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -99,199 +89,172 @@ const Customers = () => {
     startIndex + ITEMS_PER_PAGE
   );
 
-  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(event.target.value);
-  };
-
-  const handlePreviousPage = () => {
-    setCurrentPage((prev) => Math.max(1, prev - 1));
-  };
-
-  const handleNextPage = () => {
-    setCurrentPage((prev) => Math.min(totalPages, prev + 1));
-  };
-
-  const handlePageClick = (pageNum: number) => {
-    setCurrentPage(pageNum);
-  };
-
-  const LoadingState = () => (
-    <TableRow>
-      <TableCell colSpan={7} className="text-center py-8">
-        <div className="flex items-center justify-center gap-2">
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          <span className="text-muted-foreground">
-            {shouldSearch ? "Searching customers..." : "Loading customers..."}
-          </span>
-        </div>
-      </TableCell>
-    </TableRow>
-  );
-
-  const EmptyState = () => (
-    <TableRow>
-      <TableCell colSpan={7} className="text-center py-8">
-        <div className="text-muted-foreground">
-          {shouldSearch
-            ? "No customers found matching your search"
-            : "No customers registered yet"}
-        </div>
-      </TableCell>
-    </TableRow>
-  );
-
-  const CustomerRow = ({ customer }: { customer: Customer }) => (
-    <TableRow key={customer._id} className="hover:bg-muted/50">
-      <TableCell className="font-medium">{customer.name}</TableCell>
-      <TableCell>{customer.region}</TableCell>
-      <TableCell className="hidden md:table-cell">
-        {customer.serviceCenter}
-      </TableCell>
-      <TableCell className="hidden lg:table-cell">{customer.zone}</TableCell>
-      <TableCell className="text-right">{customer.powerApproved}</TableCell>
-      <TableCell className="text-right hidden sm:table-cell">
-        {customer.depositBirr?.toLocaleString()}
-      </TableCell>
-      <TableCell className="text-center">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="hover:bg-primary/10"
-          onClick={() => navigate(`/officer/customers/${customer._id}`)}
-        >
-          <Eye className="h-4 w-4" />
-        </Button>
-      </TableCell>
-    </TableRow>
-  );
-
-  const PaginationItems = () => {
-    const visiblePages = Math.min(5, totalPages);
-    const pages = Array.from({ length: visiblePages }, (_, i) => {
-      if (totalPages <= 5) return i + 1;
-      if (currentPage <= 3) return i + 1;
-      if (currentPage >= totalPages - 2) return totalPages - 4 + i;
-      return currentPage - 2 + i;
-    });
-
-    return pages.map((pageNum) => (
-      <PaginationItem key={pageNum}>
-        <PaginationLink
-          onClick={() => handlePageClick(pageNum)}
-          isActive={currentPage === pageNum}
-          className="cursor-pointer"
-        >
-          {pageNum}
-        </PaginationLink>
-      </PaginationItem>
-    ));
-  };
-
   return (
-    <div className="min-h-screen bg-background p-6 space-y-6">
+    <div className="min-h-screen bg-background px-3 py-4 sm:px-6 sm:py-6">
       <Breadcrumb items={BREADCRUMB_ITEMS} />
 
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center w-full mb-4">
+      {/* Header */}
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+          <h1 className="text-xl font-bold sm:text-2xl">
             Registered Customers
           </h1>
-          <p className="text-muted-foreground mt-1">
-            View and manage all registered customers
+          <p className="text-sm text-muted-foreground">
+            View and manage registered customers
           </p>
         </div>
 
-        <div className="mt-4 md:mt-0">
-          <Button asChild>
-            <Link to="/officer/register-customer" className="flex items-center">
-              <Plus className="mr-2 h-4 w-4" /> Register New Customer
-            </Link>
-          </Button>
-        </div>
+        <Button asChild className="w-full sm:w-auto">
+          <Link to="/officer/register-customer">
+            <Plus className="mr-2 h-4 w-4" />
+            Register Customer
+          </Link>
+        </Button>
       </div>
 
-      <Card className="shadow-md">
+      {/* Search */}
+      <Card className="mt-4">
         <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <Users className="h-5 w-5 text-primary" />
               <CardTitle>Customer List</CardTitle>
             </div>
-            <div className="relative">
+
+            <div className="relative w-full sm:w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by name or region..."
+                placeholder="Search customer..."
                 value={searchTerm}
-                onChange={handleSearchChange}
-                className="pl-9 w-full sm:w-[300px]"
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
               />
             </div>
           </div>
-          <CardDescription>
-            {shouldSearch ? (
-              <>Showing search results for "{debouncedSearch}"</>
-            ) : (
-              <>Total Customers: {totalCustomers}</>
-            )}
-          </CardDescription>
         </CardHeader>
 
         <CardContent>
-          <div className="rounded-md border">
+          {/* 📱 MOBILE VIEW – CARDS */}
+          <div className="space-y-3 md:hidden">
+            {isLoading ? (
+              <p className="text-center text-sm text-muted-foreground">
+                Loading customers…
+              </p>
+            ) : paginatedCustomers.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground">
+                No customers found
+              </p>
+            ) : (
+              paginatedCustomers.map((customer) => (
+                <Card key={customer._id} className="p-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-medium">{customer.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {customer.region}
+                      </p>
+                    </div>
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        navigate(`/officer/customers/${customer._id}`)
+                      }
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  <div className="mt-2 text-sm space-y-1">
+                    <p>
+                      <span className="font-medium">Power:</span>{" "}
+                      {customer.powerApproved} KW
+                    </p>
+                    <p>
+                      <span className="font-medium">Deposit:</span>{" "}
+                      {customer.depositBirr?.toLocaleString()} Birr
+                    </p>
+                  </div>
+                </Card>
+              ))
+            )}
+          </div>
+
+          {/* 🖥 DESKTOP VIEW – TABLE */}
+          <div className="hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Region</TableHead>
-                  <TableHead className="hidden md:table-cell">
-                    Service Center
-                  </TableHead>
-                  <TableHead className="hidden lg:table-cell">Zone</TableHead>
-                  <TableHead className="text-right">Power (KW)</TableHead>
-                  <TableHead className="text-right hidden sm:table-cell">
-                    Deposit (Birr)
-                  </TableHead>
-                  <TableHead className="text-center">Actions</TableHead>
+                  <TableHead>Service Center</TableHead>
+                  <TableHead>Zone</TableHead>
+                  <TableHead className="text-right">Power</TableHead>
+                  <TableHead className="text-right">Deposit</TableHead>
+                  <TableHead className="text-center">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoading ? (
-                  <LoadingState />
-                ) : paginatedCustomers.length === 0 ? (
-                  <EmptyState />
-                ) : (
-                  paginatedCustomers.map((customer: Customer) => (
-                    <CustomerRow key={customer._id} customer={customer} />
-                  ))
-                )}
+                {paginatedCustomers.map((customer) => (
+                  <TableRow key={customer._id}>
+                    <TableCell>{customer.name}</TableCell>
+                    <TableCell>{customer.region}</TableCell>
+                    <TableCell>{customer.serviceCenter}</TableCell>
+                    <TableCell>{customer.zone}</TableCell>
+                    <TableCell className="text-right">
+                      {customer.powerApproved}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {customer.depositBirr?.toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          navigate(`/officer/customers/${customer._id}`)
+                        }
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </div>
 
-          {totalPages > 1 && !isLoading && (
+          {/* Pagination */}
+          {totalPages > 1 && (
             <div className="mt-6">
               <Pagination>
                 <PaginationContent>
                   <PaginationItem>
                     <PaginationPrevious
-                      onClick={handlePreviousPage}
-                      className={
-                        currentPage === 1
-                          ? "pointer-events-none opacity-50"
-                          : "cursor-pointer hover:bg-muted"
+                      onClick={() =>
+                        setCurrentPage((p) => Math.max(1, p - 1))
                       }
                     />
                   </PaginationItem>
 
-                  <PaginationItems />
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (page) => (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          isActive={page === currentPage}
+                          onClick={() => setCurrentPage(page)}
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    )
+                  )}
 
                   <PaginationItem>
                     <PaginationNext
-                      onClick={handleNextPage}
-                      className={
-                        currentPage === totalPages
-                          ? "pointer-events-none opacity-50"
-                          : "cursor-pointer hover:bg-muted"
+                      onClick={() =>
+                        setCurrentPage((p) => Math.min(totalPages, p + 1))
                       }
                     />
                   </PaginationItem>

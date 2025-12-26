@@ -566,7 +566,7 @@ export const officerApi = {
 
   updateUsernameOrPassword: async (data: {
     id: string;
-    username: string;
+    username?: string;
     oldPass?: string;
     newPass?: string;
   }) => {
@@ -671,7 +671,7 @@ checkMissedMonths: async (customerId: string) => {
 }
 ,
 
-PayManual: async (formData: FormData, selectedMonths: string[], p0: number) => {
+PayManual: async (formData: FormData) => {
   const token = localStorage.getItem("authToken");
     if (!token) throw new Error("Not authenticated");
 

@@ -7,7 +7,7 @@ const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) return <div>Loading...</div>;
 
-  return isAuthenticated ? children : <Navigate to="/login/admin" replace />;
+  return isAuthenticated ? children : <Navigate to="/login" replace />;
 };
 
 export default AdminProtectedRoute;

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { adminApi, officerApi, customerApi, authApi } from "@/lib/api";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 export type Role = "customer" | "officer" | "admin";
 
@@ -27,7 +28,7 @@ interface AuthContextType {
     value: string
   ) => Promise<void>;
   updateProfile?: (data: { name?: string }) => Promise<void>;
-  changePasswordOrUsername: (oldPass: string, newPass: string) => Promise<void>;
+  changePasswordOrUsername: (username:string,oldPass: string, newPass: string) => Promise<void>;
   changeProfilePicture?: (file: File) => Promise<void>;
 }
 
@@ -89,6 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const logout = async () => {
+ 
     try {
       if (!user) return;
       if (user.role === "admin") await adminApi.adminlogout?.();
@@ -102,6 +104,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     localStorage.removeItem("user");
     localStorage.removeItem("authToken");
     toast.success("Logged out");
+
   };
 
   const updateNameOrEmail = async (
@@ -153,72 +156,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const changePasswordOrUsername = async (
-    username?: string,
-    oldPass?: string,
-    newPass?: string
-  ) => {
-    if (!user) {
-      toast.error("User not found.");
-      return;
+const changePasswordOrUsername = async (
+  newUsername?: string,
+  oldPass?: string,
+  newPass?: string
+) => {
+  if (!user) return toast.error("User not found.");
+
+  try {
+    const data: any = {
+      id: user.id,
+      username: newUsername || user.username, 
+    };
+    if (oldPass && newPass) {
+      data.oldPass = oldPass;
+      data.newPass = newPass;
     }
 
-    if (!username && (!oldPass || !newPass)) {
-      toast.error(
-        "Please provide a new username or both old and new passwords."
-      );
-      return;
+    let response;
+    if (user.role === "officer") {
+      response = await officerApi.updateUsernameOrPassword(data);
+    } else if (user.role === "customer") {
+      if (!oldPass || !newPass) return toast.error("Provide both old and new passwords.");
+      response = await customerApi.updatepassword(data);
+    } else if (user.role === "admin") {
+      response = await adminApi.updateUsernameOrPassword(data.id, data.username, oldPass, newPass);
+    } else {
+      return toast.error("Invalid user role.");
     }
 
-    try {
-      switch (user.role) {
-        case "officer":
-          await officerApi.updateUsernameOrPassword({
-            id: user.id,
-            username: username || user.username,
-            oldPass,
-            newPass,
-          });
-          break;
+    const updatedUser: User = {
+      ...user,
+      username: response.result?.username || user.username,
+    };
+    setUser(updatedUser);
+    localStorage.setItem("user", JSON.stringify(updatedUser));
 
-        case "customer":
-          if (!oldPass || !newPass) {
-            toast.error(
-              "To change password, provide both old and new passwords."
-            );
-            return;
-          }
-          await customerApi.updatepassword({
-            id: user.id,
-            oldPass,
-            newPass,
-          });
-          break;
+    toast.success(
+      `${newUsername ? "Username" : ""}${
+        newUsername && oldPass && newPass ? " and " : ""
+      }${oldPass && newPass ? "Password" : ""} changed successfully!`
+    );
+  } catch (err: any) {
+    toast.error(err?.message || "Failed to update username or password.");
+    throw err;
+  }
+};
 
-        case "admin":
-          await adminApi.updateUsernameOrPassword(
-            user.id,
-            username || user.username,
-            oldPass,
-            newPass
-          );
-          break;
 
-        default:
-          toast.error("Invalid user role.");
-          return;
-      }
-
-      toast.success(
-        `${username ? "Username" : ""}${
-          username && oldPass && newPass ? " and " : ""
-        }${oldPass && newPass ? "Password" : ""} changed successfully!`
-      );
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to update username or password.");
-      throw err;
-    }
-  };
 
   const changeProfilePicture = async (file: File) => {
     if (!user || user.role !== "officer") return;

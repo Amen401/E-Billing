@@ -22,8 +22,12 @@ import {
 import { useAuth } from "@/components/context/UnifiedContext";
 
 const OfficerProfile = () => {
-  const { user, updateNameOrEmail, changeProfilePicture, changePasswordOrUsername } =
-    useAuth();
+  const {
+    user,
+    updateNameOrEmail,
+    changeProfilePicture,
+    changePasswordOrUsername,
+  } = useAuth();
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [isEditingEmail, setIsEditingEmail] = useState(false);
@@ -99,7 +103,11 @@ const OfficerProfile = () => {
 
     try {
       setPasswordLoading(true);
-      await changePasswordOrUsername(passwordData.oldPass, passwordData.newPass);
+      await changePasswordOrUsername(
+        user?.username,
+        passwordData.oldPass,
+        passwordData.newPass
+      );
       setPasswordData({ oldPass: "", newPass: "", confirmPass: "" });
       setIsChangingPassword(false);
       toast.success("Password changed successfully");
@@ -110,31 +118,21 @@ const OfficerProfile = () => {
     }
   };
   const handleUsernameUpdate = async (e: React.FormEvent) => {
-  e.preventDefault();
+    e.preventDefault();
+    if (!username.trim()) return toast.error("Username cannot be empty");
 
-  if (!username.trim()) {
-    toast.error("Username cannot be empty");
-    return;
-  }
+    try {
+      setLoading(true);
+      await changePasswordOrUsername(username);
 
-  if (username === user?.username) {
-    toast.info("Username is unchanged");
-    setisEditingUsername(false);
-    return;
-  }
-
-  try {
-    setLoading(true);
-    await changePasswordOrUsername?.("username", username);
-    setisEditingUsername(false);
-    toast.success("Username updated successfully");
-  } catch (err: any) {
-    toast.error(err.message || "Failed to update username");
-  } finally {
-    setLoading(false);
-  }
-};
-
+      setisEditingUsername(false);
+      toast.success("Username updated successfully");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update username");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-secondary/30 via-background to-background">
@@ -288,7 +286,7 @@ const OfficerProfile = () => {
                       id="username"
                       value={username}
                       disabled={!isEditigUsername || loading}
-                      onChange={(e) => setUsername(e.target.value)} 
+                      onChange={(e) => setUsername(e.target.value)}
                       required
                       className="transition-all"
                     />

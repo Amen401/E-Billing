@@ -22,9 +22,10 @@ const SystemLogs = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [filterType, setFilterType] = useState("");
   const [searchParams, setSearchParams] = useSearchParams();
-  const newSort = filterType === "time" ? "time" : filterType === "date" ? "date" : "name";
-    
+  const newSort =
+    filterType === "time" ? "time" : filterType === "date" ? "date" : "name";
   const filters = filterType === "name" ? "name" : "date";
+
   const fetchActivities = async () => {
     setIsLoading(true);
     try {
@@ -65,15 +66,9 @@ const SystemLogs = () => {
   };
 
   const filteredActivities = [...systemActivities].sort((a, b) => {
-    if (filterType === "name") {
-      return a.activity.localeCompare(b.activity);
-    }
-    if (filterType === "time") {
+    if (filterType === "name") return a.activity.localeCompare(b.activity);
+    if (filterType === "time" || filterType === "date")
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    }
-    if (filterType === "date") {
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    }
     return 0;
   });
 
@@ -118,25 +113,33 @@ const SystemLogs = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6 p-2 md:p-4">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-0">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">System Logs</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900">
+            System Logs
+          </h1>
           <p className="text-sm text-slate-600 mt-1">
             Monitor all system activities and events
           </p>
         </div>
-        <Button variant="outline" className="gap-2" onClick={exportLogs}>
+        <Button
+          variant="outline"
+          className="gap-2 self-start md:self-auto"
+          onClick={exportLogs}
+        >
           <Download className="h-4 w-4" />
           Export Logs
         </Button>
       </div>
 
-      <div className="flex gap-4 mb-4">
+      {/* Search + Filter */}
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
-            placeholder="Search logs by event, user, or timestamp..."
+            placeholder="Search logs..."
             className="pl-10"
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value, filters)}
@@ -144,10 +147,15 @@ const SystemLogs = () => {
         </div>
         <Button variant="outline" className="gap-2" onClick={toggleSort}>
           <Filter className="h-4 w-4" />
-          {filterType === "time" ? "time" : filterType === "date" ? "date" : "name"}
+          {filterType === "time"
+            ? "Time"
+            : filterType === "date"
+            ? "Date"
+            : "Name"}
         </Button>
       </div>
 
+      {/* Logs Table */}
       <Card className="border-slate-200">
         <CardHeader>
           <CardTitle className="text-lg font-semibold">
@@ -155,8 +163,8 @@ const SystemLogs = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border overflow-auto max-h-[470px]">
-            <Table>
+          <div className="overflow-x-auto rounded-md border max-h-[470px]">
+            <Table className="min-w-[600px] sm:min-w-full">
               <TableHeader>
                 <TableRow>
                   <TableHead>Event</TableHead>
@@ -168,13 +176,13 @@ const SystemLogs = () => {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-4">
+                    <TableCell colSpan={4} className="text-center py-4">
                       Loading...
                     </TableCell>
                   </TableRow>
                 ) : filteredActivities.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-4">
+                    <TableCell colSpan={4} className="text-center py-4">
                       No logs found
                     </TableCell>
                   </TableRow>
