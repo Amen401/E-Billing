@@ -30,12 +30,16 @@ const Complaints = () => {
   const [categoryFilter, setCategoryFilter] = useState("all-cases");
 
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
-  const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
+  const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(
+    null
+  );
 
   const [loading, setLoading] = useState(false);
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const [searchTerm, setSearchTerm] = useState(searchParams.get("search") || "");
+  const [searchTerm, setSearchTerm] = useState(
+    searchParams.get("search") || ""
+  );
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
 
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -51,7 +55,8 @@ const Complaints = () => {
   const fetchComplaints = async () => {
     setLoading(true);
     try {
-      const res: ComplaintsApiResponse = await officerApi.customercomplaintInfos();
+      const res: ComplaintsApiResponse =
+        await officerApi.customercomplaintInfos();
 
       setMetrics({
         allComplients: res.allComplients ?? 0,
@@ -104,6 +109,10 @@ const Complaints = () => {
   ) => {
     const previousComplaints = [...complaints];
     const previousSelectedComplaint = selectedComplaint;
+    const complaintToUpdate = complaints.find((c) => c.id === complaintId);
+    if (!complaintToUpdate) return;
+
+    const previousStatus = complaintToUpdate.status;
 
     try {
       const updatedComplaints = complaints.map((c) =>
@@ -111,23 +120,37 @@ const Complaints = () => {
       );
 
       setComplaints(updatedComplaints);
-      setMetrics((prev) => ({
-        ...prev,
-        pendingComplients:
-          newStatus === "resolved"
-            ? prev.pendingComplients - 1
-            : prev.pendingComplients + 1,
-        resolvedComplients:
-          newStatus === "resolved"
-            ? prev.resolvedComplients + 1
-            : prev.resolvedComplients - 1,
-      }));
+      setMetrics((prev) => {
+        let pending = prev.pendingComplients;
+        let resolved = prev.resolvedComplients;
+        let inProgress = prev.InProgress;
+
+        if (previousStatus === "pending") pending--;
+        if (previousStatus === "resolved") resolved--;
+        if (previousStatus === "in-progress") inProgress--;
+
+        if (newStatus === "pending") pending++;
+        if (newStatus === "resolved") resolved++;
+        if (newStatus === "in-progress") inProgress++;
+
+        return {
+          ...prev,
+          pendingComplients: Math.max(0, pending),
+          resolvedComplients: Math.max(0, resolved),
+          InProgress: Math.max(0, inProgress),
+        };
+      });
 
       if (selectedComplaint?.id === complaintId) {
         setSelectedComplaint({ ...selectedComplaint, status: newStatus });
       }
 
-      applyFilters(searchQuery, statusFilter, categoryFilter, updatedComplaints);
+      applyFilters(
+        searchQuery,
+        statusFilter,
+        categoryFilter,
+        updatedComplaints
+      );
 
       await officerApi.updatecomplaintstatus(complaintId, newStatus);
 
@@ -136,7 +159,12 @@ const Complaints = () => {
       console.error("Failed to update complaint status:", error);
       setComplaints(previousComplaints);
       setSelectedComplaint(previousSelectedComplaint);
-      applyFilters(searchQuery, statusFilter, categoryFilter, previousComplaints);
+      applyFilters(
+        searchQuery,
+        statusFilter,
+        categoryFilter,
+        previousComplaints
+      );
       toast.error(error?.message || "Failed to update complaint status.");
     }
   };
@@ -162,12 +190,13 @@ const Complaints = () => {
 
       if (search && search.trim()) {
         const searchLower = search.toLowerCase();
-        filtered = filtered.filter((c) =>
-          c.id?.toLowerCase().includes(searchLower) ||
-          c.customerAccNumber?.toLowerCase().includes(searchLower) ||
-          c.subject?.toLowerCase().includes(searchLower) ||
-          c.customerName?.toLowerCase().includes(searchLower) ||
-          c.description?.toLowerCase().includes(searchLower)
+        filtered = filtered.filter(
+          (c) =>
+            c.id?.toLowerCase().includes(searchLower) ||
+            c.customerAccNumber?.toLowerCase().includes(searchLower) ||
+            c.subject?.toLowerCase().includes(searchLower) ||
+            c.customerName?.toLowerCase().includes(searchLower) ||
+            c.description?.toLowerCase().includes(searchLower)
         );
       }
 
@@ -176,7 +205,9 @@ const Complaints = () => {
       }
 
       if (category !== "all-cases") {
-        filtered = filtered.filter((complaint) => complaint.category === category);
+        filtered = filtered.filter(
+          (complaint) => complaint.category === category
+        );
       }
 
       setFilteredComplaints(filtered);
@@ -221,117 +252,113 @@ const Complaints = () => {
     };
   }, []);
 
- return (
-  <div className="min-h-screen bg-background">
-    <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="mx-auto max-w-7xl px-3 py-4 sm:px-4 md:px-6 lg:px-8">
+        {/* Header */}
+        <div className="space-y-2">
+          <h1 className="text-lg font-bold sm:text-xl md:text-2xl lg:text-3xl">
+            Complaint Management
+          </h1>
+          <p className="text-sm text-muted-foreground sm:text-base">
+            Monitor and manage customer complaints efficiently
+          </p>
+        </div>
 
-      {/* Header */}
-      <div className="space-y-2">
-        <h1 className="text-xl font-bold sm:text-2xl lg:text-3xl">
-          Complaint Management
-        </h1>
-        <p className="text-sm text-muted-foreground sm:text-base">
-          Monitor and manage customer complaints efficiently
-        </p>
-      </div>
+        {/* Metrics */}
+        <div className="mt-4">
+          <ComplaintMetrics metrics={metrics} />
+        </div>
 
-      {/* Metrics */}
-      <div className="mt-4">
-        <ComplaintMetrics metrics={metrics} />
-      </div>
+        {/* Filters */}
+        <div className="mt-4">
+          <ComplaintFilters
+            searchValue={searchQuery}
+            onSearch={handleSearch}
+            onStatusFilter={handleStatusFilter}
+            onCategoryFilter={handleCategoryFilter}
+          />
+        </div>
 
-      {/* Filters */}
-      <div className="mt-4">
-        <ComplaintFilters
-          searchValue={searchQuery}
-          onSearch={handleSearch}
-          onStatusFilter={handleStatusFilter}
-          onCategoryFilter={handleCategoryFilter}
-        />
-      </div>
-
-      {/* Content */}
-      <div className="mt-6">
-        {loading ? (
-          <div className="flex h-48 items-center justify-center">
-            <div className="flex flex-col items-center gap-3">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-              <p className="text-sm text-muted-foreground">
-                Loading complaints…
-              </p>
+        {/* Content */}
+        <div className="mt-6">
+          {loading ? (
+            <div className="flex h-48 items-center justify-center">
+              <div className="flex flex-col items-center gap-3">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                <p className="text-sm text-muted-foreground">
+                  Loading complaints…
+                </p>
+              </div>
             </div>
-          </div>
-        ) : (
-          <>
-            {/* 📱 MOBILE – CARDS */}
-            <div className="space-y-3 md:hidden">
-              {filteredComplaints.map((complaint) => (
-                <div
-                  key={complaint.id}
-                  className="rounded-lg border bg-card p-4 shadow-sm"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium text-sm">
-                        {complaint.customerName}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {complaint.customerAccNumber}
+          ) : (
+            <>
+              {/* 📱 MOBILE – CARDS */}
+              <div className="space-y-3 md:hidden">
+                {filteredComplaints.map((complaint) => (
+                  <div
+                    key={complaint.id}
+                    className="rounded-lg border bg-card p-4 shadow-sm"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-medium text-sm">
+                          {complaint.customerName}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {complaint.customerAccNumber}
+                        </p>
+                      </div>
+
+                      <span className="text-xs rounded-full px-2 py-1 bg-muted">
+                        {complaint.status}
+                      </span>
+                    </div>
+
+                    <div className="mt-2">
+                      <p className="text-sm font-medium">{complaint.subject}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-2">
+                        {complaint.description}
                       </p>
                     </div>
 
-                    <span className="text-xs rounded-full px-2 py-1 bg-muted">
-                      {complaint.status}
-                    </span>
+                    <div className="mt-3 flex justify-between items-center">
+                      <span className="text-xs text-muted-foreground">
+                        {complaint.date}
+                      </span>
+
+                      <button
+                        onClick={() => handleViewDetails(complaint)}
+                        className="text-sm font-medium text-primary"
+                      >
+                        View
+                      </button>
+                    </div>
                   </div>
+                ))}
+              </div>
 
-                  <div className="mt-2">
-                    <p className="text-sm font-medium">
-                      {complaint.subject}
-                    </p>
-                    <p className="text-xs text-muted-foreground line-clamp-2">
-                      {complaint.description}
-                    </p>
-                  </div>
+              {/* 🖥️ DESKTOP – TABLE */}
+              <div className="hidden md:block">
+                <ComplaintsTable
+                  complaints={filteredComplaints}
+                  onViewDetails={handleViewDetails}
+                />
+              </div>
+            </>
+          )}
+        </div>
 
-                  <div className="mt-3 flex justify-between items-center">
-                    <span className="text-xs text-muted-foreground">
-                      {complaint.date}
-                    </span>
-
-                    <button
-                      onClick={() => handleViewDetails(complaint)}
-                      className="text-sm font-medium text-primary"
-                    >
-                      View
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* 🖥️ DESKTOP – TABLE */}
-            <div className="hidden md:block">
-              <ComplaintsTable
-                complaints={filteredComplaints}
-                onViewDetails={handleViewDetails}
-              />
-            </div>
-          </>
-        )}
+        {/* Dialog */}
+        <ComplaintDetailsDialog
+          complaint={selectedComplaint}
+          open={detailsDialogOpen}
+          onOpenChange={setDetailsDialogOpen}
+          onStatusChange={updateComplaintStatus}
+        />
       </div>
-
-      {/* Dialog */}
-      <ComplaintDetailsDialog
-        complaint={selectedComplaint}
-        open={detailsDialogOpen}
-        onOpenChange={setDetailsDialogOpen}
-        onStatusChange={updateComplaintStatus}
-      />
     </div>
-  </div>
-);
-
+  );
 };
 
 export default Complaints;

@@ -10,7 +10,13 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
 import { Badge } from "@/Components/ui/badge";
 import { Input } from "@/Components/ui/input";
-import { UserPlus, Gauge, FileText, AlertTriangle, Search } from "lucide-react";
+import {
+  UserPlus,
+  Gauge,
+  FileText,
+  AlertTriangle,
+  Search,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { officerApi } from "@/lib/api";
@@ -34,15 +40,15 @@ type FilterType = "name" | "time";
 
 const OfficerDashboard = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [stats, setStats] = useState<Stat[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<FilterType>("time");
-  const [sortType, setSortType] = useState<SortType>("newest");
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [stats, setStats] = useState<Stat[]>([]);
-  const navigate = useNavigate();
+  const [sortType] = useState<SortType>("newest");
 
   const mapFilterToBackend = (filter: FilterType) =>
     filter === "name" ? "activity" : "date";
@@ -103,11 +109,7 @@ const OfficerDashboard = () => {
     }
 
     const backendFilter = mapFilterToBackend(filterType);
-
-    setSearchParams({
-      value: query,
-      filter: filterType,
-    });
+    setSearchParams({ value: query, filter: filterType });
 
     try {
       setIsLoading(true);
@@ -149,51 +151,63 @@ const OfficerDashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-card border-b">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+      {/* HEADER */}
+      <header className="border-b bg-card">
+        <div className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Officer Dashboard</h1>
+            <h1 className="text-xl sm:text-2xl font-bold">
+              Officer Dashboard
+            </h1>
             <p className="text-sm text-muted-foreground">
               Welcome back, {user?.name}
             </p>
           </div>
+
           <Button
+            variant="outline"
+            size="sm"
+            className="w-full sm:w-auto"
             onClick={async () => {
               await logout();
               navigate("/login");
             }}
-            variant="outline"
           >
             Logout
           </Button>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="grid md:grid-cols-4 gap-6 mb-8">
+      {/* MAIN */}
+      <main className="px-3 py-4 sm:px-6 sm:py-6">
+        {/* STATS */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-6">
           {stats.map((stat, i) => (
             <Card key={i}>
-              <CardHeader className="flex justify-between pb-2">
-                <CardTitle className="text-sm">{stat.title}</CardTitle>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">
+                  {stat.title}
+                </CardTitle>
                 <stat.icon className={`h-5 w-5 ${stat.color}`} />
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">{stat.value}</div>
+                <p className="text-2xl font-bold">{stat.value}</p>
               </CardContent>
             </Card>
           ))}
         </div>
 
+        {/* ACTIVITY LOG */}
         <Card>
           <CardHeader>
             <CardTitle>Recent System Activity</CardTitle>
 
-            <div className="flex gap-4 mt-4">
+            {/* SEARCH + FILTER */}
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
               <div className="relative w-full">
-                <Search className="absolute left-2 top-2.5 h-4 w-4" />
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
-                  className="pl-10"
-                  placeholder="Search..."
+                  className="pl-9"
+                  placeholder="Search activities..."
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
                 />
@@ -201,8 +215,10 @@ const OfficerDashboard = () => {
 
               <select
                 value={filterType}
-                onChange={(e) => setFilterType(e.target.value as FilterType)}
-                className="border rounded-md px-3 py-2"
+                onChange={(e) =>
+                  setFilterType(e.target.value as FilterType)
+                }
+                className="w-full sm:w-40 rounded-md border px-3 py-2 text-sm"
               >
                 <option value="name">Name</option>
                 <option value="time">Time</option>
@@ -210,42 +226,48 @@ const OfficerDashboard = () => {
             </div>
           </CardHeader>
 
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Event</TableHead>
-                  <TableHead>Timestamp</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
+          <CardContent className="px-0 sm:px-4">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Event</TableHead>
+                    <TableHead>Timestamp</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
 
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={3} className="text-center">
-                      Loading...
-                    </TableCell>
-                  </TableRow>
-                ) : sortedActivities.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={3} className="text-center">
-                      No logs found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  sortedActivities.map((a, i) => (
-                    <TableRow key={i}>
-                      <TableCell>{a.activity}</TableCell>
-                      <TableCell>{new Date(a.date).toLocaleString()}</TableCell>
-                      <TableCell>
-                        <Badge>Success</Badge>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center">
+                        Loading...
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : sortedActivities.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center">
+                        No logs found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    sortedActivities.map((a, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="max-w-[200px] truncate">
+                          {a.activity}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {new Date(a.date).toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">Success</Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </main>
