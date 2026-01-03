@@ -40,173 +40,197 @@ const SchedulePayment = () => {
   const fetchSchedule = async () => {
     try {
       const res = await officerApi.getSchedule();
-      const data = Array.isArray(res) ? res : Array.isArray(res) ? res : [];
-      setSchedule(data);
-    } catch (error) {
-      console.error("Failed to fetch schedule:", error);
+      setSchedule(Array.isArray(res) ? res : []);
+    } catch {
       setSchedule([]);
     }
   };
 
-  const isStartAfterEnd = (start: EthiopianDate, end: EthiopianDate) => {
-    if (start.year !== end.year) return start.year > end.year;
-    if (start.month !== end.month) return start.month > end.month;
-    return start.day > end.day;
+  const isStartAfterEnd = (s: EthiopianDate, e: EthiopianDate) => {
+    if (s.year !== e.year) return s.year > e.year;
+    if (s.month !== e.month) return s.month > e.month;
+    return s.day > e.day;
   };
 
   const handleCreateSchedule = async () => {
-    if (!yearAndMonth || !startDate || !endDate) {
-      alert("Please fill all fields");
-      return;
-    }
+    if (!yearAndMonth || !startDate || !endDate) return;
     if (isStartAfterEnd(startDate, endDate)) {
-      alert("Start date must be before or equal to end date");
+      alert("Start date must be before end date");
       return;
     }
 
-    try {
-      const payload = {
-        yearAndMonth,
-        normalPaymentStartDate: `${startDate.day}/${startDate.month}/${startDate.year}`,
-        normalPaymentEndDate: `${endDate.day}/${endDate.month}/${endDate.year}`,
-      };
+    const payload = {
+      yearAndMonth,
+      normalPaymentStartDate: `${startDate.day}/${startDate.month}/${startDate.year}`,
+      normalPaymentEndDate: `${endDate.day}/${endDate.month}/${endDate.year}`,
+    };
 
-      const res = await officerApi.createSchedule(payload);
+    const res = await officerApi.createSchedule(payload);
+    if (res) setSchedule(prev => [res, ...prev]);
 
-      if (res) {
-        setSchedule(prev => [res, ...prev]);
-      }
-
-      setYearAndMonth("");
-      setStartDate(null);
-      setEndDate(null);
-    } catch (error) {
-      console.error("Failed to create schedule:", error);
-    }
+    setYearAndMonth("");
+    setStartDate(null);
+    setEndDate(null);
   };
 
-const handleClose = async (id: string) => {
-  try {
+  const handleClose = async (id: string) => {
     const res = await officerApi.closeSchedule(id);
-
-    if (res) {
-      setSchedule(prev =>
-        prev.map(item => (item._id === id ? res : item))
-      );
-    } else {
-      setSchedule(prev =>
-        prev.map(item => (item._id === id ? { ...item, isOpen: false } : item))
-      );
-    }
-  } catch (err) {
-    console.error("Failed to close schedule:", err);
-  }
-};
-
-
-  const formatEthiopianDate = (date: EthiopianDate | null) =>
-    date ? `${date.day}/${date.month}/${date.year}` : "-";
+    setSchedule(prev =>
+      prev.map(item =>
+        item._id === id ? res || { ...item, isOpen: false } : item
+      )
+    );
+  };
 
   return (
-    <div className="space-y-6 p-4 md:p-8">
+    <div className="space-y-6 p-3 sm:p-6">
+
+      {/* Header */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
             <CalendarCheck className="h-5 w-5 text-primary" />
             <CardTitle>Schedule Payment</CardTitle>
           </div>
-          <CardDescription>Set up a payment schedule for the customer</CardDescription>
+          <CardDescription>
+            Set up a payment schedule
+          </CardDescription>
         </CardHeader>
       </Card>
 
-      <Card className="p-6">
-        <div className="flex flex-col md:flex-row md:items-end md:gap-6 gap-4">
-          <div className="flex flex-col gap-1 w-full md:w-auto">
-            <label className="text-sm font-medium">Year & Month (Ethiopian)</label>
-            <Popover open={yearMonthOpen} onOpenChange={setYearMonthOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full md:w-[250px] flex justify-between">
-                  {yearAndMonth || "Select Year & Month"}
-                  <CalendarIcon className="h-4 w-4 opacity-60" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="p-0">
-                <EthiopianCalendarDropdown
-                  selectedDate={
-                    yearAndMonth
-                      ? { year: parseInt(yearAndMonth.split("/")[1]), month: parseInt(yearAndMonth.split("/")[0]), day: 1 }
-                      : null
-                  }
-                  onSelect={date => setYearAndMonth(`${date.month}/${date.year}`)}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
+      {/* Form */}
+      <Card className="p-4 space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
-          <div className="flex flex-col gap-1 w-full md:w-auto">
-            <label className="text-sm font-medium">Start Date (Ethiopian)</label>
-            <Popover open={startOpen} onOpenChange={setStartOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full md:w-[250px] flex justify-between">
-                  {formatEthiopianDate(startDate) || "Select Start Date"}
-                  <CalendarIcon className="h-4 w-4 opacity-60" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="p-0">
-                <EthiopianCalendarDropdown selectedDate={startDate} onSelect={setStartDate} />
-              </PopoverContent>
-            </Popover>
-          </div>
+          {/* Year & Month */}
+          <Popover open={yearMonthOpen} onOpenChange={setYearMonthOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-full justify-between">
+                {yearAndMonth || "Year & Month"}
+                <CalendarIcon className="h-4 w-4 opacity-60" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="p-0">
+              <EthiopianCalendarDropdown
+                onSelect={d => {
+                  setYearAndMonth(`${d.month}/${d.year}`);
+                  setYearMonthOpen(false);
+                }}
+              />
+            </PopoverContent>
+          </Popover>
 
-          <div className="flex flex-col gap-1 w-full md:w-auto">
-            <label className="text-sm font-medium">End Date (Ethiopian)</label>
-            <Popover open={endOpen} onOpenChange={setEndOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full md:w-[250px] flex justify-between">
-                  {formatEthiopianDate(endDate) || "Select End Date"}
-                  <CalendarIcon className="h-4 w-4 opacity-60" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="p-0">
-                <EthiopianCalendarDropdown selectedDate={endDate} onSelect={setEndDate} />
-              </PopoverContent>
-            </Popover>
-          </div>
+          {/* Start */}
+          <Popover open={startOpen} onOpenChange={setStartOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-full justify-between">
+                {startDate
+                  ? `${startDate.day}/${startDate.month}/${startDate.year}`
+                  : "Start Date"}
+                <CalendarIcon className="h-4 w-4 opacity-60" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="p-0">
+              <EthiopianCalendarDropdown
+                onSelect={d => {
+                  setStartDate(d);
+                  setStartOpen(false);
+                }}
+              />
+            </PopoverContent>
+          </Popover>
 
-          <Button className="w-full md:w-[200px] cursor-pointer" onClick={handleCreateSchedule}>
+          {/* End */}
+          <Popover open={endOpen} onOpenChange={setEndOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-full justify-between">
+                {endDate
+                  ? `${endDate.day}/${endDate.month}/${endDate.year}`
+                  : "End Date"}
+                <CalendarIcon className="h-4 w-4 opacity-60" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="p-0">
+              <EthiopianCalendarDropdown
+                onSelect={d => {
+                  setEndDate(d);
+                  setEndOpen(false);
+                }}
+              />
+            </PopoverContent>
+          </Popover>
+
+          <Button
+            className="w-full"
+            disabled={!yearAndMonth || !startDate || !endDate}
+            onClick={handleCreateSchedule}
+          >
             Create Schedule
           </Button>
         </div>
       </Card>
 
-      <Card className="p-4 overflow-x-auto">
-        <Table className="min-w-[600px] md:min-w-full">
+      {/* 📱 MOBILE VIEW */}
+      <div className="space-y-3 sm:hidden">
+        {schedule.map(item => (
+          <Card key={item._id} className="p-4 space-y-2">
+            <div className="text-sm">
+              <strong>Start:</strong> {item.normalPaymentStartDate}
+            </div>
+            <div className="text-sm">
+              <strong>End:</strong> {item.normalPaymentEndDate}
+            </div>
+            <div className="flex justify-between items-center">
+              <span className={`text-xs px-2 py-1 rounded ${
+                item.isOpen
+                  ? "bg-green-100 text-green-700"
+                  : "bg-gray-100 text-gray-600"
+              }`}>
+                {item.isOpen ? "Open" : "Closed"}
+              </span>
+
+              {item.isOpen && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => handleClose(item._id)}
+                >
+                  Close
+                </Button>
+              )}
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {/* 🖥 DESKTOP TABLE */}
+      <Card className="hidden sm:block p-4">
+        <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Starting Date</TableHead>
-              <TableHead>End Date</TableHead>
+              <TableHead>Start</TableHead>
+              <TableHead>End</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Action</TableHead>
+              <TableHead className="text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
-
           <TableBody>
-            {schedule.map((item, index) => (
-              <TableRow key={item._id || index}>
-                <TableCell>{item?.normalPaymentStartDate || "-"}</TableCell>
-                <TableCell>{item?.normalPaymentEndDate || "-"}</TableCell>
-                <TableCell>{item?.isOpen ? "Open" : "Closed"}</TableCell>
+            {schedule.map(item => (
+              <TableRow key={item._id}>
+                <TableCell>{item.normalPaymentStartDate}</TableCell>
+                <TableCell>{item.normalPaymentEndDate}</TableCell>
                 <TableCell>
-                  {item?.isOpen ? (
+                  {item.isOpen ? "Open" : "Closed"}
+                </TableCell>
+                <TableCell className="text-right">
+                  {item.isOpen && (
                     <Button
-                      variant="destructive"
                       size="sm"
-                      onClick={() => item._id && handleClose(item._id)}
+                      variant="destructive"
+                      onClick={() => handleClose(item._id)}
                     >
                       Close
                     </Button>
-                  ) : (
-                    <p>No Action Available</p>
                   )}
                 </TableCell>
               </TableRow>
@@ -214,6 +238,7 @@ const handleClose = async (id: string) => {
           </TableBody>
         </Table>
       </Card>
+
     </div>
   );
 };

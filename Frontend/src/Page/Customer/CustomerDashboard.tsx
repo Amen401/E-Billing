@@ -52,11 +52,9 @@ const CustomerDashboard = () => {
       setError(null);
 
       try {
-        // Using customerApi from your backend integration
         const result = await customerApi.getComplaints();
 
         if (result && Array.isArray(result.myComplains)) {
-          // Note: The backend returns "myComplains" not "complains"
           const fetchedComplaints: Complaint[] = result.myComplains.map((complaint: any) => ({
             _id: complaint._id || complaint.id,
             complainType: complaint.complainType || complaint.type || "General",

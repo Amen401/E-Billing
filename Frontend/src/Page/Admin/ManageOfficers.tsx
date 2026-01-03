@@ -304,55 +304,52 @@ const ManageOfficers = () => {
 
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
+  <div className="space-y-6 p-4 sm:p-6">
+      {/* Header */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
             Officer Management
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Manage field officers and support staff
           </p>
         </div>
-        <Button onClick={() => setIsAddDialogOpen(true)} className="gap-2">
+        <Button onClick={() => setIsAddDialogOpen(true)} className="gap-2 w-full sm:w-auto">
           <Plus className="h-4 w-4" />
           Add Officer
         </Button>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-4">
+      {/* Stats */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <p className="text-sm text-muted-foreground mb-1">Total Officers</p>
             <p className="text-3xl font-bold text-foreground">{stats.total}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-6">
-            <p className="text-sm text-muted-foreground mb-1">
-              Active Officers
-            </p>
+          <CardContent className="p-4 sm:p-6">
+            <p className="text-sm text-muted-foreground mb-1">Active Officers</p>
             <p className="text-3xl font-bold text-success">{stats.active}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-6">
-            <p className="text-sm text-muted-foreground mb-1">
-              Inactive Officers
-            </p>
-            <p className="text-3xl font-bold text-destructive">
-              {stats.inactive}
-            </p>
+          <CardContent className="p-4 sm:p-6">
+            <p className="text-sm text-muted-foreground mb-1">Inactive Officers</p>
+            <p className="text-3xl font-bold text-destructive">{stats.inactive}</p>
           </CardContent>
         </Card>
       </div>
 
+      {/* Search + Table */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg font-semibold">All Officers</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4 mb-4">
+          <div className="flex flex-col sm:flex-row gap-2 mb-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -367,13 +364,14 @@ const ManageOfficers = () => {
               variant="outline"
               onClick={handleSearch}
               disabled={isLoading}
+              className="w-full sm:w-auto"
             >
               <Search className="h-4 w-4" />
             </Button>
           </div>
 
-          <div className="rounded-md border overflow-auto max-h-[300px]">
-            <Table>
+          <div className="overflow-auto rounded-md border max-h-[400px]">
+            <Table className="min-w-[600px] sm:min-w-full">
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
@@ -398,17 +396,13 @@ const ManageOfficers = () => {
                 ) : (
                   officers.map((officer) => (
                     <TableRow key={officer._id}>
-                      <TableCell className="font-medium">
-                        {officer.name}
-                      </TableCell>
+                      <TableCell className="font-medium">{officer.name}</TableCell>
                       <TableCell>{officer.username}</TableCell>
                       <TableCell>{officer.email || "N/A"}</TableCell>
                       <TableCell>{officer.department || "N/A"}</TableCell>
                       <TableCell>{officer.assignedArea || "N/A"}</TableCell>
                       <TableCell>
-                        <Badge
-                          variant={getStatusBadgeVariant(officer.isActive)}
-                        >
+                        <Badge variant={getStatusBadgeVariant(officer.isActive)}>
                           {officer.isActive ? "Active" : "Inactive"}
                         </Badge>
                       </TableCell>
@@ -422,21 +416,15 @@ const ManageOfficers = () => {
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => handleViewDetails(officer)}
-                            >
+                            <DropdownMenuItem onClick={() => handleViewDetails(officer)}>
                               <Eye className="h-4 w-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleResetPassword(officer)}
-                            >
+                            <DropdownMenuItem onClick={() => handleResetPassword(officer)}>
                               <KeyRound className="h-4 w-4 mr-2" />
                               Reset Password
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleToggleStatus(officer)}
-                            >
+                            <DropdownMenuItem onClick={() => handleToggleStatus(officer)}>
                               <Power className="h-4 w-4 mr-2" />
                               {officer.isActive ? "Deactivate" : "Activate"}
                             </DropdownMenuItem>
@@ -452,16 +440,20 @@ const ManageOfficers = () => {
         </CardContent>
       </Card>
 
+      {/* Add Officer Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add New Officer</DialogTitle>
             <DialogDescription>
-              Create a new officer account. Default password will be set to
-              12345678.
+              Create a new officer account. Default password will be set to 12345678.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleAddOfficer} className="space-y-4">
+          <form
+            onSubmit={handleAddOfficer}
+            className="grid grid-cols-1 gap-4 sm:grid-cols-2"
+          >
+            {/* Name, Username, Email */}
             <div className="space-y-2">
               <Label htmlFor="name">Full Name</Label>
               <Input
@@ -495,6 +487,7 @@ const ManageOfficers = () => {
                 }
               />
             </div>
+            {/* Role, Department */}
             <div className="space-y-2">
               <Label htmlFor="role">Role *</Label>
               <Select
@@ -526,17 +519,14 @@ const ManageOfficers = () => {
                   <SelectValue placeholder="Select department" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Field Operations">
-                    Field Operations
-                  </SelectItem>
-                  <SelectItem value="Customer Support">
-                    Customer Support
-                  </SelectItem>
+                  <SelectItem value="Field Operations">Field Operations</SelectItem>
+                  <SelectItem value="Customer Support">Customer Support</SelectItem>
                   <SelectItem value="Meter Reading">Meter Reading</SelectItem>
                   <SelectItem value="Maintenance">Maintenance</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            {/* Assigned Area */}
             <div className="space-y-2">
               <Label htmlFor="assignedArea">Assigned Area</Label>
               <Input
@@ -547,7 +537,8 @@ const ManageOfficers = () => {
                 }
               />
             </div>
-            <div className="flex justify-end gap-2">
+
+            <div className="flex flex-col sm:flex-row justify-end gap-2 col-span-1 sm:col-span-2">
               <Button
                 type="button"
                 variant="outline"

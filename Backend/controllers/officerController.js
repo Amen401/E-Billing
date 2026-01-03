@@ -133,11 +133,13 @@ export const updateUsernameOrPassword = async (req, res) => {
     const myProfile = await Officer.findById(id);
     if (!myProfile) return res.status(404).json({ message: "User not found" });
 
-    let updates = {};
+    const updates= {};
 
     if (username && username !== myProfile.username) {
       updates.username = username;
       await saveActivity(id, `Updated your username to ${username}`);
+    } else {
+      updates.username = myProfile.username;
     }
 
     if (oldPass && newPass) {
@@ -164,9 +166,11 @@ export const updateUsernameOrPassword = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Internal server error", error });
   }
 };
+
 
 export const changeProfilePicture = async (req, res) => {
   try {
@@ -274,8 +278,8 @@ export const customerComplientInformations = async (req, res) => {
     const complientsData = await CustomerComplient.find();
     const complients = complientsData.reverse();
     const allComplients = complients.length;
-    const urgentComplients = complients.filter(
-      (comp) => comp.status == "urgent"
+    const InProgress = complients.filter(
+      (comp) => comp.status == "in-progress"
     ).length;
     const pendingComplients = complients.filter(
       (comp) => comp.status == "pending"
@@ -288,7 +292,7 @@ export const customerComplientInformations = async (req, res) => {
       return res.status(200).json({
         complients: complientCustomDto(complients),
         allComplients,
-        urgentComplients,
+        InProgress,
         pendingComplients,
         resolvedComplients,
       });
@@ -421,169 +425,145 @@ export const getAllSchedule = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
 export const manualMeterReadingAndPayment = async (req, res) => {
   try {
-    const photo = req.file;
     const { cId, months, fine = 0 } = req.body;
+    const photo = req.file;
 
-    if (!photo) {
-      return res.status(400).json({ message: "Meter image is required" });
+    if (!photo)
+      return res.status(400).json({ message: "Meter image required" });
+    if (!cId) return res.status(400).json({ message: "Customer ID required" });
+
+    const parsedMonths = JSON.parse(months);
+    if (!Array.isArray(parsedMonths) || parsedMonths.length === 0) {
+      return res.status(400).json({ message: "Invalid months" });
     }
 
-    if (!cId) {
-      return res.status(400).json({ message: "Customer ID is required" });
-    }
-
-    // Parse months and validate
-    let parsedMonths;
-    try {
-      parsedMonths = JSON.parse(months);
-    } catch (parseError) {
-      return res.status(400).json({ message: "Invalid months format" });
-    }
-
-    if (
-      !parsedMonths ||
-      !Array.isArray(parsedMonths) ||
-      parsedMonths.length === 0
-    ) {
-      return res.status(400).json({ message: "No valid months provided" });
-    }
-
-    // Validate each month entry
-    for (const month of parsedMonths) {
-      if (!month || !month._id || !month.monthName) {
-        return res.status(400).json({
-          message: "Invalid month data. Each month must have _id and monthName",
-        });
-      }
-    }
-
+    // Convert image to base64 and extract meter data
     const base64 = Buffer.from(photo.buffer).toString("base64");
-    const mimeType = photo.mimetype;
+    const resp = await extractKWAndMeterNo(base64, photo.mimetype);
 
-    const dataUri = `data:${mimeType};base64,${base64}`;
-
-    const resp = await extractKWAndMeterNo(base64, mimeType);
-    const findAccount = await Customer.findById(cId);
-    if (!findAccount) {
+    const customer = await Customer.findById(cId);
+    if (!customer)
       return res.status(404).json({ message: "Customer not found" });
+
+    if (resp.meterNo !== customer.meterReaderSN) {
+      return res.status(403).json({ message: "Meter mismatch" });
     }
 
-    if (resp.meterNo != findAccount.meterReaderSN) {
-      return res.status(403).json({
-        message:
-          "This meter is not your meter. Please insert correct meter image",
-      });
-    }
-
-    const uploadImage = await cloud.uploader.upload(dataUri, {
-      folder: "Meter-Readings",
-      tags: [req.authUser.id, "meter-readings"],
-    });
+    // Upload image to cloud
+    const upload = await cloud.uploader.upload(
+      `data:${photo.mimetype};base64,${base64}`,
+      { folder: "Meter-Readings" }
+    );
 
     const lastReading = await merterReading
       .findOne({ customerId: cId })
       .sort({ createdAt: -1 });
-
     const previousRead = lastReading ? lastReading.killowatRead : 0;
+
     const monthlyUsage = resp.kilowatt - previousRead;
-    const eachMonthUsage = monthlyUsage / parsedMonths.length;
 
-    const myTariff = await CustomerTariff.findOne({ customerId: cId });
-    if (!myTariff) {
-      return res.status(400).json({ message: "Tariff not found for customer" });
-    }
+    const tariff = await CustomerTariff.findOne({ customerId: cId });
+    if (!tariff) return res.status(400).json({ message: "Tariff not found" });
 
-    const energyTariff = Number(myTariff.energyTariff) || 0;
-    const serviceCharge = Number(myTariff.serviceCharge) || 0;
+    const energyTariff = Number(tariff.energyTariff);
+    const serviceCharge = Number(tariff.serviceCharge);
+    const energyCharge = energyTariff * monthlyUsage;
     const vatRate = 0.15;
 
-    let totalPayment = 0;
-    const breakdowns = [];
-    const meterReadings = [];
+    const highConsumptionCharge = monthlyUsage > 200 ? energyCharge * 0.005 : 0;
 
-    for (let index = 0; index < parsedMonths.length; index++) {
-      const currentMonth = parsedMonths[index];
+    let totalFee =
+      energyCharge +
+      serviceCharge +
+      energyCharge * vatRate +
+      highConsumptionCharge +
+      Number(fine);
+    totalFee = Math.min(totalFee, 10000);
 
-      const energyCharge = energyTariff * eachMonthUsage;
-      const subtotal = energyCharge + serviceCharge + Number(fine);
-      const vatAmount = subtotal * vatRate;
-      const totalFee = subtotal + vatAmount;
+    totalFee = isNaN(totalFee) ? 0 : totalFee;
 
-      const newReading = new merterReading({
+    // Split into payment chunks if needed
+    const MAX_PAYMENT_PER_CHUNK = 100000;
+    const paymentChunks = [];
+    const round2 = (num) => Math.round((num + Number.EPSILON) * 100) / 100;
+    let total = round2(totalFee);
+
+    if (total > MAX_PAYMENT_PER_CHUNK) {
+      const numChunks = Math.ceil(total / MAX_PAYMENT_PER_CHUNK);
+      const baseChunk = round2(total / numChunks);
+      let remaining = total;
+
+      for (let i = 0; i < numChunks; i++) {
+        const chunk = i === numChunks - 1 ? round2(remaining) : baseChunk;
+        paymentChunks.push(chunk);
+        remaining = round2(remaining - chunk);
+      }
+    } else {
+      paymentChunks.push(round2(total));
+    }
+
+    // Save readings and payments
+    const readings = [];
+    const currentRead = previousRead + monthlyUsage;
+
+    for (let i = 0; i < parsedMonths.length; i++) {
+      const m = parsedMonths[i];
+      const reading = await merterReading.create({
         photo: {
-          secure_url: uploadImage.secure_url,
-          public_id: uploadImage.public_id,
+          secure_url: upload.secure_url,
+          public_id: upload.public_id,
         },
-        killowatRead: previousRead + eachMonthUsage * (index + 1),
-        monthlyUsage: eachMonthUsage,
+        killowatRead: previousRead + monthlyUsage * (i + 1),
+        monthlyUsage,
         anomalyStatus: "Normal",
         paymentStatus: "Paid",
-        fee: totalFee,
+        fee: round2(totalFee),
         dateOfSubmission: formattedDate(),
-        paymentMonth: currentMonth._id,
-        monthName: currentMonth.monthName,
+        paymentMonth: m._id,
+        monthName: m.monthName,
         customerId: cId,
         officerId: req.authUser.id,
         calculationDetails: {
-          previousReading: previousRead + eachMonthUsage * index,
-          currentReading: previousRead + eachMonthUsage * (index + 1),
-          consumption: eachMonthUsage,
-          energyCharge,
-          serviceCharge,
-          fine: Number(fine),
-          vatRate: vatRate * 100,
-          vatAmount,
-          totalFee,
+          previousReading: previousRead,
+          currentReading: currentRead,
+          consumption: monthlyUsage,
+          tariffRate: energyTariff,
+          vatPercentage: vatRate * 100,
         },
       });
 
-      const result = await newReading.save();
-
       await customerPayments.create({
-        meterReading: result._id,
+        meterReading: reading._id,
         customerId: cId,
-        paymentMonth: currentMonth._id,
-        monthName: currentMonth.monthName,
+        paymentMonth: m._id,
+        monthName: m.monthName,
       });
 
-      totalPayment += totalFee;
-      breakdowns.push(newReading.calculationDetails);
-      meterReadings.push(result._id);
+      readings.push(reading);
     }
 
     await saveActivity(
       req.authUser.id,
-      `Manually paid ${findAccount.accountNumber} for ${parsedMonths.length} months`
+      `Manual payment for ${customer.accountNumber}`
     );
 
     res.status(200).json({
-      message: "Manual payment processed successfully",
-      totalPayment,
-      meterReadingresult: {
-        kilowatt: resp.kilowatt,
-        monthlyUsage: eachMonthUsage,
-        totalMonths: parsedMonths.length,
+      message: "Payment successful",
+      summary: {
+        previousRead,
+        currentRead,
+        totalUsage: monthlyUsage,
+        totalBill: round2(totalFee),
+        months: parsedMonths.length,
+        paymentChunks,
       },
-      calculationBreakdown: breakdowns,
-      processedMonths: parsedMonths.map((m) => m.monthName),
     });
-  } catch (error) {
-    console.error("Manual Payment Error:", error);
-
-    if (error.name === "ValidationError") {
-      const messages = Object.values(error.errors).map((err) => err.message);
-      return res.status(400).json({
-        message: "Validation error",
-        errors: messages,
-      });
-    }
-
-    res.status(500).json({
-      message: "Internal server error",
-      error: error.message,
-    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 

@@ -162,7 +162,7 @@ const Home = () => {
       <section id="about" className="bg-muted py-24">
         <div className="container mx-auto px-4">
           <h2 className="text-4xl font-bold text-center mb-20">
-            How PowerPulse Works
+            How E-Billing Works
           </h2>
 
           <div className="grid md:grid-cols-3 gap-12">

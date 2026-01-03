@@ -28,35 +28,23 @@ interface ComplaintsTableProps {
 const ComplaintsTable = ({ complaints, onViewDetails }: ComplaintsTableProps) => {
   const getStatusVariant = (status: string) => {
     switch (status) {
-      case "Pending":
-        return "destructive";       
-      case "open":
-        return "warning";           
-      case "In-Progress":
-        return "secondary";         
-      case "Resolved":
-        return "success";          
-      case "Closed":
-        return "default";           
-      default:
-        return "secondary";
+      case "Pending": return "destructive";       
+      case "Open": return "warning";           
+      case "In-Progress": return "secondary";         
+      case "Resolved": return "success";          
+      case "Closed": return "default";           
+      default: return "secondary";
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "Open":
-        return "text-destructive";
-      case "Pending":
-        return "text-warning";
-      case "In-Progress":
-        return "text-blue-500";
-      case "Resolved":
-        return "text-success";
-      case "Closed":
-        return "text-muted-foreground";
-      default:
-        return "text-muted-foreground";
+      case "Open": return "text-destructive";
+      case "Pending": return "text-warning";
+      case "In-Progress": return "text-blue-500";
+      case "Resolved": return "text-success";
+      case "Closed": return "text-muted-foreground";
+      default: return "text-muted-foreground";
     }
   };
 
@@ -68,62 +56,46 @@ const ComplaintsTable = ({ complaints, onViewDetails }: ComplaintsTableProps) =>
     );
   }
 
-  return (
-    <div className="rounded-lg border bg-card">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Ticket ID</TableHead>
-            <TableHead>Customer Name</TableHead>
-            <TableHead>Subject</TableHead>
-            <TableHead>Description</TableHead>
-            <TableHead>Date</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+ return (
+  <div className="rounded-lg border bg-card overflow-x-auto">
+    <Table className="min-w-[600px] sm:min-w-full">
+      <TableHeader>
+        <TableRow>
+          <TableHead>Ticket ID</TableHead>
+          <TableHead>Customer</TableHead>
+          <TableHead>Subject</TableHead>
+          <TableHead className="hidden sm:table-cell">Description</TableHead>
+          <TableHead className="hidden md:table-cell">Date</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead className="text-right">Actions</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {complaints.map((complaint) => (
+          <TableRow key={complaint.id} className="sm:text-sm">
+            <TableCell className="font-mono truncate">{`CUPM.${complaint.id.substring(0, 6).toUpperCase()}`}</TableCell>
+            <TableCell className="truncate">{complaint.customerName}</TableCell>
+            <TableCell className="font-medium truncate">{complaint.subject}</TableCell>
+            <TableCell className="hidden sm:table-cell max-w-[150px] truncate">{complaint.description}</TableCell>
+            <TableCell className="hidden md:table-cell text-muted-foreground truncate">
+              {format(new Date(complaint.date), "MMM dd, yyyy HH:mm")}
+            </TableCell>
+            <TableCell>
+              <Badge variant={getStatusVariant(complaint.status)} className={getStatusColor(complaint.status)}>
+                {complaint.status}
+              </Badge>
+            </TableCell>
+            <TableCell className="text-right">
+              <Button variant="ghost" size="sm" onClick={() => onViewDetails(complaint)}>
+                <Eye className="h-4 w-4 mr-1 sm:mr-2" />
+                View
+              </Button>
+            </TableCell>
           </TableRow>
-        </TableHeader>
-        <TableBody>
-          {complaints.map((complaint) => (
-            <TableRow key={complaint.id}>
-              <TableCell className="font-mono text-sm">
-                CUPM.{complaint.id.substring(0, 6).toUpperCase()}
-              </TableCell>
-
-              <TableCell>{complaint.customerName}</TableCell>
-
-              <TableCell className="font-medium">{complaint.subject}</TableCell>
-
-              <TableCell className="font-medium">{complaint.description}</TableCell>
-
-              <TableCell className="text-muted-foreground">
-                {format(new Date(complaint.date), "MMM dd, yyyy HH:mm")}
-              </TableCell>
-
-              <TableCell>
-                <Badge
-                  variant={getStatusVariant(complaint.status)}
-                  className={getStatusColor(complaint.status)}
-                >
-                  {complaint.status}
-                </Badge>
-              </TableCell>
-
-              <TableCell className="text-right">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onViewDetails(complaint)}
-                >
-                  <Eye className="h-4 w-4 mr-2" />
-                  View
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
+        ))}
+      </TableBody>
+    </Table>
+  </div>
+);
 };
-
 export default ComplaintsTable;

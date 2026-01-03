@@ -99,38 +99,58 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
   };
 
   const handleExtractAndCalculate = async () => {
-    if (!meterImage || !customer) {
-      toast.error("Please upload a meter image first");
-      return;
-    }
+  if (!meterImage || !customer) {
+    toast.error("Please upload a meter image first");
+    return;
+  }
 
-    if (selectedMonths.length === 0) {
-      toast.error("Please select at least one month to pay");
-      return;
-    }
+  if (selectedMonths.length === 0) {
+    toast.error("Please select at least one month to pay");
+    return;
+  }
 
-    setIsExtracting(true);
+  setIsExtracting(true);
 
-    try {
-      const response = await officerApi.PayManual(
-        customer._id,
-        selectedMonths,
-        parseFloat(fine) || 0
-      );
+  try {
+    const formData = new FormData();
 
-      setExtractionResult({
-        success: true,
-        totalPayment: response.totalPayment,
-        meterReadingresult: response.meterReadingresult,
-      });
-      toast.success("Meter reading extracted successfully");
-    } catch (error: unknown) {
-      console.error("Extraction error:", error);
-      toast.error("Failed to extract meter reading");
-    } finally {
-      setIsExtracting(false);
-    }
-  };
+    formData.append("photo", meterImage); 
+    formData.append("cId", customer._id);
+   formData.append(
+  "months",
+  JSON.stringify(
+    missedMonths
+      .filter((m) => selectedMonths.includes(m._id))
+      .map((m) => ({
+        _id: m._id,
+        monthName: m.yearAndMonth, 
+      }))
+  )
+);
+
+    formData.append("fine", fine);
+
+    const response = await officerApi.PayManual(formData);
+
+   setExtractionResult({
+  success: true,
+  totalBill: response.summary.totalBill,
+  totalUsage: response.summary.totalUsage,
+  currentRead: response.summary.currentRead,
+  previousRead: response.summary.previousRead,
+  summary: response.summary,
+});
+
+console.log("Extraction result:", response);
+
+    toast.success("Meter reading extracted successfully");
+  } catch (error) {
+    console.error("Extraction error:", error);
+    toast.error("Failed to extract meter reading");
+  } finally {
+    setIsExtracting(false);
+  }
+};
 
   const handleConfirmPayment = async () => {
     if (!extractionResult) {
@@ -143,7 +163,7 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
     try {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       toast.success(
-        `Payment of ${extractionResult.totalPayment?.toFixed(
+        `Payment of ${extractionResult.totalBill?.toFixed(
           2
         )} Birr processed successfully!`
       );
@@ -281,7 +301,7 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
                             <p className="text-xs text-muted-foreground">
                               Due:{" "}
                               {new Date(
-                                month.normalPaymentStartDate
+                                month.createdAt
                               ).toLocaleDateString()}
                             </p>
                           </div>
@@ -367,16 +387,7 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Meter Reading:</span>
                   <span className="font-mono font-medium">
-                    {extractionResult.meterReadingresult?.kilowatt || "N/A"} kWh
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Monthly Usage:</span>
-                  <span className="font-mono font-medium">
-                    {extractionResult.meterReadingresult?.monthlyUsage?.toFixed(
-                      2
-                    ) || "N/A"}{" "}
-                    kWh
+                    {extractionResult.currentRead || "N/A"} kWh
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -388,7 +399,7 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
                 <Separator />
                 <div className="flex justify-between text-lg font-bold text-success">
                   <span>Total Payment:</span>
-                  <span>{extractionResult.totalPayment?.toFixed(2)} Birr</span>
+                  <span>{extractionResult.totalBill?.toFixed(2)} Birr</span>
                 </div>
               </div>
             </Card>

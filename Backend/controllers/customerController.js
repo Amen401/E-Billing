@@ -247,27 +247,21 @@ export const submitReading = async (req, res) => {
         .status(400)
         .json({ message: "No active payment schedule found." });
 
-    const energyTariff = tariffDetails.energyTarif;
-    const serviceCharge = tariffDetails.serviceCharge;
+    const energyTariff = Number(tariffDetails.energyTariff);
+    const serviceCharge = Number(tariffDetails.serviceCharge);
     const energyCharge = energyTariff * monthlyUsage;
-    const subtotal = energyCharge;
     const vatRate = 0.15;
-    const vat = subtotal * vatRate;
 
-    const HIGH_CONSUMPTION_THRESHOLD = 200;
-    const HIGH_CONSUMPTION_RATE = 0.005;
-    const highConsumptionCharge =
-      monthlyUsage > HIGH_CONSUMPTION_THRESHOLD
-        ? energyCharge * HIGH_CONSUMPTION_RATE
-        : 0;
+    const highConsumptionCharge = monthlyUsage > 200 ? energyCharge * 0.005 : 0;
 
-    let totalFee = energyCharge + serviceCharge + vat + highConsumptionCharge;
+    let totalFee =
+      energyCharge +
+      serviceCharge +
+      energyCharge * vatRate +
+      highConsumptionCharge;
+    totalFee = Math.min(totalFee, 10000);
 
-    if (totalFee <= 0 || !isFinite(totalFee)) {
-      return res
-        .status(400)
-        .json({ message: "Invalid total fee calculation." });
-    }
+    totalFee = isNaN(totalFee) ? 0 : totalFee;
 
     const CHAPA_MAX_AMOUNT = 1000000;
     if (totalFee > CHAPA_MAX_AMOUNT) {
@@ -309,7 +303,6 @@ export const submitReading = async (req, res) => {
       energyTariff,
       serviceCharge,
       vatRate,
-      vatAmount: vat,
       highConsumptionCharge,
       energyCharge,
       anomalyStatus: anomalyResult?.anomalyStatus || "Unknown",
@@ -327,8 +320,6 @@ export const submitReading = async (req, res) => {
         consumption: monthlyUsage,
         tariffRate: energyTariff,
         vatPercentage: vatRate * 100,
-        highConsumptionThreshold: HIGH_CONSUMPTION_THRESHOLD,
-        highConsumptionRate: HIGH_CONSUMPTION_RATE * 100,
       },
     });
 
@@ -341,7 +332,6 @@ export const submitReading = async (req, res) => {
         consumption: monthlyUsage,
         energyCharge,
         serviceCharge,
-        vat,
         highConsumptionCharge,
         totalFee,
         paymentChunks,

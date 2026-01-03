@@ -65,6 +65,7 @@ export const unifiedLogin = async (req, res) => {
         name: user.name,
         username: user.username || user.accountNumber || user.name,
         photo: user.photo?.secure_url || null,
+        email: user.email || null,
       },
       token,
     });

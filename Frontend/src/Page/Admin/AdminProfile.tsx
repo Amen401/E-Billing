@@ -15,9 +15,8 @@ import { User, Lock, Save, Mail } from "lucide-react";
 import { useAuth } from "@/components/context/UnifiedContext";
 
 const AdminProfile = () => {
-  const { user, updateProfile, changePassword } = useAuth();
+  const { user, updateProfile, changePasswordOrUsername } = useAuth();
 
-  // Separate state for editing name and username
   const [isEditingName, setIsEditingName] = useState(false);
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -54,31 +53,58 @@ const AdminProfile = () => {
   };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
+  e.preventDefault();
+  if (!user) return;
 
-    if (passwordData.newPass !== passwordData.confirmPass) {
-      toast.error("New passwords do not match");
-      return;
-    }
+  if (passwordData.newPass !== passwordData.confirmPass) {
+    toast.error("New passwords do not match");
+    return;
+  }
 
-    if (passwordData.newPass.length < 8) {
-      toast.error("Password must be at least 8 characters");
-      return;
-    }
+  if (passwordData.newPass.length < 8) {
+    toast.error("Password must be at least 8 characters");
+    return;
+  }
 
-    try {
-      setPasswordLoading(true);
-      await changePassword(passwordData.oldPass, passwordData.newPass);
-      toast.success("Password changed successfully");
-      setPasswordData({ oldPass: "", newPass: "", confirmPass: "" });
-      setIsChangingPassword(false);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to change password");
-    } finally {
-      setPasswordLoading(false);
-    }
-  };
+  try {
+    setPasswordLoading(true);
+    await changePasswordOrUsername(undefined, passwordData.oldPass, passwordData.newPass);
+    toast.success("Password changed successfully");
+    setPasswordData({ oldPass: "", newPass: "", confirmPass: "" });
+    setIsChangingPassword(false);
+  } catch (err: any) {
+    toast.error(err.message || "Failed to change password");
+  } finally {
+    setPasswordLoading(false);
+  }
+};
+const handleUsernameChange = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!user) return;
+
+  if (!profileData.username || profileData.username.trim().length < 3) {
+    toast.error("Username must be at least 3 characters");
+    return;
+  }
+
+  try {
+    setProfileLoading(true);
+
+    await changePasswordOrUsername(
+      profileData.username, 
+      undefined,
+      undefined
+    );
+
+    toast.success("Username updated successfully");
+    setIsEditingUsername(false);
+  } catch (err: any) {
+    toast.error(err.message || "Failed to update username");
+  } finally {
+    setProfileLoading(false);
+  }
+};
+
 
   return (
     <div className="space-y-6 p-6 max-w-4xl mx-auto">

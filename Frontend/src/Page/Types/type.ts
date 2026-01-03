@@ -105,7 +105,7 @@ export interface ComplaintType {
 export interface ComplaintsApiResponse {
   someComplients: ComplaintType[];
   allComplients: number;
-  urgentComplients: number;
+  InProgress: number;
   pendingComplients: number;
   resolvedComplients: number;
 }

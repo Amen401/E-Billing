@@ -530,27 +530,6 @@ const SubmitReading = () => {
             animate={{ opacity: 1, x: 0 }}
             className="space-y-4"
           >
-            <Card className="p-5 shadow-card">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-success/10 rounded-lg flex items-center justify-center">
-                  <CheckCircle className="w-5 h-5 text-success" />
-                </div>
-                <h3 className="font-semibold">Last Reading</h3>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Reading</span>
-                  <span className="font-mono font-semibold">
-                    {previousReading} kWh
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Date</span>
-                  <span className="font-medium">2024-03-28</span>
-                </div>
-              </div>
-            </Card>
-
             <Card className="p-5 shadow-card bg-primary/5 border-primary/20">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
