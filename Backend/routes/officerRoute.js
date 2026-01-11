@@ -23,7 +23,6 @@ import {
   getAllMeterReadings,
   payMissedPaymentMonths,
   generateReport,
-  meterReadingAndRevenueReport,
   getYearSchedules,
 } from "../controllers/officerController.js";
 
@@ -64,12 +63,12 @@ officerRouter.post(
   verifyToken,
   searchCustomerComplients
 );
-// New Updated Report
-officerRouter.post(
-  "/meter-reading-report",
-  verifyToken,
-  meterReadingAndRevenueReport
-);
+// // New Updated Report
+// officerRouter.post(
+//   "/meter-reading-report",
+//   verifyToken,
+//   meterReadingAndRevenueReport
+// );
 // New Updated functionality for Report
 officerRouter.post("/get-year-schedules", verifyToken, getYearSchedules);
 officerRouter.put(

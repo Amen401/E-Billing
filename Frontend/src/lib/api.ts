@@ -471,6 +471,13 @@ export const officerApi = {
     );
     return response;
   },
+  meterReadingReport: async (filters: ReportFilters) => {
+    const response = await api.post<{ data: ReportData[] }>(
+      "/officer/meter-reading-report",
+      filters
+    );
+    return response;
+  },
 
   getMeterReadingDetail: async (id: string) => {
     const response = await api.get(
