@@ -32,8 +32,8 @@ export const EthiopianPaymentDialog = ({
 }: PaymentDialogProps) => {
   const [processing, setProcessing] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"telebirr" | "card">(
-    "telebirr"
+  const [paymentMethod, setPaymentMethod] = useState<"chapa" | "card">(
+    "chapa"
   );
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -136,12 +136,12 @@ useEffect(() => {
               <select
                 value={paymentMethod}
                 onChange={(e) =>
-                  setPaymentMethod(e.target.value as "telebirr" | "card")
+                  setPaymentMethod(e.target.value as "chapa" | "card")
                 }
                 className="w-full mt-1 p-2 border rounded"
                 disabled={processing}
               >
-                <option value="telebirr">Telebirr</option>
+                <option value="chapa">Chapa</option>
                 <option value="card">Card</option>
               </select>
             </div>
@@ -160,7 +160,7 @@ useEffect(() => {
                 ) : (
                   <>
                     <Wallet className="w-5 h-5" />
-                    Pay with {paymentMethod === "telebirr" ? "Telebirr" : "Card"}
+                    Pay with {paymentMethod === "chapa" ? "chapa" : "Card"}
                   </>
                 )}
               </Button>
