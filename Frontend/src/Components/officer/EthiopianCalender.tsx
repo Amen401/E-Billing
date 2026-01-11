@@ -34,16 +34,17 @@ const EthiopianCalendarDropdown = ({
   const [year, setYear] = useState(2016);
   const [month, setMonth] = useState(1);
 
-  const daysInMonth = month === 13 ? 5 : 30; 
+  const daysInMonth = month === 13 ? 5 : 30;
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
   return (
-    <div className="p-4 border rounded bg-white shadow-md">
-      <div className="flex gap-2 mb-4">
+    <div className="w-full max-w-sm sm:max-w-md md:max-w-lg mx-auto p-3 sm:p-4 bg-white border rounded-xl shadow-sm">
+      {/* Month & Year Selectors */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <select
           value={month}
           onChange={(e) => setMonth(Number(e.target.value))}
-          className="border p-1 rounded"
+          className="w-full sm:w-1/2 border rounded-lg px-3 py-2 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           {ethiopianMonths.map((m, i) => (
             <option key={i} value={i + 1}>
@@ -55,7 +56,7 @@ const EthiopianCalendarDropdown = ({
         <select
           value={year}
           onChange={(e) => setYear(Number(e.target.value))}
-          className="border p-1 rounded"
+          className="w-full sm:w-1/2 border rounded-lg px-3 py-2 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           {Array.from({ length: 20 }, (_, i) => 2010 + i).map((y) => (
             <option key={y} value={y}>
@@ -65,16 +66,33 @@ const EthiopianCalendarDropdown = ({
         </select>
       </div>
 
-      <div className="grid grid-cols-7 gap-1">
-        {days.map((day) => (
-          <button
-            key={day}
-            className="p-2 hover:bg-gray-200 rounded"
-            onClick={() => onSelect({ year, month, day })}
-          >
-            {day}
-          </button>
-        ))}
+      {/* Days Grid */}
+      <div className="grid grid-cols-7 gap-1 sm:gap-2">
+        {days.map((day) => {
+          const isSelected =
+            selectedDate?.day === day &&
+            selectedDate?.month === month &&
+            selectedDate?.year === year;
+
+          return (
+            <button
+              key={day}
+              onClick={() => onSelect({ year, month, day })}
+              className={`
+                aspect-square rounded-lg flex items-center justify-center
+                text-sm sm:text-base
+                transition
+                ${
+                  isSelected
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 hover:bg-gray-200 active:bg-gray-300"
+                }
+              `}
+            >
+              {day}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
