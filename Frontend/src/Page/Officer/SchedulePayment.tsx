@@ -23,6 +23,7 @@ import {
 import { officerApi } from "@/lib/api";
 import EthiopianCalendarDropdown from "@/Components/officer/EthiopianCalender";
 import type { EthiopianDate } from "@/Components/officer/EthiopianCalender";
+import { toast } from "sonner";
 
 const SchedulePayment = () => {
   const [yearAndMonth, setYearAndMonth] = useState("");
@@ -52,26 +53,54 @@ const SchedulePayment = () => {
     return s.day > e.day;
   };
 
-  const handleCreateSchedule = async () => {
-    if (!yearAndMonth || !startDate || !endDate) return;
-    if (isStartAfterEnd(startDate, endDate)) {
-      alert("Start date must be before end date");
-      return;
+
+const handleCreateSchedule = async () => {
+  if (!yearAndMonth || !startDate || !endDate) return;
+
+  if (isStartAfterEnd(startDate, endDate)) {
+    toast.error("Start date must be before end date");
+    return;
+  }
+
+  const payload = {
+    yearAndMonth,
+    normalPaymentStartDate: `${startDate.day}/${startDate.month}/${startDate.year}`,
+    normalPaymentEndDate: `${endDate.day}/${endDate.month}/${endDate.year}`,
+  };
+
+  try {
+    const res = await officerApi.createSchedule(payload);
+    console.log("API Response:", res); // check what comes from backend
+
+    // ✅ Show toast if backend returned a message
+    if (res?.message) {
+      toast.error(res.message);
+      return; // stop further execution
     }
 
-    const payload = {
-      yearAndMonth,
-      normalPaymentStartDate: `${startDate.day}/${startDate.month}/${startDate.year}`,
-      normalPaymentEndDate: `${endDate.day}/${endDate.month}/${endDate.year}`,
-    };
+    // ✅ Success: schedule created
+    if (res?._id) {
+      setSchedule(prev => [res, ...prev]);
+      setYearAndMonth("");
+      setStartDate(null);
+      setEndDate(null);
+      toast.success("Schedule created successfully!");
+    }
+  } catch (err: any) {
+  console.error("Create Schedule Error:", err);
 
-    const res = await officerApi.createSchedule(payload);
-    if (res) setSchedule(prev => [res, ...prev]);
+  const errorMessage =
+    err?.response?.data?.message ||
+    err?.response?.data?.error ||
+    (typeof err?.response?.data === "string" ? err.response.data : null) ||
+    err?.message ||
+    "An unexpected error occurred";
 
-    setYearAndMonth("");
-    setStartDate(null);
-    setEndDate(null);
-  };
+  toast.error(errorMessage);
+}
+
+};
+
 
   const handleClose = async (id: string) => {
     const res = await officerApi.closeSchedule(id);

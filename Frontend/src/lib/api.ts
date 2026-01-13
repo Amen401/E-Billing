@@ -478,7 +478,10 @@ export const officerApi = {
     );
     return response;
   },
-
+// existsForMonth: async (yearAndMonth: string) => {
+//     const response = await api.post("/officer/get-exist-schedules", { yearAndMonth });
+//     return response;
+//   },
   getMeterReadingDetail: async (id: string) => {
     const response = await api.get(
       `${ENDPOINTS.officerMeterReadingDetail.replace(":id", id)}`

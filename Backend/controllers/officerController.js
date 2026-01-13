@@ -381,23 +381,44 @@ export const checkMissedMonths = async (req, res) => {
 
 export const createSchedule = async (req, res) => {
   try {
+    const { yearAndMonth } = req.body;
+
+    // 1️⃣ Validate input
+    if (!yearAndMonth) {
+      return res.status(400).json({ message: "yearAndMonth is required" });
+    }
+
+    // 2️⃣ Check if any schedule is currently open
     const isAnyOpenSchedule = await paymentSchedule.findOne({ isOpen: true });
     if (isAnyOpenSchedule) {
-      res
-        .status(200)
-        .json({ message: "There is Open schedule", isAnyOpenSchedule });
+      return res
+        .status(400)
+        .json({ message: "There is already an open schedule on this month", isAnyOpenSchedule });
     }
+
+    const existsForMonth = await paymentSchedule.findOne({ yearAndMonth });
+    if (existsForMonth) {
+      return res
+        .status(400)
+        .json({ message: "A schedule already exists for this month", existsForMonth });
+    }
+
     const newSchedule = new paymentSchedule(req.body);
     await newSchedule.save();
+
     await saveActivity(
       req.authUser.id,
       `Created new payment schedule ${newSchedule.yearAndMonth}`
     );
-    res.status(201).json(newSchedule);
+
+    return res.status(201).json(newSchedule);
   } catch (error) {
-    res.status(500).json({ message: "Internal server error" });
+    console.error("Error creating schedule:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+
 export const closePaymentSchedule = async (req, res) => {
   try {
     const sch = await paymentSchedule.findByIdAndUpdate(
@@ -774,7 +795,7 @@ export const generateReport = async (req, res) => {
 
     res.json({
       reportType,
-      generatedBy: req.authUser?.id || "Unknown",
+      generatedBy:req.authUser?.username || req.authUser?.name  || "Unknown",
       generatedAt: new Date(),
       filters: { startDate, endDate, department, userGroup },
       data: report,
@@ -785,24 +806,7 @@ export const generateReport = async (req, res) => {
   }
 };
 
-export const getYearSchedules = async (req, res) => {
-  try {
-    const { year } = req.body;
-    if (!year) return res.status(400).json({ message: "Year is required" });
 
-    const start = new Date(`${year}-01-01`);
-    const end = new Date(`${year}-12-31T23:59:59.999Z`);
-
-    const schedules = await paymentSchedule.find({
-      createdAt: { $gte: start, $lte: end },
-    });
-
-    res.status(200).json({ schedules: schedules || [] });
-  } catch (error) {
-    console.error("Error fetching schedules:", error);
-    res.status(500).json({ message: "Failed to fetch schedules" });
-  }
-};
 
 const meterReadingsReport = async (start, end) => {
   const readings = await merterReading
@@ -818,43 +822,71 @@ const meterReadingsReport = async (start, end) => {
 
 
 
-
 export const revenueReport = async (start, end) => {
   const startDate = new Date(start);
-  startDate.setHours(0, 0, 0, 0);
+  startDate.setUTCHours(0, 0, 0, 0);
   const endDate = new Date(end);
-  endDate.setHours(23, 59, 59, 999);
+  endDate.setUTCHours(23, 59, 59, 999);
 
-  const payments = await customerPayments
-    .find({ createdAt: { $gte: startDate, $lte: endDate } })
-    .populate("meterReading", "fee monthlyUsage")
-    .populate("customerId", "name accountNumber depositBirr");
+  const readings = await merterReading
+    .find({
+      createdAt: { $gte: startDate, $lte: endDate },
+    })
+    .populate("customerId", "name accountNumber depositBirr")
+    .lean();
 
-  let totalPaidMoney = 0;
-  let totalDepositedMoney = 0;
+  let totalRevenue = 0;
+  const uniqueCustomers = new Map(); 
 
-  payments.forEach((p) => {
-    if (p.meterReading && typeof p.meterReading.fee === "number") {
-      totalPaidMoney += p.meterReading.fee;
+  const payments = readings.map((r) => {
+    const isPaid = r.paymentStatus === "Paid";
+    const fee = r.fee || 0;
+
+    if (isPaid) {
+      totalRevenue += fee;
     }
-    if (p.customerId && typeof p.customerId.depositBirr === "number") {
-      totalDepositedMoney += p.customerId.depositBirr;
+
+    // track unique customers to sum their deposits correctly
+    if (r.customerId && r.customerId._id) {
+      uniqueCustomers.set(r.customerId._id.toString(), r.customerId.depositBirr || 0);
     }
+
+    // Map to the format your React Frontend Table expects
+    return {
+      id: r._id,
+      customer: r.customerId?.name || "Unknown",
+      accountNumber: r.customerId?.accountNumber || "N/A",
+      amount: fee,
+      date: r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "N/A",
+      status: r.paymentStatus,
+      method: "Electronic/Cash", // Default label
+    };
   });
 
-  const unpaidPayments = payments.filter(
-    (p) => !p.meterReading || !p.meterReading.fee
+  // Calculate total deposited money from the unique set of customers
+  const totalDepositedMoney = Array.from(uniqueCustomers.values()).reduce(
+    (sum, val) => sum + val,
+    0
   );
 
+  const paidReadings = payments.filter((p) => p.status === "Paid");
+
   return {
-    totalPayments: payments.length,
-    totalDepositedMoney,
-    totalPaidMoney,
-    unpaidPaymentsCount: unpaidPayments.length,
-    payments,
+    reportType: "revenue",
+    generatedAt: new Date().toISOString(),
+    // Summary data for the top cards in React
+    summary: {
+      totalPayments: paidReadings.length,
+      totalRevenue: totalRevenue,
+      totalDepositedMoney: totalDepositedMoney,
+      unpaidPaymentsCount: payments.length - paidReadings.length,
+    },
+    // Detailed data for the table
+    data: {
+      payments: payments, 
+    },
   };
 };
-
 
 const complaintsReport = async (start, end) => {
   try {
