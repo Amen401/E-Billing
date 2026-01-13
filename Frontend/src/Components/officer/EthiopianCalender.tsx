@@ -1,101 +1,93 @@
 import { useState } from "react";
-
-const ethiopianMonths = [
-  "Meskerem",
-  "Tikimt",
-  "Hidar",
-  "Tahsas",
-  "Tir",
-  "Yekatit",
-  "Megabit",
-  "Miyazya",
-  "Ginbot",
-  "Sene",
-  "Hamle",
-  "Nehase",
-  "Pagume",
-];
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/Components/ui/button";
 
 export interface EthiopianDate {
-  year: number;
-  month: number;
   day: number;
+  month: number;
+  year: number;
 }
 
-interface EthiopianCalendarDropdownProps {
-  selectedDate: EthiopianDate | null;
+const ETHIOPIAN_MONTHS = [
+  "Meskerem", "Tikimt", "Hidar", "Tahsas", "Tir", "Yekatit",
+  "Megabit", "Miazia", "Ginbot", "Sene", "Hamle", "Nehase", "Pagume"
+];
+
+interface Props {
   onSelect: (date: EthiopianDate) => void;
+  showDays?: boolean;
 }
 
-const EthiopianCalendarDropdown = ({
-  selectedDate,
-  onSelect,
-}: EthiopianCalendarDropdownProps) => {
-  const [year, setYear] = useState(2016);
+export default function EthiopianCalendarDropdown({ onSelect, showDays = true }: Props) {
+  const [year, setYear] = useState(2017);
   const [month, setMonth] = useState(1);
+  const [view, setView] = useState<"month" | "day">("month");
 
   const daysInMonth = month === 13 ? 5 : 30;
-  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+  const handleMonthSelect = (m: number) => {
+    setMonth(m);
+    if (showDays) {
+      setView("day");
+    } else {
+      onSelect({ day: 1, month: m, year });
+    }
+  };
+
+  const handleDaySelect = (d: number) => {
+    onSelect({ day: d, month, year });
+  };
 
   return (
-    <div className="w-full max-w-sm sm:max-w-md md:max-w-lg mx-auto p-3 sm:p-4 bg-white border rounded-xl shadow-sm">
-      {/* Month & Year Selectors */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
-        <select
-          value={month}
-          onChange={(e) => setMonth(Number(e.target.value))}
-          className="w-full sm:w-1/2 border rounded-lg px-3 py-2 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          {ethiopianMonths.map((m, i) => (
-            <option key={i} value={i + 1}>
-              {m}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={year}
-          onChange={(e) => setYear(Number(e.target.value))}
-          className="w-full sm:w-1/2 border rounded-lg px-3 py-2 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          {Array.from({ length: 20 }, (_, i) => 2010 + i).map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </select>
+    <div className="p-3 bg-popover rounded-lg border shadow-lg min-w-[280px]">
+      {/* Year Navigation */}
+      <div className="flex items-center justify-between mb-3">
+        <Button variant="ghost" size="icon" onClick={() => setYear(y => y - 1)}>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <span className="font-semibold text-foreground">{year} E.C.</span>
+        <Button variant="ghost" size="icon" onClick={() => setYear(y => y + 1)}>
+          <ChevronRight className="h-4 w-4" />
+        </Button>
       </div>
 
-      {/* Days Grid */}
-      <div className="grid grid-cols-7 gap-1 sm:gap-2">
-        {days.map((day) => {
-          const isSelected =
-            selectedDate?.day === day &&
-            selectedDate?.month === month &&
-            selectedDate?.year === year;
-
-          return (
-            <button
-              key={day}
-              onClick={() => onSelect({ year, month, day })}
-              className={`
-                aspect-square rounded-lg flex items-center justify-center
-                text-sm sm:text-base
-                transition
-                ${
-                  isSelected
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-100 hover:bg-gray-200 active:bg-gray-300"
-                }
-              `}
+      {view === "month" ? (
+        <div className="grid grid-cols-3 gap-2">
+          {ETHIOPIAN_MONTHS.map((name, i) => (
+            <Button
+              key={name}
+              variant={month === i + 1 ? "default" : "outline"}
+              size="sm"
+              className="text-xs"
+              onClick={() => handleMonthSelect(i + 1)}
             >
-              {day}
-            </button>
-          );
-        })}
-      </div>
+              {name}
+            </Button>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Button variant="ghost" size="sm" onClick={() => setView("month")}>
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              {ETHIOPIAN_MONTHS[month - 1]}
+            </Button>
+          </div>
+          <div className="grid grid-cols-6 gap-1">
+            {Array.from({ length: daysInMonth }, (_, i) => (
+              <Button
+                key={i}
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 text-xs"
+                onClick={() => handleDaySelect(i + 1)}
+              >
+                {i + 1}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
-};
-
-export default EthiopianCalendarDropdown;
+}

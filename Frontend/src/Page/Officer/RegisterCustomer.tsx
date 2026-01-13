@@ -44,35 +44,38 @@ const RegisterCustomer = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
-  const [formData, setFormData] = useState({
-    name: "",
-    region: "",
-    serviceCenter: "",
-    addressRegion: "",
-    zone: "",
-    woreda: "",
-    town: "",
-    purpose: "",
-    powerApproved: 0,
-    killowat: 0,
-    applicableTarif: 0,
-    volt: 0,
-    depositBirr: 0,
-    serviceChargeBirr: 0,
-    tarifBirr: 0,
-    accountNumber: "",
-    meterReaderSN: "",
-    isActive: true,
-    password: "12345678",
-  });
+const [formData, setFormData] = useState({
+  name: "",
+  region: "",
+  serviceCenter: "",
+  addressRegion: "",
+  zone: "",
+  woreda: "",
+  town: "",
+  purpose: "",
+  powerApproved: "",
+  killowat: "",
+  applicableTarif: "",
+  volt: "",
+  depositBirr: "",
+  serviceChargeBirr: "",
+  tarifBirr: "",
+  accountNumber: "",
+  meterReaderSN: "",
+  isActive: true,
+  password: "12345678",
+});
+
 
   const handleChange = (e: any) => {
-    const { name, value, type } = e.target;
-    setFormData((p) => ({
-      ...p,
-      [name]: type === "number" ? Number(value) : value,
-    }));
-  };
+  const { name, value } = e.target;
+
+  setFormData(prev => ({
+    ...prev,
+    [name]: value, 
+  }));
+};
+
 
   const handleSubmit = async (e: any) => {
   e.preventDefault();
@@ -87,10 +90,10 @@ const RegisterCustomer = () => {
     setLoading(false);
     return;
   }
-
+  const validatedData = validation.data;
   try {
     const payload = {
-      regForm: formData, 
+      regForm: validatedData, 
       tarif: {
         energyTariff: formData.applicableTarif,
         serviceCharge: formData.serviceChargeBirr,
