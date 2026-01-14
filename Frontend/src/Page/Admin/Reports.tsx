@@ -441,7 +441,7 @@ const Reports = () => {
   };
 
   const renderSummaryCards = () => {
-    if (!reportData?.data) return null;
+   if (!reportData) return null;
 
     const data = reportData.data;
 

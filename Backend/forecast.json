@@ -1,16 +1,16 @@
 {
-  "customerId": "6965bba533364d8ae5a9587d",
-  "history_used": 2,
+  "customerId": "6968128d3b38906bc1cda636",
+  "history_used": 3,
   "last_6_month_filter_applied": true,
-  "last_history_date": "2026-02-28",
+  "last_history_date": "2026-03-31",
   "mae_last_month": null,
   "prediction": {
-    "next_month_date": "2026-03-31",
-    "predicted_monthlyUsage": 206.31071072485986,
+    "next_month_date": "2026-04-30",
+    "predicted_monthlyUsage": 235.09014119887604,
     "usage_range": {
-      "lower": 206.31070891928314,
-      "upper": 206.3107122546514
+      "lower": 219.57825706402008,
+      "upper": 248.37851024802464
     },
-    "predicted_killowatRead": 28141.010710724862
+    "predicted_killowatRead": 28419.590141198874
   }
 }

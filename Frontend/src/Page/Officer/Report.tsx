@@ -223,7 +223,7 @@ const Reports = () => {
       if (val.id) return String(val.id);
       // For arrays, join values
       if (Array.isArray(val)) {
-        return val.map(v => flattenValue(v)).join(", ");
+        return val.map((v) => flattenValue(v)).join(", ");
       }
       // Last resort: stringify
       try {
@@ -237,9 +237,11 @@ const Reports = () => {
 
   const exportPDFFrontend = (reportData: ReportData) => {
     // 1. Determine orientation: Landscape for meter-readings, Portrait for others
-    const isLandscape = reportData.reportType === "meter-readings" || reportData.reportType === "revenue";
+    const isLandscape =
+      reportData.reportType === "meter-readings" ||
+      reportData.reportType === "revenue";
     const doc = new jsPDF(isLandscape ? "l" : "p", "mm", "a4");
-    
+
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 14;
@@ -256,7 +258,9 @@ const Reports = () => {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text(
-      `Generated: ${new Date(reportData.generatedAt).toLocaleString()}  |  By: ${reportData.generatedBy}`,
+      `Generated: ${new Date(
+        reportData.generatedAt
+      ).toLocaleString()}  |  By: ${reportData.generatedBy}`,
       margin,
       28
     );
@@ -292,7 +296,15 @@ const Reports = () => {
     let tableData: any[][] = [];
 
     if (reportData.reportType === "meter-readings") {
-      tableHeaders = ["Customer", "Account No", "Reading (kW)", "Usage", "Fee", "Status", "Date"];
+      tableHeaders = [
+        "Customer",
+        "Account No",
+        "Reading (kW)",
+        "Usage",
+        "Fee",
+        "Status",
+        "Date",
+      ];
       const readings = reportData.data.readings || [];
       tableData = readings.map((r: any) => [
         r.customerId?.name || "N/A",
@@ -301,7 +313,7 @@ const Reports = () => {
         r.monthlyUsage || "0",
         `$${r.fee || 0}`,
         r.paymentStatus || "N/A",
-        r.createdAt ? format(new Date(r.createdAt), "MMM dd, yyyy") : "N/A"
+        r.createdAt ? format(new Date(r.createdAt), "MMM dd, yyyy") : "N/A",
       ]);
     } else if (reportData.reportType === "revenue") {
       tableHeaders = ["Customer", "Amount", "Method", "Date", "Status"];
@@ -311,7 +323,7 @@ const Reports = () => {
         `$${p.amount?.toLocaleString()}`,
         p.method || "N/A",
         p.date || "N/A",
-        "Paid"
+        "Paid",
       ]);
     } else if (reportData.reportType === "customer-complaints") {
       tableHeaders = ["Customer", "Subject", "Status", "Date", "Resolved By"];
@@ -321,7 +333,7 @@ const Reports = () => {
         c.subject || "N/A",
         c.status || "N/A",
         c.date ? format(new Date(c.date), "MMM dd, yyyy") : "N/A",
-        c.resolvedBy || "Pending"
+        c.resolvedBy || "Pending",
       ]);
     }
 
@@ -362,7 +374,10 @@ const Reports = () => {
       });
     }
 
-    const fileName = `report_${reportData.reportType}_${format(new Date(), "yyyy-MM-dd")}.pdf`;
+    const fileName = `report_${reportData.reportType}_${format(
+      new Date(),
+      "yyyy-MM-dd"
+    )}.pdf`;
     doc.save(fileName);
   };
 
@@ -399,13 +414,17 @@ const Reports = () => {
   };
 
   const formatReportType = (type: string) => {
-    const types: Record<string, string> = {
-      "meter-readings": "Meter Readings Report",
-      revenue: "Revenue Analysis Report",
-      "customer-complaints": "Customer Complaints Report",
-      "officer-report": "Officer Report",
-    };
-    return types[type] || type.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+  const types: Record<string, string> = {
+  "meter-readings": "Meter Readings Report",
+  "revenue": "Revenue Analysis Report",
+  "customer-complaints": "Customer Complaints Report",
+  "officer-report": "Officer Report",
+};
+
+    return (
+      types[type] ||
+      type.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
+    );
   };
 
   const getReportIcon = (type: string) => {
@@ -495,7 +514,12 @@ const Reports = () => {
                   </div>
                   <div>
                     <div className="text-xl sm:text-2xl font-bold">
-                      ${(data.totalRevenue || data.summary?.totalRevenue || 0).toLocaleString()}
+                      $
+                      {(
+                        data.totalRevenue ||
+                        data.summary?.totalRevenue ||
+                        0
+                      ).toLocaleString()}
                     </div>
                     <p className="text-xs sm:text-sm text-muted-foreground">
                       Total Revenue
@@ -515,8 +539,11 @@ const Reports = () => {
                       $
                       {(data.totalPayments || data.summary?.totalPayments) > 0
                         ? Math.round(
-                            (data.totalRevenue || data.summary?.totalRevenue || 0) / 
-                            (data.totalPayments || data.summary?.totalPayments)
+                            (data.totalRevenue ||
+                              data.summary?.totalRevenue ||
+                              0) /
+                              (data.totalPayments ||
+                                data.summary?.totalPayments)
                           )
                         : 0}
                     </div>
@@ -541,7 +568,9 @@ const Reports = () => {
                   </div>
                   <div>
                     <div className="text-lg sm:text-2xl font-bold">
-                      {data.totalComplaints || data.summary?.totalComplaints || 0}
+                      {data.totalComplaints ||
+                        data.summary?.totalComplaints ||
+                        0}
                     </div>
                     <p className="text-xs text-muted-foreground">Total</p>
                   </div>

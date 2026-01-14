@@ -892,49 +892,41 @@ const meterReadingsReport = async (start, end) => {
 };
 
 
-
-export const revenueReport = async (start, end) => {
+export const revenueReport = async (start, end, generatedBy = "System") => {
   const startDate = new Date(start);
   startDate.setUTCHours(0, 0, 0, 0);
   const endDate = new Date(end);
   endDate.setUTCHours(23, 59, 59, 999);
 
   const readings = await merterReading
-    .find({
-      createdAt: { $gte: startDate, $lte: endDate },
-    })
+    .find({ createdAt: { $gte: startDate, $lte: endDate } })
     .populate("customerId", "name accountNumber depositBirr")
     .lean();
 
   let totalRevenue = 0;
-  const uniqueCustomers = new Map(); 
+  const uniqueCustomers = new Map();
 
   const payments = readings.map((r) => {
-    const isPaid = r.paymentStatus === "Paid";
     const fee = r.fee || 0;
+    const isPaid = r.paymentStatus === "Paid";
 
-    if (isPaid) {
-      totalRevenue += fee;
-    }
+    if (isPaid) totalRevenue += fee;
 
-    // track unique customers to sum their deposits correctly
     if (r.customerId && r.customerId._id) {
       uniqueCustomers.set(r.customerId._id.toString(), r.customerId.depositBirr || 0);
     }
 
-    // Map to the format your React Frontend Table expects
     return {
       id: r._id,
       customer: r.customerId?.name || "Unknown",
       accountNumber: r.customerId?.accountNumber || "N/A",
       amount: fee,
       date: r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "N/A",
-      status: r.paymentStatus,
-      method: "Electronic/Cash", // Default label
+      status: r.paymentStatus || "Pending",
+      method: "Electronic/Cash",
     };
   });
 
-  // Calculate total deposited money from the unique set of customers
   const totalDepositedMoney = Array.from(uniqueCustomers.values()).reduce(
     (sum, val) => sum + val,
     0
@@ -944,20 +936,23 @@ export const revenueReport = async (start, end) => {
 
   return {
     reportType: "revenue",
+    generatedBy,
     generatedAt: new Date().toISOString(),
-    // Summary data for the top cards in React
-    summary: {
+    filters: {
+      startDate,
+      endDate,
+    },
+    data: {
+      payments: payments,
       totalPayments: paidReadings.length,
       totalRevenue: totalRevenue,
       totalDepositedMoney: totalDepositedMoney,
       unpaidPaymentsCount: payments.length - paidReadings.length,
     },
-    // Detailed data for the table
-    data: {
-      payments: payments, 
-    },
   };
 };
+
+
 
 const complaintsReport = async (start, end) => {
   try {
