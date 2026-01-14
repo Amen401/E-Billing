@@ -210,7 +210,9 @@ export const submitReading = async (req, res) => {
       .findOne({ customerId })
       .sort({ createdAt: -1 })
       .exec();
-    const previousRead = lastReading ? lastReading.killowatRead : 0;
+    const previousRead = lastReading
+      ? lastReading.killowatRead
+      : findAccount.killowat;
     const monthlyUsage = currentRead - previousRead;
 
     if (monthlyUsage < 0) {
