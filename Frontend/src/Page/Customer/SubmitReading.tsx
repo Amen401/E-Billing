@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,6 +59,9 @@ const SubmitReading = () => {
   const [selectedReadingId, setSelectedReadingId] = useState<string | null>(
     null
   );
+  const [hasPaidThisMonth, setHasPaidThisMonth] = useState(false);
+const [isCheckingSchedule, setIsCheckingSchedule] = useState(false);
+
   const [submissionResult, setSubmissionResult] =
     useState<MeterReadingResult | null>(null);
 
@@ -133,6 +136,26 @@ const SubmitReading = () => {
       setIsProcessing(false);
     }
   };
+  useEffect(() => {
+  const checkSchedule = async () => {
+    setIsCheckingSchedule(true);
+    try {
+      const response = await customerApi.checkSchedule();
+      if (response.hasPaid) {
+        setHasPaidThisMonth(true);
+        toast.error("You have already paid for this month. Submission is disabled.");
+      }
+    } catch (error: any) {
+      console.error("Schedule check error:", error);
+      toast.error("Failed to check schedule. Try again later.");
+    } finally {
+      setIsCheckingSchedule(false);
+    }
+  };
+
+  checkSchedule();
+}, []);
+
 
   const handleProceedToReview = () => {
     if (manualEntry && !readingValue)
@@ -352,6 +375,16 @@ const SubmitReading = () => {
             className="lg:col-span-2"
           >
             <Card className="p-6 shadow-card">
+              {hasPaidThisMonth ? (
+  <div className="p-8 text-center bg-amber-100 rounded-xl border border-amber-300">
+    <AlertCircle className="mx-auto mb-4 w-10 h-10 text-amber-700" />
+    <p className="text-lg font-semibold text-amber-700">
+      You have already paid for this month. Uploading a new reading is disabled.
+    </p>
+  </div>
+) : (
+  <>
+
               <div className="flex gap-3 mb-6">
                 <Button
                   variant={submissionMode === "upload" ? "default" : "outline"}
@@ -522,6 +555,8 @@ const SubmitReading = () => {
                   </Button>
                 </motion.div>
               )}
+                </>
+)}
             </Card>
           </motion.div>
 

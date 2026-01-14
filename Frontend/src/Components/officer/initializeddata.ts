@@ -12,13 +12,13 @@ export const initialTariffData: TariffData = {
     { id: 7, name: "7th block", range: "Above 500kwh",  rate: 2.4810 },
   ],
   domesticCharges: [
-    { id: "dom-postpaid-50", category: "Domestic", type: "Postpaid - Up to 50kwh", paidRate: 10.00,},
-    { id: "dom-postpaid-above", category: "Domestic", type: "Postpaid - Above 50kwh", paidRate: 42.00, },
+    { id: "dom-postpaid-50", category: "Domestic", type: "paid - Up to 50kwh", paidRate: 10.00,},
+    { id: "dom-postpaid-above", category: "Domestic", type: "paid - Above 50kwh", paidRate: 42.00, },
   ],
   generalCharges: [
     { id: "gen-all", category: "General Tariff", type: "All Usage", paidRate: 54.00},
   ],
   industryCharges: [
-    { id: "ind-3phase", category: "Industry Tariff", type: "Three Phase", postpaidRate: 54.00, },
+    { id: "ind-3phase", category: "Industry Tariff", type: "Three Phase", paidRate: 54.00, },
   ],
 };

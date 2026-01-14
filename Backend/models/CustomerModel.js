@@ -42,10 +42,6 @@ const customerSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
-    applicableTarif: {
-      type: Number,
-      required: true,
-    },
     volt: {
       type: Number,
       required: true,

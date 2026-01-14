@@ -1,23 +1,11 @@
-
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import type { ServiceCharge } from "@/Page/Types/type";
+
 
 interface ServiceChargesTableProps {
   title: string;
   charges: ServiceCharge[];
-  onChargeChange: (
-    id: string,
-    field: "postpaidRate" | "prepaidRate",
-    value: number
-  ) => void;
+  onChargeChange: (id: string, field: string, value: number | "") => void;
 }
 
 const ServiceChargesTable = ({
@@ -25,66 +13,62 @@ const ServiceChargesTable = ({
   charges,
   onChargeChange,
 }: ServiceChargesTableProps) => {
-  const handleInputChange = (
-    id: string,
-    field: "postpaidRate" | "prepaidRate",
-    value: string
-  ) => {
-    const numValue = parseFloat(value) || 0;
-    onChargeChange(id, field, numValue);
+  const handleInputChange = (id: string, inputValue: string) => {
+    if (inputValue === "") {
+      onChargeChange(id, "paidRate", "");
+    } else {
+      const numValue = parseFloat(inputValue);
+      if (!isNaN(numValue) && numValue >= 0) {
+        onChargeChange(id, "paidRate", numValue);
+      }
+    }
   };
 
   return (
-    <div className="space-y-3">
-      <h3 className="text-lg font-semibold text-foreground">{title}</h3>
-      <div className="rounded-lg border border-table-border overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-table-header hover:bg-table-header">
-              <TableHead className="font-semibold text-foreground w-[250px]">
-                Type
-              </TableHead>
-              <TableHead className="font-semibold text-foreground text-center">
-                Postpaid (Birr)
-              </TableHead>
-              <TableHead className="font-semibold text-foreground text-center">
-                Prepaid (Birr)
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+    <div className="space-y-4">
+      <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
+        <div className="h-2 w-2 rounded-full bg-accent" />
+        {title}
+      </h3>
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-border/50">
+              <th className="text-left py-3 px-4 text-sm font-semibold text-muted-foreground">
+                Category
+              </th>
+              <th className="text-right py-3 px-4 text-sm font-semibold text-muted-foreground">
+                Fixed Charge ($)
+              </th>
+            </tr>
+          </thead>
+          <tbody>
             {charges.map((charge) => (
-              <TableRow
+              <tr
                 key={charge.id}
-                className="hover:bg-table-hover transition-colors"
+                className="border-b border-border/30 hover:bg-muted/30 transition-colors"
               >
-                <TableCell className="font-medium">{charge.type}</TableCell>
-                <TableCell>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={charge.postpaidRate}
-                    onChange={(e) =>
-                      handleInputChange(charge.id, "postpaidRate", e.target.value)
-                    }
-                    className="w-full text-center"
-                  />
-                </TableCell>
-                <TableCell>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={charge.prepaidRate}
-                    onChange={(e) =>
-                      handleInputChange(charge.id, "prepaidRate", e.target.value)
-                    }
-                    className="w-full text-center"
-                  />
-                </TableCell>
-              </TableRow>
+                <td className="py-4 px-4">
+                  <span className="font-medium text-foreground">{charge.type}</span>
+                </td>
+                <td className="py-4 px-4">
+                  <div className="flex items-center justify-end gap-2">
+                    <span className="text-muted-foreground text-sm">$</span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={charge.paidRate}
+                      onChange={(e) => handleInputChange(charge.id, e.target.value)}
+                      placeholder="0.00"
+                      className="w-24 text-right tabular-nums"
+                    />
+                  </div>
+                </td>
+              </tr>
             ))}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </div>
     </div>
   );

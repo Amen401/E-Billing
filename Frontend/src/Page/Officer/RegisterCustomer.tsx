@@ -26,7 +26,6 @@ const customerSchema = z.object({
   town: z.string().min(1, "Town is required"),
   powerApproved: z.coerce.number().min(1, "Power Approved must be at least 1 KW"),
   killowat: z.coerce.number().min(1, "Killowat must be at least 1 KW"),
-  applicableTarif: z.coerce.number().min(0.1, "Applicable Tarif must be greater than 0"),
   volt: z.coerce.number().min(50, "Volt must be at least 50"),
   depositBirr: z.coerce.number().min(1, "Deposit amount must be greater than 0"),
   meterReaderSN: z.string().min(3, "Meter serial number required"),
@@ -78,12 +77,14 @@ const [formData, setFormData] = useState({
   const validation = customerSchema.safeParse(formData);
 
   if (!validation.success) {
-    const firstError =
-      validation.error?.errors?.[0]?.message || "Validation failed";
-    toast.error(firstError);
-    setLoading(false);
-    return;
-  }
+  console.log(validation.error.format()); // detailed errors
+  const firstError =
+    validation.error?.errors?.[0]?.message || "Validation failed";
+  toast.error(firstError);
+  setLoading(false);
+  return;
+}
+
   const validatedData = validation.data;
   try {
     const payload = {
@@ -219,7 +220,7 @@ const [formData, setFormData] = useState({
                 handle={handleChange}
               />
 
-             
+            
 
               <NumberField
                 label="Volt"
@@ -233,7 +234,7 @@ const [formData, setFormData] = useState({
                 value={formData.depositBirr}
                 handle={handleChange}
               />
-             
+              
 
               <InputField
                 label="Meter Serial Number"

@@ -221,21 +221,33 @@ export interface TariffBlock {
   id: number;
   name: string;
   range: string;
-  rate: number;
+  rate: number | "";
 }
 
 export interface ServiceCharge {
   id: string;
-  category: string;
   type: string;
-  postpaidRate: number;
-  prepaidRate: number;
+  paidRate: number | "";
 }
 
 export interface TariffData {
-  tariffBlocks: TariffBlock[];
-  domesticCharges: ServiceCharge[];
-  generalCharges: ServiceCharge[];
-  industryCharges: ServiceCharge[];
+  tId: string;
+  block1?: number;
+  block2?: number;
+  block3?: number;
+  block4?: number;
+  block5?: number;
+  block6?: number;
+  block7?: number;
+  domesticUnder50?: number;
+  domesticAbove50?: number;
+  allUsage?: number;
+  threePhase?: number;
+}
+
+export interface UpdateTariffRequest {
+  tId?: string;
+  block: string;
+  value: number;
 }
 
