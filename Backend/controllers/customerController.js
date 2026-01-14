@@ -146,7 +146,7 @@ export const checkPaymentSchedule = async (req, res) => {
       customerId: req.authUser.id,
       createdAt: { $gt: searchDate },
     });
-
+console.log(lastPayment, searchDate, missedPayments);
     const isAnyMissedMonth = missedPayments.length > 0;
 
     const openedPaymentSchedule = await paymentSchedule.findOne({
@@ -161,7 +161,7 @@ export const checkPaymentSchedule = async (req, res) => {
         paymentMonth: openedPaymentSchedule._id,
       });
 
-      isItPaid = !!payment;
+      isItPaid = payment ? true : false;
     }
 
     res.status(200).json({

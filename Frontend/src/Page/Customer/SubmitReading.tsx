@@ -60,7 +60,8 @@ const SubmitReading = () => {
     null
   );
   const [hasPaidThisMonth, setHasPaidThisMonth] = useState(false);
-const [isCheckingSchedule, setIsCheckingSchedule] = useState(false);
+  const [isCheckingSchedule, setIsCheckingSchedule] = useState(false);
+  const [isSubmissionDisabled, setIsSubmissionDisabled] = useState(false);
 
   const [submissionResult, setSubmissionResult] =
     useState<MeterReadingResult | null>(null);
@@ -136,26 +137,30 @@ const [isCheckingSchedule, setIsCheckingSchedule] = useState(false);
       setIsProcessing(false);
     }
   };
+
   useEffect(() => {
-  const checkSchedule = async () => {
-    setIsCheckingSchedule(true);
-    try {
-      const response = await customerApi.checkSchedule();
-      if (response.hasPaid) {
-        setHasPaidThisMonth(true);
-        toast.error("You have already paid for this month. Submission is disabled.");
+    const checkSchedule = async () => {
+      setIsCheckingSchedule(true);
+      try {
+        const response = await customerApi.checkSchedule();
+        const { isItPaid, isAnyMissedMonth } = response;
+        setIsSubmissionDisabled(isItPaid && isAnyMissedMonth);
+
+        if (isItPaid && !isAnyMissedMonth) {
+          toast.error(
+            "You have already paid and there are no missed months. Submission is disabled."
+          );
+        }
+      } catch (error: any) {
+        console.error("Schedule check error:", error);
+        toast.error("Failed to check schedule. Try again later.");
+      } finally {
+        setIsCheckingSchedule(false);
       }
-    } catch (error: any) {
-      console.error("Schedule check error:", error);
-      toast.error("Failed to check schedule. Try again later.");
-    } finally {
-      setIsCheckingSchedule(false);
-    }
-  };
+    };
 
-  checkSchedule();
-}, []);
-
+    checkSchedule();
+  }, []);
 
   const handleProceedToReview = () => {
     if (manualEntry && !readingValue)
@@ -375,188 +380,190 @@ const [isCheckingSchedule, setIsCheckingSchedule] = useState(false);
             className="lg:col-span-2"
           >
             <Card className="p-6 shadow-card">
-              {hasPaidThisMonth ? (
-  <div className="p-8 text-center bg-amber-100 rounded-xl border border-amber-300">
-    <AlertCircle className="mx-auto mb-4 w-10 h-10 text-amber-700" />
-    <p className="text-lg font-semibold text-amber-700">
-      You have already paid for this month. Uploading a new reading is disabled.
-    </p>
-  </div>
-) : (
-  <>
+              {isSubmissionDisabled ? (
+                <div className="p-8 text-center bg-amber-100 rounded-xl border border-amber-300">
+                  <AlertCircle className="mx-auto mb-4 w-10 h-10 text-amber-700" />
+                  <p className="text-lg font-semibold text-amber-700">
+                    You have already paid and there are no missed months.
+                    Submission is disabled.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex gap-3 mb-6">
+                    <Button
+                      variant={
+                        submissionMode === "upload" ? "default" : "outline"
+                      }
+                      className="flex-1"
+                      onClick={() => {
+                        setSubmissionMode("upload");
+                        setManualEntry(false);
+                      }}
+                    >
+                      <Upload className="w-4 h-4 mr-2" /> Upload Image
+                    </Button>
+                  </div>
 
-              <div className="flex gap-3 mb-6">
-                <Button
-                  variant={submissionMode === "upload" ? "default" : "outline"}
-                  className="flex-1"
-                  onClick={() => {
-                    setSubmissionMode("upload");
-                    setManualEntry(false);
-                  }}
-                >
-                  <Upload className="w-4 h-4 mr-2" /> Upload Image
-                </Button>
-              </div>
+                  <AnimatePresence mode="wait">
+                    {submissionMode === "upload" ? (
+                      <motion.div
+                        key="upload"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                      >
+                        {imagePreview ? (
+                          <>
+                            <div className="relative rounded-2xl overflow-hidden shadow-xl border bg-background">
+                              <img
+                                src={imagePreview}
+                                alt="Meter reading"
+                                className="w-full h-[420px] object-contain bg-black/80"
+                              />
 
-              <AnimatePresence mode="wait">
-                {submissionMode === "upload" ? (
-                  <motion.div
-                    key="upload"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                  >
-                    {imagePreview ? (
-                      <>
-                        <div className="relative rounded-2xl overflow-hidden shadow-xl border bg-background">
-                          <img
-                            src={imagePreview}
-                            alt="Meter reading"
-                            className="w-full h-[420px] object-contain bg-black/80"
-                          />
+                              {isProcessing && (
+                                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                                  <div className="text-white text-center">
+                                    <div className="animate-spin w-10 h-10 border-4 border-white border-t-transparent rounded-full mx-auto mb-3" />
+                                    <p className="text-lg">Processing...</p>
+                                  </div>
+                                </div>
+                              )}
 
-                          {isProcessing && (
-                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                              <div className="text-white text-center">
-                                <div className="animate-spin w-10 h-10 border-4 border-white border-t-transparent rounded-full mx-auto mb-3" />
-                                <p className="text-lg">Processing...</p>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className="absolute top-4 right-4 shadow-lg"
+                                onClick={() => {
+                                  setImagePreview(null);
+                                  setSelectedFile(null);
+                                  setCapturedImage(null);
+                                }}
+                              >
+                                Change Image
+                              </Button>
+                            </div>
+                          </>
+                        ) : showWebcam ? (
+                          <div className="space-y-4">
+                            <Webcam
+                              ref={webcamRef}
+                              screenshotFormat="image/jpeg"
+                              className="w-full h-64 object-cover rounded-xl"
+                              videoConstraints={{ facingMode: "environment" }}
+                            />
+                            <div className="flex gap-3">
+                              <Button onClick={capture} className="flex-1">
+                                <Camera className="w-4 h-4 mr-2" /> Capture
+                              </Button>
+                              <Button
+                                variant="outline"
+                                className="flex-1"
+                                onClick={() => setShowWebcam(false)}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="border-2 border-dashed rounded-xl p-12 text-center">
+                            <div className="flex flex-col items-center justify-center">
+                              <div className="w-16 h-16 bg-primary/10 flex items-center justify-center rounded-full mb-4">
+                                <Upload className="w-8 h-8 text-primary" />
+                              </div>
+                              <p className="text-lg font-medium mb-2">
+                                Drop your meter image here
+                              </p>
+                              <p className="text-sm text-muted-foreground mb-6">
+                                or click to browse • JPG, PNG • Max 5MB
+                              </p>
+                              <input
+                                type="file"
+                                ref={fileInputRef}
+                                className="hidden"
+                                accept="image/jpeg,image/png"
+                                onChange={handleFileChange}
+                              />
+                              <div className="flex gap-3">
+                                <Button
+                                  variant="outline"
+                                  onClick={() => fileInputRef.current?.click()}
+                                >
+                                  Browse Files
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => setShowWebcam(true)}
+                                >
+                                  <Camera className="w-4 h-4 mr-2" /> Use Camera
+                                </Button>
                               </div>
                             </div>
-                          )}
-
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            className="absolute top-4 right-4 shadow-lg"
-                            onClick={() => {
-                              setImagePreview(null);
-                              setSelectedFile(null);
-                              setCapturedImage(null);
-                            }}
-                          >
-                            Change Image
-                          </Button>
-                        </div>
-                      </>
-                    ) : showWebcam ? (
-                      <div className="space-y-4">
-                        <Webcam
-                          ref={webcamRef}
-                          screenshotFormat="image/jpeg"
-                          className="w-full h-64 object-cover rounded-xl"
-                          videoConstraints={{ facingMode: "environment" }}
-                        />
-                        <div className="flex gap-3">
-                          <Button onClick={capture} className="flex-1">
-                            <Camera className="w-4 h-4 mr-2" /> Capture
-                          </Button>
-                          <Button
-                            variant="outline"
-                            className="flex-1"
-                            onClick={() => setShowWebcam(false)}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
+                          </div>
+                        )}
+                      </motion.div>
                     ) : (
-                      <div className="border-2 border-dashed rounded-xl p-12 text-center">
-                        <div className="flex flex-col items-center justify-center">
-                          <div className="w-16 h-16 bg-primary/10 flex items-center justify-center rounded-full mb-4">
-                            <Upload className="w-8 h-8 text-primary" />
-                          </div>
-                          <p className="text-lg font-medium mb-2">
-                            Drop your meter image here
-                          </p>
-                          <p className="text-sm text-muted-foreground mb-6">
-                            or click to browse • JPG, PNG • Max 5MB
-                          </p>
-                          <input
-                            type="file"
-                            ref={fileInputRef}
-                            className="hidden"
-                            accept="image/jpeg,image/png"
-                            onChange={handleFileChange}
-                          />
-                          <div className="flex gap-3">
-                            <Button
-                              variant="outline"
-                              onClick={() => fileInputRef.current?.click()}
-                            >
-                              Browse Files
-                            </Button>
-                            <Button
-                              variant="outline"
-                              onClick={() => setShowWebcam(true)}
-                            >
-                              <Camera className="w-4 h-4 mr-2" /> Use Camera
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="manual"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                  >
-                    <Card className="p-6 bg-muted/30">
-                      <Label
-                        htmlFor="reading"
-                        className="text-base font-semibold mb-3 block"
+                      <motion.div
+                        key="manual"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
                       >
-                        Enter Meter Reading
-                      </Label>
-                      <div className="flex gap-3 items-end">
-                        <Input
-                          id="reading"
-                          type="number"
-                          placeholder="Enter reading value"
-                          value={readingValue}
-                          onChange={(e) => setReadingValue(e.target.value)}
-                          className="text-2xl font-mono h-14 text-center flex-1"
-                        />
-                        <div className="text-2xl font-semibold text-muted-foreground">
-                          kWh
-                        </div>
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-3 text-center">
-                        Previous reading:{" "}
-                        <span className="font-mono font-semibold ml-1">
-                          {previousReading} kWh
-                        </span>
-                      </p>
-                    </Card>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                        <Card className="p-6 bg-muted/30">
+                          <Label
+                            htmlFor="reading"
+                            className="text-base font-semibold mb-3 block"
+                          >
+                            Enter Meter Reading
+                          </Label>
+                          <div className="flex gap-3 items-end">
+                            <Input
+                              id="reading"
+                              type="number"
+                              placeholder="Enter reading value"
+                              value={readingValue}
+                              onChange={(e) => setReadingValue(e.target.value)}
+                              className="text-2xl font-mono h-14 text-center flex-1"
+                            />
+                            <div className="text-2xl font-semibold text-muted-foreground">
+                              kWh
+                            </div>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-3 text-center">
+                            Previous reading:{" "}
+                            <span className="font-mono font-semibold ml-1">
+                              {previousReading} kWh
+                            </span>
+                          </p>
+                        </Card>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
-              {(selectedFile || capturedImage || readingValue) && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-6 flex gap-3"
-                >
-                  <Button
-                    onClick={handleProceedToReview}
-                    className="flex-1 h-12 text-lg bg-gradient-primary"
-                  >
-                    Review
-                  </Button>
-                  <Button
-                    onClick={submitToBackend}
-                    className="flex-1 h-12 text-lg bg-black bg-success/70 text-white"
-                    disabled={isProcessing}
-                  >
-                    {isProcessing ? "Sending..." : "Send Reading"}
-                  </Button>
-                </motion.div>
-              )}
+                  {(selectedFile || capturedImage || readingValue) && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-6 flex gap-3"
+                    >
+                      <Button
+                        onClick={handleProceedToReview}
+                        className="flex-1 h-12 text-lg bg-gradient-primary"
+                      >
+                        Review
+                      </Button>
+                      <Button
+                        onClick={submitToBackend}
+                        className="flex-1 h-12 text-lg bg-black bg-success/70 text-white"
+                        disabled={isProcessing}
+                      >
+                        {isProcessing ? "Sending..." : "Send Reading"}
+                      </Button>
+                    </motion.div>
+                  )}
                 </>
-)}
+              )}
             </Card>
           </motion.div>
 

@@ -1,39 +1,29 @@
 import { useState } from "react";
-import { format, isAfter, isBefore, startOfDay } from "date-fns";
-import { toast } from "sonner";
-
 import {
   Card,
+  CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/Components/ui/card";
+} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/Components/ui/button";
+import { Button } from "@/components/ui/button";
 import {
   Select,
-  SelectTrigger,
-  SelectValue,
   SelectContent,
   SelectItem,
-} from "@/Components/ui/select";
-import { Calendar } from "@/Components/ui/calendar";
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
-  PopoverTrigger,
   PopoverContent,
-} from "@/Components/ui/popover";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   FileText,
+  Calendar as CalendarIcon,
   FileSpreadsheet,
   Loader2,
   Eye,
@@ -42,111 +32,97 @@ import {
   BarChart,
   AlertCircle,
   DollarSign,
-  Calendar as CalendarIcon,
+  TrendingUp,
+  CheckCircle2,
+  Clock,
+  Activity,
 } from "lucide-react";
-
-import { Breadcrumb } from "@/Components/Breadcrumb";
-import { ReportPreview } from "@/Components/admin/ReportPreview";
-import { adminApi } from "@/lib/api";
+import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { adminApi } from "@/lib/api";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 
-type ReportType = "meter-readings" | "revenue" | "customer-complaints";
+const formatDateSafe = (dateString: string): string => {
+  if (!dateString) return "N/A";
 
-interface ReportFilters {
-  startDate: string;
-  endDate: string;
-  department?: string;
-  userGroup?: string;
-}
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      return "Recent";
+    }
+    return date.toLocaleString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "Recent";
+  }
+};
+
 interface ReportData {
   reportType: string;
-  generatedBy?: string;
+  generatedBy: string;
   generatedAt: string;
-  filters?: ReportFilters;
+  filters?: {
+    startDate: string;
+    endDate: string;
+    department?: string;
+    userGroup?: string;
+  };
   data: any;
 }
 
-const REPORT_TYPES = [
-  {
-    value: "meter-readings",
-    label: "Meter Readings",
-    icon: <BarChart className="h-4 w-4" />,
-    description: "View all meter reading records and payment statuses",
-  },
-  {
-    value: "revenue",
-    label: "Revenue Analysis",
-    icon: <DollarSign className="h-4 w-4" />,
-    description: "Analyze revenue trends and payment summaries",
-  },
-  {
-    value: "customer-complaints",
-    label: "Customer Complaints",
-    icon: <AlertCircle className="h-4 w-4" />,
-    description: "Track and manage customer complaint resolutions",
-  },
-];
-
-const AdminReports = () => {
+const Reports = () => {
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
-  const [reportType, setReportType] = useState<ReportType>("meter-readings");
-  const [reportData, setReportData] = useState<ReportData | null>(null);
+  const [reportType, setReportType] = useState("officer-report");
+  const [department, setDepartment] = useState("all");
+  const [userGroup, setUserGroup] = useState("all");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [reportData, setReportData] = useState<ReportData | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
 
-  const validateDates = () => {
+  const handleGenerateReport = async () => {
     if (!startDate || !endDate) {
       toast.error("Please select both start and end dates");
-      return false;
+      return;
     }
-    if (isAfter(startDate, new Date())) {
-      toast.error("Start date cannot be in the future");
-      return false;
-    }
-    if (isAfter(startDate, endDate)) {
+    if (startDate > endDate) {
       toast.error("Start date cannot be after end date");
-      return false;
+      return;
     }
-    return true;
-  };
-  const formatReportType = (type: string) => {
-    const types: Record<string, string> = {
-      "officer-report": "Officer Activity Report",
-      "meter-readings": "Meter Readings Report",
-      revenue: "Revenue Analysis Report",
-      "customer-complaints": "Customer Complaints Report",
-    };
-    return types[type] || type;
-  };
 
-  const handleGenerateReport = async () => {
-    if (!validateDates()) return;
     setIsGenerating(true);
-    setReportData(null);
-
     try {
-      console.log("report type", reportType);
       const data = await adminApi.generateReport(reportType, {
-        startDate: format(startDate!, "yyyy-MM-dd"),
-        endDate: format(endDate!, "yyyy-MM-dd"),
+        startDate: format(startDate, "yyyy-MM-dd"),
+        endDate: format(endDate, "yyyy-MM-dd"),
+        ...(department !== "all" && { department }),
+        ...(userGroup !== "all" && { userGroup }),
       });
 
-      if (data.success) {
-        setReportData(data);
-        toast.success("Report generated successfully");
-      } else {
-        toast.error(data.message || "Failed to generate report");
-      }
-    } catch (error: any) {
-      console.error(error);
-      toast.error("Failed to generate report. Please check the server.");
+      setReportData(data);
+      toast.success("Report generated successfully");
+    } catch (error) {
+      console.error("Error generating report:", error);
+      toast.error("Failed to generate report");
     } finally {
       setIsGenerating(false);
     }
@@ -201,26 +177,13 @@ const AdminReports = () => {
       const headers = Object.keys(reportData.data[dataKey][0]);
       const headerRow = ws.addRow(headers);
       headerRow.eachCell((cell) => {
-        cell.font = {
-          bold: true,
-          color: { argb: "FFFFFFFF" },
-        };
+        cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
         cell.fill = {
           type: "pattern",
           pattern: "solid",
           fgColor: { argb: "FF2563EB" },
         };
-        cell.alignment = {
-          vertical: "middle",
-          horizontal: "center",
-          wrapText: true,
-        };
-        cell.border = {
-          top: { style: "thin" },
-          left: { style: "thin" },
-          bottom: { style: "thin" },
-          right: { style: "thin" },
-        };
+        cell.alignment = { horizontal: "center" };
       });
 
       reportData.data[dataKey].forEach((item: any) => {
@@ -243,105 +206,164 @@ const AdminReports = () => {
     saveAs(new Blob([buffer]), fileName);
   };
 
-  const exportPDFFrontend = (reportData: ReportData) => {
-    const doc = new jsPDF();
+  const formatHeader = (key: string) =>
+    key
+      .replace(/([A-Z])/g, " $1")
+      .replace(/_/g, " ")
+      .replace(/^./, (str) => str.toUpperCase())
+      .trim();
 
-    doc.setFontSize(20);
-    doc.setTextColor(37, 99, 235);
-    doc.text(formatReportType(reportData.reportType), 14, 20);
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text(
-      `Generated on: ${new Date(reportData.generatedAt).toLocaleString()}`,
-      14,
-      30
-    );
-    doc.text(`Generated by: ${reportData.generatedBy}`, 14, 36);
-
-    if (reportData.filters) {
-      doc.text(
-        `Period: ${reportData.filters.startDate} to ${reportData.filters.endDate}`,
-        14,
-        42
-      );
-    }
-
-    let startY = 55;
-
-    if (reportData.data.summary) {
-      const summaryData = Object.entries(reportData.data.summary)
-        .filter(([, v]) => typeof v !== "object")
-        .map(([k, v]) => [
-          k
-            .replace(/([A-Z])/g, " $1")
-            .replace(/^./, (str) => str.toUpperCase()),
-          String(v),
-        ]);
-
-      if (summaryData.length > 0) {
-        autoTable(doc, {
-          startY,
-          head: [["Metric", "Value"]],
-          body: summaryData,
-          theme: "striped",
-          headStyles: { fillColor: [37, 99, 235] },
-          styles: { fontSize: 10 },
-        });
-        startY = (doc as any).lastAutoTable?.finalY + 15 || startY + 50;
+  const flattenValue = (val: any): string => {
+    if (val === null || val === undefined) return "";
+    if (typeof val === "object") {
+      // Handle common nested object patterns
+      if (val.name) return String(val.name);
+      if (val.accountNumber) return String(val.accountNumber);
+      if (val.email) return String(val.email);
+      if (val.id) return String(val.id);
+      // For arrays, join values
+      if (Array.isArray(val)) {
+        return val.map(v => flattenValue(v)).join(", ");
+      }
+      // Last resort: stringify
+      try {
+        return JSON.stringify(val);
+      } catch {
+        return "[Object]";
       }
     }
+    return String(val);
+  };
 
-    // Detailed data
-    const dataKey =
-      reportData.reportType === "meter-readings"
-        ? "readings"
-        : reportData.reportType === "revenue"
-        ? "payments"
-        : reportData.reportType === "customer-complaints"
-        ? "complaints"
-        : "officers";
+  const exportPDFFrontend = (reportData: ReportData) => {
+    // 1. Determine orientation: Landscape for meter-readings, Portrait for others
+    const isLandscape = reportData.reportType === "meter-readings" || reportData.reportType === "revenue";
+    const doc = new jsPDF(isLandscape ? "l" : "p", "mm", "a4");
+    
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 14;
 
-    if (reportData.data[dataKey]?.length) {
-      const headers = Object.keys(reportData.data[dataKey][0]).map((h) =>
-        h.replace(/([A-Z])/g, " $1").replace(/^./, (str) => str.toUpperCase())
-      );
-      const body = reportData.data[dataKey].map((item: any) =>
-        Object.values(item).map((v) =>
-          typeof v === "object" ? JSON.stringify(v) : String(v)
-        )
-      );
+    // ===== Header =====
+    doc.setFillColor(37, 99, 235);
+    doc.rect(0, 0, pageWidth, 35, "F");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(22);
+    doc.setTextColor(255, 255, 255);
+    doc.text(formatReportType(reportData.reportType), margin, 18);
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(
+      `Generated: ${new Date(reportData.generatedAt).toLocaleString()}  |  By: ${reportData.generatedBy}`,
+      margin,
+      28
+    );
+
+    let startY = 45;
+
+    // ===== Summary Section (Optional but good for context) =====
+    if (reportData.data.summary) {
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(37, 99, 235);
+      doc.text("Summary Metrics", margin, startY);
+      startY += 6;
+
+      const summaryRows = Object.entries(reportData.data.summary)
+        .filter(([_, v]) => typeof v !== "object")
+        .map(([k, v]) => [formatHeader(k), String(v)]);
 
       autoTable(doc, {
         startY,
-        head: [headers],
-        body: body.slice(0, 20), // Limit rows for PDF
-        theme: "striped",
-        headStyles: { fillColor: [37, 99, 235], fontSize: 8 },
-        styles: { fontSize: 8, cellPadding: 2 },
-        columnStyles: { 0: { cellWidth: 25 } },
+        head: [["Metric", "Value"]],
+        body: summaryRows,
+        theme: "plain",
+        styles: { fontSize: 9 },
+        margin: { left: margin },
+        tableWidth: 80,
+      });
+      startY = (doc as any).lastAutoTable.finalY + 10;
+    }
+
+    // ===== Process Detailed Data =====
+    let tableHeaders: string[] = [];
+    let tableData: any[][] = [];
+
+    if (reportData.reportType === "meter-readings") {
+      tableHeaders = ["Customer", "Account No", "Reading (kW)", "Usage", "Fee", "Status", "Date"];
+      const readings = reportData.data.readings || [];
+      tableData = readings.map((r: any) => [
+        r.customerId?.name || "N/A",
+        r.customerId?.accountNumber || "N/A",
+        r.killowatRead || "0",
+        r.monthlyUsage || "0",
+        `$${r.fee || 0}`,
+        r.paymentStatus || "N/A",
+        r.createdAt ? format(new Date(r.createdAt), "MMM dd, yyyy") : "N/A"
+      ]);
+    } else if (reportData.reportType === "revenue") {
+      tableHeaders = ["Customer", "Amount", "Method", "Date", "Status"];
+      const payments = reportData.data.payments || [];
+      tableData = payments.map((p: any) => [
+        p.customer || "N/A",
+        `$${p.amount?.toLocaleString()}`,
+        p.method || "N/A",
+        p.date || "N/A",
+        "Paid"
+      ]);
+    } else if (reportData.reportType === "customer-complaints") {
+      tableHeaders = ["Customer", "Subject", "Status", "Date", "Resolved By"];
+      const complaints = reportData.data.complaints || [];
+      tableData = complaints.map((c: any) => [
+        c.customerName || "N/A",
+        c.subject || "N/A",
+        c.status || "N/A",
+        c.date ? format(new Date(c.date), "MMM dd, yyyy") : "N/A",
+        c.resolvedBy || "Pending"
+      ]);
+    }
+
+    // ===== Draw Table =====
+    if (tableData.length > 0) {
+      autoTable(doc, {
+        startY,
+        head: [tableHeaders],
+        body: tableData,
+        theme: "grid",
+        headStyles: {
+          fillColor: [37, 99, 235],
+          textColor: 255,
+          fontSize: 10,
+          fontStyle: "bold",
+          halign: "center",
+        },
+        bodyStyles: {
+          fontSize: 9,
+          textColor: [55, 65, 81],
+          cellPadding: 3,
+        },
+        alternateRowStyles: {
+          fillColor: [249, 250, 251],
+        },
+        margin: { left: margin, right: margin },
+        didDrawPage: (data) => {
+          // Footer
+          doc.setFontSize(8);
+          doc.setTextColor(150);
+          doc.text(
+            `Page ${data.pageNumber} of ${doc.getNumberOfPages()}`,
+            pageWidth / 2,
+            pageHeight - 10,
+            { align: "center" }
+          );
+        },
       });
     }
 
-    // Footer
-    const pageCount = doc.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setTextColor(150);
-      doc.text(
-        `Page ${i} of ${pageCount}`,
-        doc.internal.pageSize.width / 2,
-        doc.internal.pageSize.height - 10,
-        { align: "center" }
-      );
-    }
-
-    doc.save(
-      `report_${reportData.reportType}_${format(
-        new Date(),
-        "yyyy-MM-dd_HH-mm"
-      )}.pdf`
-    );
+    const fileName = `report_${reportData.reportType}_${format(new Date(), "yyyy-MM-dd")}.pdf`;
+    doc.save(fileName);
   };
 
   const handleExport = async (formatType: "pdf" | "excel") => {
@@ -367,228 +389,782 @@ const AdminReports = () => {
     }
   };
 
-  const resetAll = () => {
+  const resetReport = () => {
+    setReportData(null);
+    setShowPreview(false);
     setStartDate(undefined);
     setEndDate(undefined);
-    setReportType("meter-readings");
-    setReportData(null);
+    setDepartment("all");
+    setUserGroup("all");
   };
 
-  const selectedReportInfo = REPORT_TYPES.find((r) => r.value === reportType);
+  const formatReportType = (type: string) => {
+    const types: Record<string, string> = {
+      "meter-readings": "Meter Readings Report",
+      revenue: "Revenue Analysis Report",
+      "customer-complaints": "Customer Complaints Report",
+      "officer-report": "Officer Report",
+    };
+    return types[type] || type.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+  };
+
+  const getReportIcon = (type: string) => {
+    switch (type) {
+      case "meter-readings":
+        return <BarChart className="h-5 w-5" />;
+      case "revenue":
+        return <DollarSign className="h-5 w-5" />;
+      case "customer-complaints":
+        return <AlertCircle className="h-5 w-5" />;
+      default:
+        return <FileText className="h-5 w-5" />;
+    }
+  };
+
+  const getStatusClasses = (status: string) => {
+    const statusLower = status?.toLowerCase() || "";
+    switch (statusLower) {
+      case "resolved":
+      case "paid":
+        return "bg-green-100 text-green-800 border-green-200";
+      case "pending":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "in-progress":
+        return "bg-blue-100 text-blue-800 border-blue-200";
+      case "overdue":
+        return "bg-red-100 text-red-800 border-red-200";
+      case "closed":
+        return "bg-gray-100 text-gray-600 border-gray-200";
+      default:
+        return "bg-gray-100 text-gray-600 border-gray-200";
+    }
+  };
+
+  const renderSummaryCards = () => {
+    if (!reportData?.data) return null;
+
+    const data = reportData.data;
+
+    switch (reportData.reportType) {
+      case "meter-readings":
+        return (
+          <Card>
+            <CardContent className="pt-4 sm:pt-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 sm:p-3 rounded-xl bg-primary/10">
+                  <BarChart className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                </div>
+                <div>
+                  <div className="text-xl sm:text-2xl font-bold">
+                    {data.totalReadings || data.summary?.totalReadings || 0}
+                  </div>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Total Meter Readings
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+
+      case "revenue":
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            <Card>
+              <CardContent className="pt-4 sm:pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 sm:p-3 rounded-xl bg-primary/10">
+                    <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                  </div>
+                  <div>
+                    <div className="text-xl sm:text-2xl font-bold">
+                      {data.totalPayments || data.summary?.totalPayments || 0}
+                    </div>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
+                      Total Payments
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 sm:pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 sm:p-3 rounded-xl bg-green-100">
+                    <DollarSign className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
+                  </div>
+                  <div>
+                    <div className="text-xl sm:text-2xl font-bold">
+                      ${(data.totalRevenue || data.summary?.totalRevenue || 0).toLocaleString()}
+                    </div>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
+                      Total Revenue
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 sm:pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 sm:p-3 rounded-xl bg-accent/10">
+                    <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-accent-foreground" />
+                  </div>
+                  <div>
+                    <div className="text-xl sm:text-2xl font-bold">
+                      $
+                      {(data.totalPayments || data.summary?.totalPayments) > 0
+                        ? Math.round(
+                            (data.totalRevenue || data.summary?.totalRevenue || 0) / 
+                            (data.totalPayments || data.summary?.totalPayments)
+                          )
+                        : 0}
+                    </div>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
+                      Average Payment
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+
+      case "customer-complaints":
+        return (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <Card>
+              <CardContent className="pt-4 sm:pt-6">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="p-2 rounded-xl bg-primary/10">
+                    <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                  </div>
+                  <div>
+                    <div className="text-lg sm:text-2xl font-bold">
+                      {data.totalComplaints || data.summary?.totalComplaints || 0}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Total</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 sm:pt-6">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="p-2 rounded-xl bg-green-100">
+                    <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
+                  </div>
+                  <div>
+                    <div className="text-lg sm:text-2xl font-bold">
+                      {data.resolved || data.summary?.resolved || 0}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Resolved</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 sm:pt-6">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="p-2 rounded-xl bg-yellow-100">
+                    <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-600" />
+                  </div>
+                  <div>
+                    <div className="text-lg sm:text-2xl font-bold">
+                      {data.pending || data.summary?.pending || 0}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Pending</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 sm:pt-6">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="p-2 rounded-xl bg-blue-100">
+                    <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <div className="text-lg sm:text-2xl font-bold">
+                      {data.inProgress || data.summary?.inProgress || 0}
+                    </div>
+                    <p className="text-xs text-muted-foreground">In Progress</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  const renderPreviewContent = () => {
+    if (!reportData) return null;
+
+    const data = reportData.data;
+
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        <div>
+          <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">
+            Summary
+          </h3>
+          {renderSummaryCards()}
+        </div>
+
+        {data && (
+          <div className="mt-4 sm:mt-6">
+            <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">
+              Detailed Data
+            </h3>
+
+            {/* Customer Complaints Table */}
+            {reportData.reportType === "customer-complaints" &&
+              data.complaints &&
+              data.complaints.length > 0 && (
+                <div className="rounded-lg border overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs sm:text-sm">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium">
+                            Customer
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden sm:table-cell">
+                            Account #
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium">
+                            Subject
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden md:table-cell">
+                            Date
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium">
+                            Status
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden lg:table-cell">
+                            Resolved By
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.complaints
+                          .slice(0, 10)
+                          .map((complaint: any, idx: number) => (
+                            <tr
+                              key={complaint.id || idx}
+                              className="border-t border-border hover:bg-muted/50"
+                            >
+                              <td className="px-3 sm:px-4 py-2 sm:py-3 font-medium">
+                                <div className="max-w-[100px] sm:max-w-none truncate">
+                                  {complaint.customerName || "N/A"}
+                                </div>
+                              </td>
+                              <td className="px-3 sm:px-4 py-2 sm:py-3 hidden sm:table-cell font-mono text-muted-foreground">
+                                {complaint.customerAccNumber || "N/A"}
+                              </td>
+                              <td className="px-3 sm:px-4 py-2 sm:py-3 capitalize">
+                                <div className="max-w-[80px] sm:max-w-none truncate">
+                                  {complaint.subject || "N/A"}
+                                </div>
+                              </td>
+                              <td className="px-3 sm:px-4 py-2 sm:py-3 hidden md:table-cell text-muted-foreground">
+                                {formatDateSafe(complaint.date)}
+                              </td>
+                              <td className="px-3 sm:px-4 py-2 sm:py-3">
+                                <span
+                                  className={cn(
+                                    "px-2 py-1 rounded-full text-xs border",
+                                    getStatusClasses(complaint.status)
+                                  )}
+                                >
+                                  {complaint.status || "Unknown"}
+                                </span>
+                              </td>
+                              <td className="px-3 sm:px-4 py-2 sm:py-3 hidden lg:table-cell text-muted-foreground">
+                                {complaint.resolvedBy || "Not assigned"}
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {data.complaints.length > 10 && (
+                    <div className="px-3 sm:px-4 py-2 sm:py-3 text-center text-xs sm:text-sm text-muted-foreground bg-muted/30 border-t border-border">
+                      Showing 10 of {data.complaints.length} complaints
+                    </div>
+                  )}
+                </div>
+              )}
+
+            {data.complaints && data.complaints.length === 0 && (
+              <div className="text-center py-6 sm:py-8 text-muted-foreground">
+                <AlertCircle className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-3 sm:mb-4 opacity-50" />
+                <p className="text-sm sm:text-base">
+                  No complaints found for the selected date range.
+                </p>
+              </div>
+            )}
+
+            {/* Meter Readings Table */}
+            {reportData.reportType === "meter-readings" &&
+              data.readings &&
+              data.readings.length > 0 && (
+                <div className="rounded-lg border overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs sm:text-sm">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium">
+                            Customer
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden sm:table-cell">
+                            Account #
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium">
+                            kW Read
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden md:table-cell">
+                            Usage
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium">
+                            Status
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden lg:table-cell">
+                            Fee
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden xl:table-cell">
+                            Submitted
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.readings
+                          .slice(0, 10)
+                          .map((reading: any, idx: number) => (
+                            <tr
+                              key={reading._id || idx}
+                              className="border-t border-border hover:bg-muted/50"
+                            >
+                              <td className="px-3 sm:px-4 py-2 sm:py-3 font-medium">
+                                <div className="max-w-[100px] sm:max-w-none truncate">
+                                  {reading.customerId?.name || "N/A"}
+                                </div>
+                              </td>
+                              <td className="px-3 sm:px-4 py-2 sm:py-3 hidden sm:table-cell font-mono text-muted-foreground">
+                                {reading.customerId?.accountNumber || "N/A"}
+                              </td>
+                              <td className="px-3 sm:px-4 py-2 sm:py-3">
+                                {reading.killowatRead}
+                              </td>
+                              <td className="px-3 sm:px-4 py-2 sm:py-3 hidden md:table-cell">
+                                {reading.monthlyUsage}
+                              </td>
+                              <td className="px-3 sm:px-4 py-2 sm:py-3">
+                                <span
+                                  className={cn(
+                                    "px-2 py-1 rounded-full text-xs border",
+                                    getStatusClasses(reading.paymentStatus)
+                                  )}
+                                >
+                                  {reading.paymentStatus}
+                                </span>
+                              </td>
+                              <td className="px-3 sm:px-4 py-2 sm:py-3 hidden lg:table-cell font-medium">
+                                ${reading.fee?.toLocaleString() ?? "N/A"}
+                              </td>
+                              <td className="px-3 sm:px-4 py-2 sm:py-3 hidden xl:table-cell text-muted-foreground">
+                                {formatDateSafe(reading.createdAt)}
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {data.readings.length > 10 && (
+                    <div className="px-3 sm:px-4 py-2 sm:py-3 text-center text-xs sm:text-sm text-muted-foreground bg-muted/30 border-t border-border">
+                      Showing 10 of {data.readings.length} meter readings
+                    </div>
+                  )}
+                </div>
+              )}
+
+            {/* Revenue Report Table */}
+            {reportData.reportType === "revenue" &&
+              data.payments &&
+              data.payments.length > 0 && (
+                <div className="rounded-lg border overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs sm:text-sm">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium">
+                            Customer
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium">
+                            Amount
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden sm:table-cell">
+                            Date
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden md:table-cell">
+                            Method
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.payments.map((payment: any, idx: number) => (
+                          <tr
+                            key={payment.id || idx}
+                            className="border-t border-border hover:bg-muted/50"
+                          >
+                            <td className="px-3 sm:px-4 py-2 sm:py-3 font-medium">
+                              {payment.customer}
+                            </td>
+                            <td className="px-3 sm:px-4 py-2 sm:py-3 font-medium text-green-600">
+                              ${payment.amount.toLocaleString()}
+                            </td>
+                            <td className="px-3 sm:px-4 py-2 sm:py-3 hidden sm:table-cell text-muted-foreground">
+                              {payment.date}
+                            </td>
+                            <td className="px-3 sm:px-4 py-2 sm:py-3 hidden md:table-cell">
+                              <span className="px-2 py-1 rounded-full text-xs bg-muted">
+                                {payment.method}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8 max-w-4xl space-y-6 animate-fade-in">
-        <Breadcrumb
-          items={[
-            { label: "Dashboard", href: "/dashboard" },
-            { label: "Reports" },
-          ]}
-        />
-
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="min-h-screen bg-background p-3 sm:p-4 md:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
+        <div className="flex flex-col gap-3 sm:gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
               Generate Reports
             </h1>
-            <p className="text-muted-foreground mt-1">
-              Select parameters and generate custom reports
+            <p className="text-sm sm:text-base text-muted-foreground mt-1">
+              Select your desired report parameters and generate custom reports
             </p>
           </div>
-
           {reportData && (
             <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"
-                size="sm"
                 onClick={() => setShowPreview(true)}
-                className="gap-2"
+                className="gap-2 text-sm"
+                size="sm"
               >
-                <Eye className="h-4 w-4" /> Preview
+                <Eye className="h-4 w-4" />
+                <span className="hidden sm:inline">Preview</span>
               </Button>
               <Button
-                size="sm"
+                variant="default"
                 onClick={() => setShowExportModal(true)}
-                className="gap-2"
+                className="gap-2 text-sm"
+                size="sm"
               >
-                <Download className="h-4 w-4" /> Export
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">Export</span>
               </Button>
               <Button
-                variant="ghost"
+                variant="outline"
+                onClick={resetReport}
+                className="gap-2 text-sm"
                 size="sm"
-                onClick={resetAll}
-                className="gap-2"
               >
-                <X className="h-4 w-4" /> Clear
+                <X className="h-4 w-4" />
+                <span className="hidden sm:inline">Clear</span>
               </Button>
             </div>
           )}
         </div>
 
-        {/* Form Card */}
         <Card>
-          <CardHeader>
-            <div className="flex items-center gap-3">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-2">
               <div className="p-2 rounded-lg bg-primary/10">
-                <FileText className="h-5 w-5 text-primary" />
+                <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
               </div>
               <div>
-                <CardTitle>Report Configuration</CardTitle>
-                <CardDescription>
-                  Configure your report options below
+                <CardTitle className="text-lg sm:text-xl">
+                  Report Configuration
+                </CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
+                  Configure options and click "Generate Report"
                 </CardDescription>
               </div>
             </div>
           </CardHeader>
-
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {["startDate", "endDate"].map((key) => (
-                <div key={key} className="space-y-2">
-                  <Label htmlFor={key}>
-                    {key === "startDate" ? "Start Date" : "End Date"}{" "}
-                    <span className="text-destructive">*</span>
-                  </Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        id={key}
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !(key === "startDate" ? startDate : endDate) &&
-                            "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {key === "startDate"
-                          ? startDate
-                            ? format(startDate, "PPP")
-                            : "Select date"
-                          : endDate
-                          ? format(endDate, "PPP")
-                          : "Select date"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={key === "startDate" ? startDate : endDate}
-                        onSelect={
-                          key === "startDate" ? setStartDate : setEndDate
-                        }
-                        disabled={(date) =>
-                          isAfter(date, new Date()) ||
-                          (key === "startDate"
-                            ? endDate
-                              ? isAfter(date, endDate)
-                              : false
-                            : startDate
-                            ? isBefore(date, startDate)
-                            : false)
-                        }
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              ))}
+          <CardContent className="space-y-4 sm:space-y-6">
+            {/* Dates */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              {["Start Date", "End Date"].map((label, idx) => {
+                const dateValue = idx === 0 ? startDate : endDate;
+                const setDateValue = idx === 0 ? setStartDate : setEndDate;
+                return (
+                  <div className="space-y-1.5 sm:space-y-2" key={label}>
+                    <Label className="text-sm font-medium">{label} *</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal h-9 sm:h-10 text-sm",
+                            !dateValue && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
+                          <span className="truncate">
+                            {dateValue
+                              ? format(dateValue, "PPP")
+                              : "Pick a date"}
+                          </span>
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={dateValue}
+                          onSelect={setDateValue}
+                          disabled={(date) => date > new Date()}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                );
+              })}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="report-type">
-                Report Type <span className="text-destructive">*</span>
-              </Label>
+            {/* Report Type */}
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label className="text-sm font-medium">Report Type *</Label>
               <Select
                 value={reportType}
-                onValueChange={(value: ReportType) => {
-                  setReportType(value);
+                onValueChange={(val) => {
+                  setReportType(val);
                   setReportData(null);
                 }}
               >
-                <SelectTrigger id="report-type">
+                <SelectTrigger className="h-9 sm:h-10 text-sm">
                   <SelectValue placeholder="Select report type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {REPORT_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      <div className="flex items-center gap-2">
-                        {type.icon}
-                        <span>{type.label}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="meter-readings">
+                    <div className="flex items-center gap-2">
+                      <BarChart className="h-4 w-4" />
+                      Meter Readings Report
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="revenue">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" />
+                      Revenue Analysis Report
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="customer-complaints">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4" />
+                      Customer Complaints Report
+                    </div>
+                  </SelectItem>
                 </SelectContent>
               </Select>
-              {selectedReportInfo && (
-                <p className="text-sm text-muted-foreground">
-                  {selectedReportInfo.description}
-                </p>
-              )}
+            </div>
+
+            {/* Optional Filters */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm font-medium">
+                  Department (Optional)
+                </Label>
+                <Select value={department} onValueChange={setDepartment}>
+                  <SelectTrigger className="h-9 sm:h-10 text-sm">
+                    <SelectValue placeholder="All Departments" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Departments</SelectItem>
+                    <SelectItem value="operations">Operations</SelectItem>
+                    <SelectItem value="billing">Billing</SelectItem>
+                    <SelectItem value="customer-service">
+                      Customer Service
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm font-medium">
+                  User Group (Optional)
+                </Label>
+                <Select value={userGroup} onValueChange={setUserGroup}>
+                  <SelectTrigger className="h-9 sm:h-10 text-sm">
+                    <SelectValue placeholder="All Users" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Users</SelectItem>
+                    <SelectItem value="officers">Officers</SelectItem>
+                    <SelectItem value="admins">Admins</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <Button
               onClick={handleGenerateReport}
-              className="w-full"
-              size="lg"
+              className="w-full h-10 sm:h-12 text-sm sm:text-base font-medium"
               disabled={isGenerating || !startDate || !endDate}
             >
               {isGenerating ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
-                  Generating...
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating Report...
                 </>
               ) : (
                 <>
-                  <FileText className="mr-2 h-4 w-4" /> Generate Report
+                  <FileText className="mr-2 h-4 w-4" />
+                  Generate Report
                 </>
               )}
             </Button>
           </CardContent>
         </Card>
 
-        <ReportPreview
-          open={showPreview}
-          onOpenChange={setShowPreview}
-          reportData={reportData}
-        />
+        {/* Quick Summary after generation */}
+        {reportData && (
+          <Card className="border-primary/20">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                {getReportIcon(reportData.reportType)}
+                <CardTitle className="text-base sm:text-lg">
+                  {formatReportType(reportData.reportType)}
+                </CardTitle>
+              </div>
+              <CardDescription className="text-xs sm:text-sm">
+                Generated on {formatDateSafe(reportData.generatedAt)}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>{renderSummaryCards()}</CardContent>
+          </Card>
+        )}
 
+        {/* Preview Dialog */}
+        <Dialog open={showPreview} onOpenChange={setShowPreview}>
+          <DialogContent className="max-w-[95vw] sm:max-w-4xl lg:max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+            <DialogHeader className="flex-shrink-0">
+              <div className="flex items-center gap-2">
+                {getReportIcon(reportData?.reportType || "")}
+                <DialogTitle className="text-base sm:text-lg">
+                  {reportData
+                    ? formatReportType(reportData.reportType)
+                    : "Report Preview"}
+                </DialogTitle>
+              </div>
+              <DialogDescription className="text-xs sm:text-sm">
+                {reportData ? (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <CalendarIcon className="h-3 w-3" />
+                      <span>
+                        Generated on {formatDateSafe(reportData.generatedAt)}
+                      </span>
+                    </div>
+                    {reportData?.filters && (
+                      <div className="flex items-center gap-2">
+                        <span>
+                          Date Range: {reportData.filters.startDate} to{" "}
+                          {reportData.filters.endDate}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  "Report Preview"
+                )}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto py-4">
+              {renderPreviewContent()}
+            </div>
+            <DialogFooter className="flex-shrink-0 flex flex-col-reverse sm:flex-row gap-2 sm:justify-between">
+              <Button
+                variant="outline"
+                onClick={() => setShowPreview(false)}
+                className="w-full sm:w-auto"
+              >
+                Close
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowPreview(false);
+                  setShowExportModal(true);
+                }}
+                className="gap-2 w-full sm:w-auto"
+              >
+                <Download className="h-4 w-4" />
+                Export Report
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Export Modal */}
         <Dialog open={showExportModal} onOpenChange={setShowExportModal}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="max-w-[95vw] sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Export Report</DialogTitle>
               <DialogDescription>
-                Choose your preferred export format
+                Choose the format for exporting your report.
               </DialogDescription>
             </DialogHeader>
-            <div className="grid grid-cols-2 gap-4 pt-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 py-4">
               <Button
                 variant="outline"
-                className="h-24 flex-col gap-2"
                 onClick={() => handleExport("pdf")}
                 disabled={isExporting}
+                className="h-20 sm:h-24 flex flex-col gap-2 hover:border-primary hover:bg-primary/5 transition-colors"
               >
-                {isExporting ? (
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                ) : (
-                  <FileText className="h-6 w-6 text-destructive" />
-                )}
-                <span>PDF Document</span>
+                <FileText className="h-6 w-6 sm:h-8 sm:w-8 text-red-500" />
+                <span className="text-xs sm:text-sm">Export as PDF</span>
               </Button>
               <Button
                 variant="outline"
-                className="h-24 flex-col gap-2"
                 onClick={() => handleExport("excel")}
                 disabled={isExporting}
+                className="h-20 sm:h-24 flex flex-col gap-2 hover:border-green-500 hover:bg-green-50 transition-colors"
               >
-                {isExporting ? (
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                ) : (
-                  <FileSpreadsheet className="h-6 w-6 text-green-600" />
-                )}
-                <span>Excel Spreadsheet</span>
+                <FileSpreadsheet className="h-6 w-6 sm:h-8 sm:w-8 text-green-600" />
+                <span className="text-xs sm:text-sm">Export as Excel</span>
               </Button>
             </div>
+            <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-between items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowExportModal(false)}
+                className="w-full sm:w-auto"
+              >
+                Cancel
+              </Button>
+              {isExporting && (
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Exporting...
+                </div>
+              )}
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
@@ -596,4 +1172,4 @@ const AdminReports = () => {
   );
 };
 
-export default AdminReports;
+export default Reports;

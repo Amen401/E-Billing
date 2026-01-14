@@ -66,15 +66,32 @@ export const getTarifss = async (req, res) => {
 export const updateTariff = async (req, res) => {
   try {
     const { tId, block, value } = req.body;
-    const updateT = await CustomerTariff.findByIdAndUpdate(
+
+    if (!tId || !block || value === undefined) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    const updatedTariff = await CustomerTariff.findByIdAndUpdate(
       tId,
       { [block]: value },
       { new: true }
     );
+
+    if (!updatedTariff) {
+      return res.status(404).json({ message: "Tariff not found" });
+    }
+
+    // ✅ Send response
+    res.status(200).json({
+      message: "Tariff updated successfully",
+      updatedTariff,
+    });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
 
 export const addCustomer = async (req, res) => {
   try {

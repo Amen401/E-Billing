@@ -149,7 +149,7 @@ const MeterReadings = () => {
               Meter Reading & Anomaly Management
             </h1>
             <p className="text-sm sm:text-base text-muted-foreground">
-              Monitor and manage water meter readings
+              Monitor and manage meter readings
             </p>
           </div>
           <Button
