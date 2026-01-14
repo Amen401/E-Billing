@@ -1017,7 +1017,6 @@ const Reports = () => {
                   <SelectContent>
                     <SelectItem value="all">All Users</SelectItem>
                     <SelectItem value="officers">Officers</SelectItem>
-                    <SelectItem value="managers">Managers</SelectItem>
                     <SelectItem value="admins">Admins</SelectItem>
                   </SelectContent>
                 </Select>

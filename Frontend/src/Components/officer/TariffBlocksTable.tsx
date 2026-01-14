@@ -4,13 +4,16 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import type { TariffBlock } from "@/Page/Types/type";
+import { officerApi } from "@/lib/api";
 
 interface TariffBlocksTableProps {
   blocks: TariffBlock[];
+  tariffId: string; // <-- add this
   onBlockChange: (id: number, value: number | "") => void;
 }
 
-const TariffBlocksTable = ({ blocks, onBlockChange }: TariffBlocksTableProps) => {
+
+const TariffBlocksTable = ({ blocks, onBlockChange,tariffId  }: TariffBlocksTableProps) => {
   const [savingBlockIds, setSavingBlockIds] = useState<number[]>([]);
   const [savedBlockIds, setSavedBlockIds] = useState<number[]>([]);
 
@@ -38,13 +41,17 @@ const TariffBlocksTable = ({ blocks, onBlockChange }: TariffBlocksTableProps) =>
     setSavingBlockIds((prev) => [...prev, id]);
 
     try {
-      const res = await fetch(`/api/tariff-blocks/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rate }),
+     const res = await officerApi.UpdateTarfiff({
+        tId: tariffId,
+        block: `block${id}`,
+        value: rate as number,
       });
 
-      if (!res.ok) throw new Error("Failed to save");
+    if (res.status === 200) {
+  toast.success("Rate saved!");
+} else {
+  toast.error("Failed to save rate");
+}
 
       toast.success("Rate saved!");
       setSavedBlockIds((prev) => [...prev, id]);

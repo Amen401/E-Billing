@@ -496,8 +496,8 @@ export const officerApi = {
     const response = await api.post("/officer/add-tariff", data);
     return response;
   },
-  UpdateTarfiff: async (data: any) => {
-    const response = await api.put("/officer/update-tariff", data);
+ UpdateTarfiff: async (data: { tId: string; block: string; value: number }) => {
+    const response = await api.post("/officer/update-tariff", data);
     return response;
   },
   getTariff: async () => {

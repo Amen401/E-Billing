@@ -81,7 +81,7 @@ officerRouter.put(
 //Tarif routes
 officerRouter.post("/add-tariff", verifyToken, addTariff);
 officerRouter.get("/get-tariff", verifyToken, getTarifss);
-officerRouter.put("/update-tariff", verifyToken, updateTariff);
+officerRouter.post("/update-tariff", verifyToken, updateTariff);
 
 officerRouter.get("/get-missed-payments", verifyToken, checkMissedMonths);
 officerRouter.post("/pay-missed-payments", verifyToken, payMissedPaymentMonths);
