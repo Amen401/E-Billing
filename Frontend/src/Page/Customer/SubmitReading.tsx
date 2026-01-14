@@ -138,29 +138,33 @@ const SubmitReading = () => {
     }
   };
 
-  useEffect(() => {
-    const checkSchedule = async () => {
-      setIsCheckingSchedule(true);
-      try {
-        const response = await customerApi.checkSchedule();
-        const { isItPaid, isAnyMissedMonth } = response;
-        setIsSubmissionDisabled(isItPaid && isAnyMissedMonth);
+ useEffect(() => {
+  const checkSchedule = async () => {
+    setIsCheckingSchedule(true);
+    try {
+      const response = await customerApi.checkSchedule();
+      const { isItPaid, isAnyMissedMonth } = response;
 
-        if (isItPaid && !isAnyMissedMonth) {
-          toast.error(
-            "You have already paid and there are no missed months. Submission is disabled."
-          );
-        }
-      } catch (error: any) {
-        console.error("Schedule check error:", error);
-        toast.error("Failed to check schedule. Try again later.");
-      } finally {
-        setIsCheckingSchedule(false);
+      // Disable submission if the current month is already paid
+      if (isItPaid && !isAnyMissedMonth) {
+        setIsSubmissionDisabled(true);
+        toast.error(
+          "You have already paid for this month. Submission is disabled."
+        );
+      } else {
+        setIsSubmissionDisabled(false);
       }
-    };
+    } catch (error: any) {
+      console.error("Schedule check error:", error);
+      toast.error("Failed to check schedule. Try again later.");
+    } finally {
+      setIsCheckingSchedule(false);
+    }
+  };
 
-    checkSchedule();
-  }, []);
+  checkSchedule();
+}, []);
+
 
   const handleProceedToReview = () => {
     if (manualEntry && !readingValue)
