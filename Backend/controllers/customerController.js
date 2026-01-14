@@ -237,20 +237,41 @@ export const submitReading = async (req, res) => {
 
     const [tariffDetails, paymentScheduleDetails, anomalyResult] =
       await Promise.all([
-        CustomerTariff.findOne({ customerId }),
+        CustomerTariff.findOne(),
         paymentSchedule.findOne({ isOpen: true }),
         detectAnomaly(customerId, currentRead, monthlyUsage),
       ]);
 
-    if (!tariffDetails)
+    if (tariffDetails)
       return res.status(400).json({ message: "Tariff details not found." });
     if (!paymentScheduleDetails)
       return res
         .status(400)
         .json({ message: "No active payment schedule found." });
 
-    const energyTariff = Number(tariffDetails.energyTariff);
-    const serviceCharge = Number(tariffDetails.serviceCharge);
+    let energyTariff = Number(tariffDetails.block1);
+
+    if (monthlyUsage > 50 && monthlyUsage <= 100) {
+      energyTariff = Number(tariffDetails.block2);
+    } else if (monthlyUsage > 100 && monthlyUsage <= 200) {
+      energyTariff = Number(tariffDetails.block3);
+    } else if (monthlyUsage > 200 && monthlyUsage <= 300) {
+      energyTariff = Number(tariffDetails.block4);
+    } else if (monthlyUsage > 300 && monthlyUsage <= 400) {
+      energyTariff = Number(tariffDetails.block5);
+    } else if (monthlyUsage > 400 && monthlyUsage < 500) {
+      energyTariff = Number(tariffDetails.block6);
+    } else {
+      energyTariff = Number(tariffDetails.block1);
+    }
+
+    let serviceCharge = Number(tariffDetails.domesticUnder50);
+    if (findAccount.purpose == "Domestic" && monthlyUsage > 50) {
+      serviceCharge = Number(tariffDetails.domesticAbove50);
+    }
+    if (findAccount.purpose != "Domestic") {
+      serviceCharge = Number(tariffDetails.allUsage);
+    }
     const energyCharge = energyTariff * monthlyUsage;
     const vatRate = 0.15;
 

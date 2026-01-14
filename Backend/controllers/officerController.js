@@ -43,6 +43,39 @@ export const officerLogin = async (req, res) => {
     token: generateToken(checkUsername._id, checkUsername.username),
   });
 };
+
+export const addTariff = async (req, res) => {
+  try {
+    const newTariff = new CustomerTariff(req.body);
+    const result = await newTariff.save();
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getTarifss = async (req, res) => {
+  try {
+    const tariff = await CustomerTariff.findOne();
+    res.status(200).json(tariff);
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const updateTariff = async (req, res) => {
+  try {
+    const { tId, block, value } = req.body;
+    const updateT = await CustomerTariff.findByIdAndUpdate(
+      tId,
+      { [block]: value },
+      { new: true }
+    );
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 export const addCustomer = async (req, res) => {
   try {
     const { regForm, tarif } = req.body;
@@ -71,12 +104,12 @@ export const addCustomer = async (req, res) => {
     const newCustomer = new Customer(regForm);
 
     const save = await newCustomer.save();
-    const customerTariff = new CustomerTariff({
-      customerId: save._id,
-      energyTariff: tarif.energyTariff,
-      serviceCharge: tarif.serviceCharge,
-    });
-    await customerTariff.save();
+    // const customerTariff = new CustomerTariff({
+    //   customerId: save._id,
+    //   energyTariff: tarif.energyTariff,
+    //   serviceCharge: tarif.serviceCharge,
+    // });
+    //await customerTariff.save();
 
     saveActivity(
       req.authUser.id,
@@ -522,13 +555,33 @@ export const manualMeterReadingAndPayment = async (req, res) => {
     const monthlyUsage = resp.kilowatt - previousRead;
     const eachMonthUsage = monthlyUsage / parsedMonths.length;
 
-    const myTariff = await CustomerTariff.findOne({ customerId: cId });
+    const myTariff = await CustomerTariff.findOne();
     if (!myTariff) {
       return res.status(400).json({ message: "Tariff not found for customer" });
     }
+    let energyTariff = Number(myTariff.block2);
+    if (monthlyUsage > 50 && monthlyUsage <= 100) {
+      energyTariff = Number(myTariff.block2);
+    } else if (monthlyUsage > 100 && monthlyUsage <= 200) {
+      energyTariff = Number(myTariff.block3);
+    } else if (monthlyUsage > 200 && monthlyUsage <= 300) {
+      energyTariff = Number(myTariff.block4);
+    } else if (monthlyUsage > 300 && monthlyUsage <= 400) {
+      energyTariff = Number(myTariff.block5);
+    } else if (monthlyUsage > 400 && monthlyUsage < 500) {
+      energyTariff = Number(myTariff.block6);
+    } else {
+      energyTariff = Number(myTariff.block1);
+    }
 
-    const energyTariff = Number(myTariff.energyTariff) || 0;
-    const serviceCharge = Number(myTariff.serviceCharge) || 0;
+    let serviceCharge = Number(myTariff.domesticUnder50);
+    if (findAccount.purpose == "Domestic" && monthlyUsage > 50) {
+      serviceCharge = Number(myTariff.domesticAbove50);
+    }
+    if (findAccount.purpose != "Domestic") {
+      serviceCharge = Number(myTariff.allUsage);
+    }
+
     const vatRate = 0.15;
 
     let totalPayment = 0;
