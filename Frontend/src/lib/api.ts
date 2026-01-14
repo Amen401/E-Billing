@@ -444,6 +444,10 @@ export const customerApi = {
     });
     return response;
   },
+  checkSchedule: async () => {
+    const response = await api.get("/customer/check-schedule");
+    return response;
+  },
 };
 
 export const officerApi = {
@@ -486,6 +490,18 @@ export const officerApi = {
     const response = await api.get(
       `${ENDPOINTS.officerMeterReadingDetail.replace(":id", id)}`
     );
+    return response;
+  },
+  addtrariff: async (data: any) => {
+    const response = await api.post("/officer/add-tariff", data);
+    return response;
+  },
+  UpdateTarfiff: async (data: any) => {
+    const response = await api.put("/officer/update-tariff", data);
+    return response;
+  },
+  getTariff: async () => {
+    const response = await api.get("/officer/get-tariff");
     return response;
   },
   createCustomer: async (data: any) => {

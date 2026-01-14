@@ -210,10 +210,10 @@ export const submitReading = async (req, res) => {
       .findOne({ customerId })
       .sort({ createdAt: -1 })
       .exec();
-    const previousRead = lastReading
-      ? lastReading.killowatRead
-      : findAccount.killowat;
-    const monthlyUsage = currentRead - previousRead;
+    const previousRead = lastReading ? lastReading.killowatRead : findAccount.killowat;
+    const monthlyUsage = Number((currentRead - previousRead).toFixed(1));
+
+    console.log(monthlyUsage, currentRead, previousRead)
 
     if (monthlyUsage < 0) {
       return res.status(400).json({
@@ -242,14 +242,14 @@ export const submitReading = async (req, res) => {
         detectAnomaly(customerId, currentRead, monthlyUsage),
       ]);
 
-    if (tariffDetails.length == 0)
+    if (tariffDetails.length === 0)
       return res.status(400).json({ message: "Tariff details not found." });
     if (!paymentScheduleDetails)
       return res
         .status(400)
         .json({ message: "No active payment schedule found." });
 
-    let energyTariff = Number(tariffDetails[0].block1);
+    let energyTariff = Number(tariffDetails.block1);
 
     if (monthlyUsage > 50 && monthlyUsage <= 100) {
       energyTariff = Number(tariffDetails[0].block2);

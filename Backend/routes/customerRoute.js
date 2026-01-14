@@ -14,6 +14,7 @@ import {
   getPaidBills,
   getmeterbyId,
   updateTestPaymentStatus,
+  checkPaymentSchedule,
 } from "../controllers/customerController.js";
 import { verifyToken } from "../Util/tokenVerify.js";
 import { upload } from "../middleware/multer.js";
@@ -29,6 +30,11 @@ customerRouter.get(
   "/my-monthly-usage-analysis",
   verifyToken,
   myMonthlyUsageAnlysis
+);
+customerRouter.get(
+  "/check-schedule",
+  verifyToken,
+  checkPaymentSchedule
 );
 customerRouter.get("/my-meter-readings", verifyToken, myMeterReadings);
 customerRouter.post(

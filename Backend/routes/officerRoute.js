@@ -23,8 +23,6 @@ import {
   getAllMeterReadings,
   payMissedPaymentMonths,
   generateReport,
-  meterReadingAndRevenueReport,
-  getYearSchedules,
   addTariff,
   getTarifss,
   updateTariff,

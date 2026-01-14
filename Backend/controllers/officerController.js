@@ -78,7 +78,7 @@ export const updateTariff = async (req, res) => {
 
 export const addCustomer = async (req, res) => {
   try {
-    const { regForm, tarif } = req.body;
+    const { regForm,} = req.body;
     const existingCustomer = await Customer.findOne({
       meterReaderSN: regForm.meterReaderSN,
     });

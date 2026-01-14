@@ -16,7 +16,7 @@ interface Complaint {
   customerName: string;
   subject: string;
   description: string;
-  status: 'Pending' | 'Open' | 'In-Progress' | 'Resolved' | 'Closed';
+  status: 'Pending' | 'Open' | 'In-Progress' | 'Resolved';
   date: string;
 }
 
@@ -31,8 +31,7 @@ const ComplaintsTable = ({ complaints, onViewDetails }: ComplaintsTableProps) =>
       case "Pending": return "destructive";       
       case "Open": return "warning";           
       case "In-Progress": return "secondary";         
-      case "Resolved": return "success";          
-      case "Closed": return "default";           
+      case "Resolved": return "success";                    
       default: return "secondary";
     }
   };
@@ -43,7 +42,6 @@ const ComplaintsTable = ({ complaints, onViewDetails }: ComplaintsTableProps) =>
       case "Pending": return "text-warning";
       case "In-Progress": return "text-blue-500";
       case "Resolved": return "text-success";
-      case "Closed": return "text-muted-foreground";
       default: return "text-muted-foreground";
     }
   };

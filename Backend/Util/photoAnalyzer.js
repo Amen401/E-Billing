@@ -13,17 +13,24 @@ You are an AI that extracts data from electric meter images.
 
 Extract ONLY these fields:
 
-1. meterNo 	→ the “Property of EECO No”
-2. kilowatt → the kWh reading (must be a NUMBER)
+1. meterNo → the “Property of EEPCo No”
+2. kilowatt → the kWh reading
+
+Meter reading rules (VERY IMPORTANT):
+- Black digits are whole numbers.
+- Red digit represents the decimal (0.1).
+- Combine black digits + red digit as ONE decimal number.
+- Example: black digits "27728" and red digit "5" → 27728.5
+- Do NOT add or duplicate digits.
+- If unsure, return null.
 
 Important rules:
 - Do NOT add explanations.
 - Do NOT wrap numbers in quotes.
-- If unreadable, return null.
 - Respond ONLY in this JSON format:
 
 {
-  "meterNo": "string or null",
+  "meterNo": string or null,
   "kilowatt": number or null
 }
 `;

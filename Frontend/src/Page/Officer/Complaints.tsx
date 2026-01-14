@@ -15,7 +15,7 @@ interface Complaint {
   subject: string;
   description: string;
   category: string;
-  status: "pending" | "open" | "in-progress" | "resolved" | "closed";
+  status: "pending" | "open" | "in-progress" | "resolved";
   date: string;
 }
 
@@ -96,7 +96,6 @@ const Complaints = () => {
       "open",
       "in-progress",
       "resolved",
-      "closed",
     ];
     return validStatuses.includes(normalized as Complaint["status"])
       ? (normalized as Complaint["status"])

@@ -24,19 +24,14 @@ const customerSchema = z.object({
   zone: z.string().min(1, "Zone is required"),
   woreda: z.string().min(1, "Woreda is required"),
   town: z.string().min(1, "Town is required"),
-  powerApproved: z.coerce.number().min(0.1, "Enter valid KW"),
-  killowat: z.coerce.number().min(0.1, "Enter valid KW"),
-  applicableTarif: z.coerce.number().min(0.1, "Enter valid Tarif"),
-  volt: z.coerce.number().min(1, "Volt is required"),
-  depositBirr: z.coerce.number().min(1, "Deposit amount required"),
-  serviceChargeBirr: z.coerce.number().min(0, "Service Charge must be >= 0"),
-  tarifBirr: z.coerce.number().min(0, "Tarif Birr must be >= 0"),
+  powerApproved: z.coerce.number().min(1, "Power Approved must be at least 1 KW"),
+  killowat: z.coerce.number().min(1, "Killowat must be at least 1 KW"),
+  volt: z.coerce.number().min(50, "Volt must be at least 50"),
+  depositBirr: z.coerce.number().min(1, "Deposit amount must be greater than 0"),
   meterReaderSN: z.string().min(3, "Meter serial number required"),
   isActive: z.boolean(),
   password: z.string(),
-  purpose: z.enum(["Domestic", "Business"], {
-    required_error: "Purpose is required",
-  }),
+  purpose: z.enum(["Domestic", "Business"], { required_error: "Purpose is required" }),
 });
 
 
@@ -55,10 +50,8 @@ const [formData, setFormData] = useState({
   purpose: "",
   powerApproved: "",
   killowat: "",
-  applicableTarif: "",
   volt: "",
   depositBirr: "",
-  serviceChargeBirr: "",
   tarifBirr: "",
   accountNumber: "",
   meterReaderSN: "",
@@ -84,20 +77,18 @@ const [formData, setFormData] = useState({
   const validation = customerSchema.safeParse(formData);
 
   if (!validation.success) {
-    const firstError =
-      validation.error?.errors?.[0]?.message || "Validation failed";
-    toast.error(firstError);
-    setLoading(false);
-    return;
-  }
+  console.log(validation.error.format()); // detailed errors
+  const firstError =
+    validation.error?.errors?.[0]?.message || "Validation failed";
+  toast.error(firstError);
+  setLoading(false);
+  return;
+}
+
   const validatedData = validation.data;
   try {
     const payload = {
       regForm: validatedData, 
-      tarif: {
-        energyTariff: formData.applicableTarif,
-        serviceCharge: formData.serviceChargeBirr,
-      },
     };
 
     const data = await officerApi.createCustomer(payload);
@@ -229,12 +220,7 @@ const [formData, setFormData] = useState({
                 handle={handleChange}
               />
 
-              <NumberField
-                label="Applicable Tarif"
-                name="applicableTarif"
-                value={formData.applicableTarif}
-                handle={handleChange}
-              />
+            
 
               <NumberField
                 label="Volt"
@@ -248,12 +234,7 @@ const [formData, setFormData] = useState({
                 value={formData.depositBirr}
                 handle={handleChange}
               />
-              <NumberField
-                label="Service Charge (Birr)"
-                name="serviceChargeBirr"
-                value={formData.serviceChargeBirr}
-                handle={handleChange}
-              />
+              
 
               <InputField
                 label="Meter Serial Number"
