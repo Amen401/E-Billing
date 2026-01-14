@@ -217,3 +217,25 @@ export interface ReportData {
   };
   data: unknown;                        // actual report content, can be array or object
 }
+export interface TariffBlock {
+  id: number;
+  name: string;
+  range: string;
+  rate: number;
+}
+
+export interface ServiceCharge {
+  id: string;
+  category: string;
+  type: string;
+  postpaidRate: number;
+  prepaidRate: number;
+}
+
+export interface TariffData {
+  tariffBlocks: TariffBlock[];
+  domesticCharges: ServiceCharge[];
+  generalCharges: ServiceCharge[];
+  industryCharges: ServiceCharge[];
+}
+

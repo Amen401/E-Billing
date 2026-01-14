@@ -12,6 +12,7 @@ import UnifiedLogin from "./Page/Auth/Login";
 import SchedulePayment from "./Page/Officer/SchedulePayment";
 import MeterReadingDetail from "./Page/Officer/DetailmeterReading";
 import AdminReports from "./Page/Admin/Reports";
+import TariffAndService from "./Page/Officer/TariffAndService";
 
 
 const Home = lazy(() => import("./Page/Home"));
@@ -129,6 +130,7 @@ const App = () => (
               <Route path="profile" element={<OfficerProfile />} />
               <Route path="customers/:id" element={<CustomerDetailPage />} />
               <Route path="meter-readings/add" element={<AddMeterReading />} />
+              <Route  path="tariff-service-charge" element={<TariffAndService/>}/> 
             </Route>
 
             <Route path="*" element={<NotFound />} />

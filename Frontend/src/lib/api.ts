@@ -488,6 +488,14 @@ export const officerApi = {
     );
     return response;
   },
+  UpdateTarfiff: async (data: any) => {
+    const response = await api.post("/officer/update-tariff", data);
+    return response;
+  },
+  getTariff: async () => {
+    const response = await api.get("/officer/tariff");
+    return response;
+  },
   createCustomer: async (data: any) => {
     const token = localStorage.getItem("authToken");
     if (!token) throw new Error("No officer token found, please login");

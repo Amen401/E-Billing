@@ -37,6 +37,11 @@ const items = [
     url: "/officer/schedule-payment",
     icon: Calendar,
   },
+    {
+    title: "Tariff and service charge",
+    url: "/officer/tariff-service-charge",
+    icon: Calendar,
+  },
   { title: "Meter Readings", url: "/officer/meter-readings", icon: Gauge },
   { title: "Complaints", url: "/officer/complaints", icon: MessageSquare },
   { title: "Reports", url: "/officer/reports", icon: FileText },
