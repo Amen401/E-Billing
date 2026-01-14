@@ -154,7 +154,7 @@ const OfficerProfile = () => {
                   <div className="w-32 h-32 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-4xl font-bold text-primary-foreground shadow-lg">
                     {user?.photo ? (
                       <img
-                        src={user.photo || ""}
+                        src={user.photo.secure_url || ""}
                         alt={user.name}
                         className="w-full h-full rounded-full object-cover"
                       />
