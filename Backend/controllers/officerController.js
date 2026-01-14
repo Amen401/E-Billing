@@ -414,23 +414,44 @@ export const checkMissedMonths = async (req, res) => {
 
 export const createSchedule = async (req, res) => {
   try {
+    const { yearAndMonth } = req.body;
+
+    // 1️⃣ Validate input
+    if (!yearAndMonth) {
+      return res.status(400).json({ message: "yearAndMonth is required" });
+    }
+
+    // 2️⃣ Check if any schedule is currently open
     const isAnyOpenSchedule = await paymentSchedule.findOne({ isOpen: true });
     if (isAnyOpenSchedule) {
-      res
-        .status(200)
-        .json({ message: "There is Open schedule", isAnyOpenSchedule });
+      return res
+        .status(400)
+        .json({ message: "There is already an open schedule on this month", isAnyOpenSchedule });
     }
+
+    const existsForMonth = await paymentSchedule.findOne({ yearAndMonth });
+    if (existsForMonth) {
+      return res
+        .status(400)
+        .json({ message: "A schedule already exists for this month", existsForMonth });
+    }
+
     const newSchedule = new paymentSchedule(req.body);
     await newSchedule.save();
+
     await saveActivity(
       req.authUser.id,
       `Created new payment schedule ${newSchedule.yearAndMonth}`
     );
-    res.status(201).json(newSchedule);
+
+    return res.status(201).json(newSchedule);
   } catch (error) {
-    res.status(500).json({ message: "Internal server error" });
+    console.error("Error creating schedule:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+
 export const closePaymentSchedule = async (req, res) => {
   try {
     const sch = await paymentSchedule.findByIdAndUpdate(
@@ -804,17 +825,18 @@ export const generateReport = async (req, res) => {
     let report;
 
     switch (reportType) {
+      // Uncomment if needed
       // case "officer-report":
       //   report = await officerReport(start, end, department, userGroup);
       //   break;
 
-      // case "meter-readings":
-      //   report = await meterReadingsReport(start, end);
-      //   break;
+      case "meter-readings":
+        report = await meterReadingsReport(start, end);
+        break;
 
-      // case "revenue":
-      //   report = await revenueReport(start, end);
-      //   break;
+      case "revenue":
+        report = await revenueReport(start, end);
+        break;
 
       case "customer-complaints":
         report = await complaintsReport(start, end);
@@ -826,86 +848,24 @@ export const generateReport = async (req, res) => {
 
     res.json({
       reportType,
-      generatedBy: req.authUser.id,
+      generatedBy:req.authUser?.username || req.authUser?.name  || "Unknown",
       generatedAt: new Date(),
       filters: { startDate, endDate, department, userGroup },
       data: report,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Error generating report:", error);
     res.status(500).json({ message: "Failed to generate report" });
   }
 };
-export const getYearSchedules = async (req, res) => {
-  try {
-    const { year } = req.body;
-    const schedules = await paymentSchedule.find({ createdAt: { $gte: year } });
-    res.status(200).json({ schedules: schedules || [] });
-  } catch (error) {
-    res.status(500).json({ message: "Failed to generate report" });
-  }
-};
-export const meterReadingAndRevenueReport = async (req, res) => {
-  try {
-    const { monthId } = req.body;
 
-    const monthlyRev = await customerPayments
-      .find({ paymentMonth: monthId })
-      .populate("meterReading");
-    const paidMeterReadings = monthlyRev.filter(
-      (m) => (m.paymentStatus = "Paid")
-    );
-    let totalRev = 0;
-    let paidRev = 0;
-    if (monthlyRev) {
-      for (let index = 0; index < monthlyRev.length; index++) {
-        totalRev += monthlyRev[index].fee;
-      }
-      if (paidMeterReadings) {
-        for (let index = 0; index < paidMeterReadings.length; index++) {
-          paidRev += paidMeterReadings[index].fee;
-        }
-      }
-    }
 
-    res.status(200).json({
-      totalReading: monthlyRev.length || 0,
-      paidReadings: paidMeterReadings.length || 0,
-      totalRev,
-      paidRev,
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Internal server error", error });
-  }
-};
-const officerReport = async (start, end, department, role) => {
-  const officers = await Officer.find({
-    ...(department !== "all" && { department }),
-    ...(role !== "all" && { role }),
-  });
 
-  const activities = await officerAT
-    .find({
-      officerId: { $in: officers.map((o) => o._id) },
-      date: { $gte: start, $lte: end },
-    })
-    .populate("officerId", "name department");
-
-  return {
-    summary: {
-      totalOfficers: officers.length,
-      totalActivities: activities.length,
-    },
-    activities,
-  };
-};
 const meterReadingsReport = async (start, end) => {
   const readings = await merterReading
-    .find({
-      createdAt: { $gte: start, $lte: end },
-    })
+    .find({ createdAt: { $gte: start, $lte: end } })
     .populate("customerId", "name accountNumber")
-    .populate("officerId", "name");
+    .sort({ createdAt: -1 });
 
   return {
     totalReadings: readings.length,
@@ -913,57 +873,97 @@ const meterReadingsReport = async (start, end) => {
   };
 };
 
-const revenueReport = async (start, end) => {
-  const payments = await customerPayments.find({
-    createdAt: { $gte: start, $lte: end },
+
+
+export const revenueReport = async (start, end) => {
+  const startDate = new Date(start);
+  startDate.setUTCHours(0, 0, 0, 0);
+  const endDate = new Date(end);
+  endDate.setUTCHours(23, 59, 59, 999);
+
+  const readings = await merterReading
+    .find({
+      createdAt: { $gte: startDate, $lte: endDate },
+    })
+    .populate("customerId", "name accountNumber depositBirr")
+    .lean();
+
+  let totalRevenue = 0;
+  const uniqueCustomers = new Map(); 
+
+  const payments = readings.map((r) => {
+    const isPaid = r.paymentStatus === "Paid";
+    const fee = r.fee || 0;
+
+    if (isPaid) {
+      totalRevenue += fee;
+    }
+
+    // track unique customers to sum their deposits correctly
+    if (r.customerId && r.customerId._id) {
+      uniqueCustomers.set(r.customerId._id.toString(), r.customerId.depositBirr || 0);
+    }
+
+    // Map to the format your React Frontend Table expects
+    return {
+      id: r._id,
+      customer: r.customerId?.name || "Unknown",
+      accountNumber: r.customerId?.accountNumber || "N/A",
+      amount: fee,
+      date: r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "N/A",
+      status: r.paymentStatus,
+      method: "Electronic/Cash", // Default label
+    };
   });
 
-  const totalRevenue = payments.reduce(
-    (sum, payment) => sum + payment.amount,
+  // Calculate total deposited money from the unique set of customers
+  const totalDepositedMoney = Array.from(uniqueCustomers.values()).reduce(
+    (sum, val) => sum + val,
     0
   );
 
+  const paidReadings = payments.filter((p) => p.status === "Paid");
+
   return {
-    totalPayments: payments.length,
-    totalRevenue,
-    payments,
+    reportType: "revenue",
+    generatedAt: new Date().toISOString(),
+    // Summary data for the top cards in React
+    summary: {
+      totalPayments: paidReadings.length,
+      totalRevenue: totalRevenue,
+      totalDepositedMoney: totalDepositedMoney,
+      unpaidPaymentsCount: payments.length - paidReadings.length,
+    },
+    // Detailed data for the table
+    data: {
+      payments: payments, 
+    },
   };
 };
+
 const complaintsReport = async (start, end) => {
   try {
     const complaints = await CustomerComplient.find({
-      date: {
-        $gte: start.toISOString(),
-        $lte: end.toISOString(),
-      },
+      date: { $gte: start, $lte: end },
     })
       .populate("resolvedBy", "name")
       .sort({ date: -1 });
-    const resolved = complaints.filter(
-      (c) => c.status && c.status.toLowerCase() === "resolved"
-    ).length;
 
-    const pending = complaints.filter(
-      (c) =>
-        c.status &&
-        (c.status.toLowerCase() === "pending" ||
-          c.status.toLowerCase() === "pending")
-    ).length;
-
-    const inProgress = complaints.filter(
-      (c) => c.status && c.status.toLowerCase() === "in-progress"
-    ).length;
-
-    const closed = complaints.filter(
-      (c) => c.status && c.status.toLowerCase() === "closed"
-    ).length;
+    const statusCount = complaints.reduce(
+      (acc, c) => {
+        const status = c.status?.toLowerCase();
+        if (status === "resolved") acc.resolved++;
+        else if (status === "pending") acc.pending++;
+        else if (status === "in-progress") acc.inProgress++;
+        else if (status === "closed") acc.closed++;
+        return acc;
+      },
+      { resolved: 0, pending: 0, inProgress: 0, closed: 0 }
+    );
 
     return {
       totalComplaints: complaints.length,
-      resolved,
-      pending,
-      inProgress,
-      closed,
+      ...statusCount,
       complaints: complaints.map((complaint) => ({
         id: complaint._id,
         customerName: complaint.customerName,

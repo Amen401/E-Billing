@@ -67,14 +67,14 @@ officerRouter.post(
   verifyToken,
   searchCustomerComplients
 );
-// New Updated Report
-officerRouter.post(
-  "/meter-reading-report",
-  verifyToken,
-  meterReadingAndRevenueReport
-);
+// // New Updated Report
+// officerRouter.post(
+//   "/meter-reading-report",
+//   verifyToken,
+//   meterReadingAndRevenueReport
+// );
 // New Updated functionality for Report
-officerRouter.post("/get-year-schedules", verifyToken, getYearSchedules);
+// officerRouter.post("/get-exist-schedules", verifyToken, existsForMonth);
 officerRouter.put(
   "/update-complient-status",
   verifyToken,

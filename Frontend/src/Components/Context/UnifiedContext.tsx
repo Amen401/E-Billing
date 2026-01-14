@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { adminApi, officerApi, customerApi, authApi } from "@/lib/api";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
 
 export type Role = "customer" | "officer" | "admin";
 
@@ -39,7 +38,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
   useEffect(() => {
     const saved = localStorage.getItem("user");
     const token = localStorage.getItem("authToken");
@@ -104,7 +102,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     localStorage.removeItem("user");
     localStorage.removeItem("authToken");
     toast.success("Logged out");
-
   };
 
   const updateNameOrEmail = async (
