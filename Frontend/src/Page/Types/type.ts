@@ -109,7 +109,19 @@ export interface ComplaintsApiResponse {
   pendingComplients: number;
   resolvedComplients: number;
 }
-
+export interface EthiopianDate {
+  day: number;
+  month: number;
+  year: number;
+}
+export interface Schedule {
+  _id: string;
+  yearAndMonth: string;
+  normalPaymentStartDate: string;
+  normalPaymentEndDate: string;
+  isOpen: boolean;
+  createdAt: string;
+}
 
 export interface ComplaintFormData {
   subject: string;

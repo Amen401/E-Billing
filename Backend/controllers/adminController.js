@@ -46,6 +46,7 @@ export const createOfficer = async (req, res) => {
         email: saveOfficer.email,
         role: saveOfficer.role,
         department: saveOfficer.department,
+        assignedArea: saveOfficer.assignedArea,
         password: "12345678",
       },
     });

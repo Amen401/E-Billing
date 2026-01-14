@@ -17,8 +17,7 @@ const paymentSchema = mongoose.Schema(
       required: true,
       ref: "PaymentSchedule",
     },
-  },
-  { timestamps: true }
+}, { timestamps: true   },
 );
 
 export const customerPayments = mongoose.model(

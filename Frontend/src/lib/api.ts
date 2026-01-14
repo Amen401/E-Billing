@@ -471,7 +471,17 @@ export const officerApi = {
     );
     return response;
   },
-
+  meterReadingReport: async (filters: ReportFilters) => {
+    const response = await api.post<{ data: ReportData[] }>(
+      "/officer/meter-reading-report",
+      filters
+    );
+    return response;
+  },
+// existsForMonth: async (yearAndMonth: string) => {
+//     const response = await api.post("/officer/get-exist-schedules", { yearAndMonth });
+//     return response;
+//   },
   getMeterReadingDetail: async (id: string) => {
     const response = await api.get(
       `${ENDPOINTS.officerMeterReadingDetail.replace(":id", id)}`

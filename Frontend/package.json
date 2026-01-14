@@ -32,6 +32,7 @@
     "date-fns": "^4.1.0",
     "dropdown-menu": "^0.1.1",
     "ethiopian-calendar-new": "^1.0.8",
+    "file-saver": "^2.0.5",
     "framer-motion": "^12.23.24",
     "lodash": "^4.17.21",
     "lucide-react": "^0.552.0",
