@@ -25,6 +25,9 @@ import {
   generateReport,
   meterReadingAndRevenueReport,
   getYearSchedules,
+  addTariff,
+  getTarifss,
+  updateTariff,
 } from "../controllers/officerController.js";
 
 import { verifyToken } from "../Util/tokenVerify.js";
@@ -77,6 +80,11 @@ officerRouter.put(
   verifyToken,
   updateComplientStatus
 );
+//Tarif routes
+officerRouter.post("/add-tariff", verifyToken, addTariff);
+officerRouter.get("/get-tariff", verifyToken, getTarifss);
+officerRouter.put("/update-tariff", verifyToken, updateTariff);
+
 officerRouter.get("/get-missed-payments", verifyToken, checkMissedMonths);
 officerRouter.post("/pay-missed-payments", verifyToken, payMissedPaymentMonths);
 officerRouter.post("/update-comp-status", verifyToken, updateComplientStatus);

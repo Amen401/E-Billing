@@ -1,16 +1,43 @@
 import mongoose, { Schema } from "mongoose";
 
 const tariffSchema = mongoose.Schema({
-  customerId: {
-    type: Schema.Types.ObjectId,
-    required: true,
-    ref: "Customer",
-  },
-  energyTariff: {
+  block1: {
     type: Number,
     required: true,
   },
-  serviceCharge: {
+  block2: {
+    type: Number,
+    required: true,
+  },
+  block3: {
+    type: Number,
+    required: true,
+  },
+  block4: {
+    type: Number,
+    required: true,
+  },
+  block5: {
+    type: Number,
+    required: true,
+  },
+  block6: {
+    type: Number,
+    required: true,
+  },
+  block7: {
+    type: Number,
+    required: true,
+  },
+  domesticUnder50: {
+    type: Number,
+    required: true,
+  },
+  domesticAbove50: {
+    type: Number,
+    required: true,
+  },
+  allUsage: {
     type: Number,
     required: true,
   },
