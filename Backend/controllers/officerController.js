@@ -538,27 +538,28 @@ export const manualMeterReadingAndPayment = async (req, res) => {
     if (!myTariff) {
       return res.status(400).json({ message: "Tariff not found for customer" });
     }
-    let energyTariff = Number(myTariff.block2);
+    let energyTariff = Number(tariffDetails[0].block1);
+
     if (monthlyUsage > 50 && monthlyUsage <= 100) {
-      energyTariff = Number(myTariff.block2);
+      energyTariff = Number(tariffDetails[0].block2);
     } else if (monthlyUsage > 100 && monthlyUsage <= 200) {
-      energyTariff = Number(myTariff.block3);
+      energyTariff = Number(tariffDetails[0].block3);
     } else if (monthlyUsage > 200 && monthlyUsage <= 300) {
-      energyTariff = Number(myTariff.block4);
+      energyTariff = Number(tariffDetails[0].block4);
     } else if (monthlyUsage > 300 && monthlyUsage <= 400) {
-      energyTariff = Number(myTariff.block5);
+      energyTariff = Number(tariffDetails[0].block5);
     } else if (monthlyUsage > 400 && monthlyUsage < 500) {
-      energyTariff = Number(myTariff.block6);
+      energyTariff = Number(tariffDetails[0].block6);
     } else {
-      energyTariff = Number(myTariff.block1);
+      energyTariff = Number(tariffDetails[0].block1);
     }
 
-    let serviceCharge = Number(myTariff.domesticUnder50);
+    let serviceCharge = Number(tariffDetails[0].domesticUnder50);
     if (findAccount.purpose == "Domestic" && monthlyUsage > 50) {
-      serviceCharge = Number(myTariff.domesticAbove50);
+      serviceCharge = Number(tariffDetails[0].domesticAbove50);
     }
     if (findAccount.purpose != "Domestic") {
-      serviceCharge = Number(myTariff.allUsage);
+      serviceCharge = Number(tariffDetails[0].allUsage);
     }
 
     const vatRate = 0.15;
