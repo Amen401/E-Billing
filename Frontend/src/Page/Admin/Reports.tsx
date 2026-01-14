@@ -48,7 +48,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { adminApi } from "@/lib/api";
+import { officerApi } from "@/lib/api";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import ExcelJS from "exceljs";
@@ -90,7 +90,7 @@ interface ReportData {
 const Reports = () => {
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
-  const [reportType, setReportType] = useState("officer-report");
+  const [reportType, setReportType] = useState("meter-readings");
   const [department, setDepartment] = useState("all");
   const [userGroup, setUserGroup] = useState("all");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -111,7 +111,7 @@ const Reports = () => {
 
     setIsGenerating(true);
     try {
-      const data = await adminApi.generateReport(reportType, {
+      const data = await officerApi.generateReport(reportType, {
         startDate: format(startDate, "yyyy-MM-dd"),
         endDate: format(endDate, "yyyy-MM-dd"),
         ...(department !== "all" && { department }),
@@ -206,45 +206,17 @@ const Reports = () => {
     saveAs(new Blob([buffer]), fileName);
   };
 
-  const formatHeader = (key: string) =>
-    key
-      .replace(/([A-Z])/g, " $1")
-      .replace(/_/g, " ")
-      .replace(/^./, (str) => str.toUpperCase())
-      .trim();
-
-  const flattenValue = (val: any): string => {
-    if (val === null || val === undefined) return "";
-    if (typeof val === "object") {
-      // Handle common nested object patterns
-      if (val.name) return String(val.name);
-      if (val.accountNumber) return String(val.accountNumber);
-      if (val.email) return String(val.email);
-      if (val.id) return String(val.id);
-      // For arrays, join values
-      if (Array.isArray(val)) {
-        return val.map(v => flattenValue(v)).join(", ");
-      }
-      // Last resort: stringify
-      try {
-        return JSON.stringify(val);
-      } catch {
-        return "[Object]";
-      }
-    }
-    return String(val);
-  };
-
   const exportPDFFrontend = (reportData: ReportData) => {
-    // 1. Determine orientation: Landscape for meter-readings, Portrait for others
-    const isLandscape = reportData.reportType === "meter-readings" || reportData.reportType === "revenue";
+    const isLandscape =
+      reportData.reportType === "meter-readings" ||
+      reportData.reportType === "revenue";
     const doc = new jsPDF(isLandscape ? "l" : "p", "mm", "a4");
-    
+
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 14;
 
-    // ===== Header =====
+    // Header
     doc.setFillColor(37, 99, 235);
     doc.rect(0, 0, pageWidth, 35, "F");
 
@@ -256,14 +228,16 @@ const Reports = () => {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text(
-      `Generated: ${new Date(reportData.generatedAt).toLocaleString()}  |  By: ${reportData.generatedBy}`,
+      `Generated: ${new Date(
+        reportData.generatedAt
+      ).toLocaleString()}  |  By: ${reportData.generatedBy}`,
       margin,
       28
     );
 
     let startY = 45;
 
-    // ===== Summary Section (Optional but good for context) =====
+    // Summary Section
     if (reportData.data.summary) {
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
@@ -287,12 +261,20 @@ const Reports = () => {
       startY = (doc as any).lastAutoTable.finalY + 10;
     }
 
-    // ===== Process Detailed Data =====
+    // Detailed Data
     let tableHeaders: string[] = [];
     let tableData: any[][] = [];
 
     if (reportData.reportType === "meter-readings") {
-      tableHeaders = ["Customer", "Account No", "Reading (kW)", "Usage", "Fee", "Status", "Date"];
+      tableHeaders = [
+        "Customer",
+        "Account No",
+        "Reading (kW)",
+        "Usage",
+        "Fee",
+        "Status",
+        "Date",
+      ];
       const readings = reportData.data.readings || [];
       tableData = readings.map((r: any) => [
         r.customerId?.name || "N/A",
@@ -301,7 +283,7 @@ const Reports = () => {
         r.monthlyUsage || "0",
         `$${r.fee || 0}`,
         r.paymentStatus || "N/A",
-        r.createdAt ? format(new Date(r.createdAt), "MMM dd, yyyy") : "N/A"
+        r.createdAt ? format(new Date(r.createdAt), "MMM dd, yyyy") : "N/A",
       ]);
     } else if (reportData.reportType === "revenue") {
       tableHeaders = ["Customer", "Amount", "Method", "Date", "Status"];
@@ -311,7 +293,7 @@ const Reports = () => {
         `$${p.amount?.toLocaleString()}`,
         p.method || "N/A",
         p.date || "N/A",
-        "Paid"
+        "Paid",
       ]);
     } else if (reportData.reportType === "customer-complaints") {
       tableHeaders = ["Customer", "Subject", "Status", "Date", "Resolved By"];
@@ -321,11 +303,11 @@ const Reports = () => {
         c.subject || "N/A",
         c.status || "N/A",
         c.date ? format(new Date(c.date), "MMM dd, yyyy") : "N/A",
-        c.resolvedBy || "Pending"
+        c.resolvedBy || "Pending",
       ]);
     }
 
-    // ===== Draw Table =====
+    // Draw Table
     if (tableData.length > 0) {
       autoTable(doc, {
         startY,
@@ -349,7 +331,6 @@ const Reports = () => {
         },
         margin: { left: margin, right: margin },
         didDrawPage: (data) => {
-          // Footer
           doc.setFontSize(8);
           doc.setTextColor(150);
           doc.text(
@@ -362,9 +343,19 @@ const Reports = () => {
       });
     }
 
-    const fileName = `report_${reportData.reportType}_${format(new Date(), "yyyy-MM-dd")}.pdf`;
+    const fileName = `report_${reportData.reportType}_${format(
+      new Date(),
+      "yyyy-MM-dd"
+    )}.pdf`;
     doc.save(fileName);
   };
+
+  const formatHeader = (key: string) =>
+    key
+      .replace(/([A-Z])/g, " $1")
+      .replace(/_/g, " ")
+      .replace(/^./, (str) => str.toUpperCase())
+      .trim();
 
   const handleExport = async (formatType: "pdf" | "excel") => {
     if (!reportData) {
@@ -405,7 +396,11 @@ const Reports = () => {
       "customer-complaints": "Customer Complaints Report",
       "officer-report": "Officer Report",
     };
-    return types[type] || type.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+
+    return (
+      types[type] ||
+      type.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
+    );
   };
 
   const getReportIcon = (type: string) => {
@@ -426,36 +421,36 @@ const Reports = () => {
     switch (statusLower) {
       case "resolved":
       case "paid":
-        return "bg-green-100 text-green-800 border-green-200";
+        return "bg-success/10 text-success border-success/20";
       case "pending":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+        return "bg-warning/10 text-warning border-warning/20";
       case "in-progress":
-        return "bg-blue-100 text-blue-800 border-blue-200";
+        return "bg-info/10 text-info border-info/20";
       case "overdue":
-        return "bg-red-100 text-red-800 border-red-200";
+        return "bg-destructive/10 text-destructive border-destructive/20";
       case "closed":
-        return "bg-gray-100 text-gray-600 border-gray-200";
+        return "bg-muted text-muted-foreground border-border";
       default:
-        return "bg-gray-100 text-gray-600 border-gray-200";
+        return "bg-muted text-muted-foreground border-border";
     }
   };
 
   const renderSummaryCards = () => {
-   if (!reportData) return null;
+    if (!reportData?.data) return null;
 
     const data = reportData.data;
 
     switch (reportData.reportType) {
       case "meter-readings":
         return (
-          <Card>
+          <Card className="animate-fade-in">
             <CardContent className="pt-4 sm:pt-6">
               <div className="flex items-center gap-3">
                 <div className="p-2 sm:p-3 rounded-xl bg-primary/10">
                   <BarChart className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                 </div>
                 <div>
-                  <div className="text-xl sm:text-2xl font-bold">
+                  <div className="text-xl sm:text-2xl font-bold text-foreground">
                     {data.totalReadings || data.summary?.totalReadings || 0}
                   </div>
                   <p className="text-xs sm:text-sm text-muted-foreground">
@@ -469,7 +464,7 @@ const Reports = () => {
 
       case "revenue":
         return (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 animate-fade-in">
             <Card>
               <CardContent className="pt-4 sm:pt-6">
                 <div className="flex items-center gap-3">
@@ -477,8 +472,8 @@ const Reports = () => {
                     <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                   </div>
                   <div>
-                    <div className="text-xl sm:text-2xl font-bold">
-                      {data.totalPayments || data.summary?.totalPayments || 0}
+                    <div className="text-xl sm:text-2xl font-bold text-foreground">
+                      {data.data.totalPayments || data.summary?.totalPayments || 0}
                     </div>
                     <p className="text-xs sm:text-sm text-muted-foreground">
                       Total Payments
@@ -490,12 +485,17 @@ const Reports = () => {
             <Card>
               <CardContent className="pt-4 sm:pt-6">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 sm:p-3 rounded-xl bg-green-100">
-                    <DollarSign className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
+                  <div className="p-2 sm:p-3 rounded-xl bg-success/10">
+                    <DollarSign className="h-5 w-5 sm:h-6 sm:w-6 text-success" />
                   </div>
                   <div>
-                    <div className="text-xl sm:text-2xl font-bold">
-                      ${(data.totalRevenue || data.summary?.totalRevenue || 0).toLocaleString()}
+                    <div className="text-xl sm:text-2xl font-bold text-foreground">
+                    
+                      {(
+                        data.data.totalRevenue ||
+                        data.summary?.totalRevenue ||
+                        0
+                      ).toLocaleString()} birr
                     </div>
                     <p className="text-xs sm:text-sm text-muted-foreground">
                       Total Revenue
@@ -507,21 +507,24 @@ const Reports = () => {
             <Card>
               <CardContent className="pt-4 sm:pt-6">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 sm:p-3 rounded-xl bg-accent/10">
-                    <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-accent-foreground" />
+                  <div className="p-2 sm:p-3 rounded-xl bg-info/10">
+                    <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-info" />
                   </div>
                   <div>
-                    <div className="text-xl sm:text-2xl font-bold">
-                      $
-                      {(data.totalPayments || data.summary?.totalPayments) > 0
+                    <div className="text-xl sm:text-2xl font-bold text-foreground">
+                      
+                      {(data.data.totalPayments || data.summary?.totalPayments) > 0
                         ? Math.round(
-                            (data.totalRevenue || data.summary?.totalRevenue || 0) / 
-                            (data.totalPayments || data.summary?.totalPayments)
+                            (data.data.totalRevenue ||
+                              data.summary?.totalRevenue ||
+                              0) /
+                              (data.data.totalPayments ||
+                                data.summary?.totalPayments)
                           )
-                        : 0}
+                        : 0}birr
                     </div>
                     <p className="text-xs sm:text-sm text-muted-foreground">
-                      Average Payment
+                    totalDepositedMoney
                     </p>
                   </div>
                 </div>
@@ -532,7 +535,7 @@ const Reports = () => {
 
       case "customer-complaints":
         return (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 animate-fade-in">
             <Card>
               <CardContent className="pt-4 sm:pt-6">
                 <div className="flex items-center gap-2 sm:gap-3">
@@ -540,8 +543,10 @@ const Reports = () => {
                     <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                   </div>
                   <div>
-                    <div className="text-lg sm:text-2xl font-bold">
-                      {data.totalComplaints || data.summary?.totalComplaints || 0}
+                    <div className="text-lg sm:text-2xl font-bold text-foreground">
+                      {data.totalComplaints ||
+                        data.summary?.totalComplaints ||
+                        0}
                     </div>
                     <p className="text-xs text-muted-foreground">Total</p>
                   </div>
@@ -551,11 +556,11 @@ const Reports = () => {
             <Card>
               <CardContent className="pt-4 sm:pt-6">
                 <div className="flex items-center gap-2 sm:gap-3">
-                  <div className="p-2 rounded-xl bg-green-100">
-                    <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
+                  <div className="p-2 rounded-xl bg-success/10">
+                    <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-success" />
                   </div>
                   <div>
-                    <div className="text-lg sm:text-2xl font-bold">
+                    <div className="text-lg sm:text-2xl font-bold text-foreground">
                       {data.resolved || data.summary?.resolved || 0}
                     </div>
                     <p className="text-xs text-muted-foreground">Resolved</p>
@@ -566,11 +571,11 @@ const Reports = () => {
             <Card>
               <CardContent className="pt-4 sm:pt-6">
                 <div className="flex items-center gap-2 sm:gap-3">
-                  <div className="p-2 rounded-xl bg-yellow-100">
-                    <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-600" />
+                  <div className="p-2 rounded-xl bg-warning/10">
+                    <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-warning" />
                   </div>
                   <div>
-                    <div className="text-lg sm:text-2xl font-bold">
+                    <div className="text-lg sm:text-2xl font-bold text-foreground">
                       {data.pending || data.summary?.pending || 0}
                     </div>
                     <p className="text-xs text-muted-foreground">Pending</p>
@@ -581,11 +586,11 @@ const Reports = () => {
             <Card>
               <CardContent className="pt-4 sm:pt-6">
                 <div className="flex items-center gap-2 sm:gap-3">
-                  <div className="p-2 rounded-xl bg-blue-100">
-                    <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                  <div className="p-2 rounded-xl bg-info/10">
+                    <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-info" />
                   </div>
                   <div>
-                    <div className="text-lg sm:text-2xl font-bold">
+                    <div className="text-lg sm:text-2xl font-bold text-foreground">
                       {data.inProgress || data.summary?.inProgress || 0}
                     </div>
                     <p className="text-xs text-muted-foreground">In Progress</p>
@@ -609,7 +614,7 @@ const Reports = () => {
     return (
       <div className="space-y-4 sm:space-y-6">
         <div>
-          <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">
+          <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 text-foreground">
             Summary
           </h3>
           {renderSummaryCards()}
@@ -617,7 +622,7 @@ const Reports = () => {
 
         {data && (
           <div className="mt-4 sm:mt-6">
-            <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">
+            <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 text-foreground">
               Detailed Data
             </h3>
 
@@ -625,27 +630,27 @@ const Reports = () => {
             {reportData.reportType === "customer-complaints" &&
               data.complaints &&
               data.complaints.length > 0 && (
-                <div className="rounded-lg border overflow-hidden">
+                <div className="rounded-lg border border-border overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs sm:text-sm">
                       <thead className="bg-muted">
                         <tr>
-                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium">
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium text-foreground">
                             Customer
                           </th>
-                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden sm:table-cell">
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium text-foreground hidden sm:table-cell">
                             Account #
                           </th>
-                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium">
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium text-foreground">
                             Subject
                           </th>
-                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden md:table-cell">
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium text-foreground hidden md:table-cell">
                             Date
                           </th>
-                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium">
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium text-foreground">
                             Status
                           </th>
-                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden lg:table-cell">
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium text-foreground hidden lg:table-cell">
                             Resolved By
                           </th>
                         </tr>
@@ -656,9 +661,9 @@ const Reports = () => {
                           .map((complaint: any, idx: number) => (
                             <tr
                               key={complaint.id || idx}
-                              className="border-t border-border hover:bg-muted/50"
+                              className="border-t border-border hover:bg-muted/50 transition-colors"
                             >
-                              <td className="px-3 sm:px-4 py-2 sm:py-3 font-medium">
+                              <td className="px-3 sm:px-4 py-2 sm:py-3 font-medium text-foreground">
                                 <div className="max-w-[100px] sm:max-w-none truncate">
                                   {complaint.customerName || "N/A"}
                                 </div>
@@ -666,7 +671,7 @@ const Reports = () => {
                               <td className="px-3 sm:px-4 py-2 sm:py-3 hidden sm:table-cell font-mono text-muted-foreground">
                                 {complaint.customerAccNumber || "N/A"}
                               </td>
-                              <td className="px-3 sm:px-4 py-2 sm:py-3 capitalize">
+                              <td className="px-3 sm:px-4 py-2 sm:py-3 capitalize text-foreground">
                                 <div className="max-w-[80px] sm:max-w-none truncate">
                                   {complaint.subject || "N/A"}
                                 </div>
@@ -677,7 +682,7 @@ const Reports = () => {
                               <td className="px-3 sm:px-4 py-2 sm:py-3">
                                 <span
                                   className={cn(
-                                    "px-2 py-1 rounded-full text-xs border",
+                                    "px-2 py-1 rounded-full text-xs border font-medium",
                                     getStatusClasses(complaint.status)
                                   )}
                                 >
@@ -713,30 +718,30 @@ const Reports = () => {
             {reportData.reportType === "meter-readings" &&
               data.readings &&
               data.readings.length > 0 && (
-                <div className="rounded-lg border overflow-hidden">
+                <div className="rounded-lg border border-border overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs sm:text-sm">
                       <thead className="bg-muted">
                         <tr>
-                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium">
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium text-foreground">
                             Customer
                           </th>
-                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden sm:table-cell">
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium text-foreground hidden sm:table-cell">
                             Account #
                           </th>
-                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium">
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium text-foreground">
                             kW Read
                           </th>
-                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden md:table-cell">
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium text-foreground hidden md:table-cell">
                             Usage
                           </th>
-                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium">
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium text-foreground">
                             Status
                           </th>
-                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden lg:table-cell">
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium text-foreground hidden lg:table-cell">
                             Fee
                           </th>
-                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden xl:table-cell">
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium text-foreground hidden xl:table-cell">
                             Submitted
                           </th>
                         </tr>
@@ -747,9 +752,9 @@ const Reports = () => {
                           .map((reading: any, idx: number) => (
                             <tr
                               key={reading._id || idx}
-                              className="border-t border-border hover:bg-muted/50"
+                              className="border-t border-border hover:bg-muted/50 transition-colors"
                             >
-                              <td className="px-3 sm:px-4 py-2 sm:py-3 font-medium">
+                              <td className="px-3 sm:px-4 py-2 sm:py-3 font-medium text-foreground">
                                 <div className="max-w-[100px] sm:max-w-none truncate">
                                   {reading.customerId?.name || "N/A"}
                                 </div>
@@ -757,23 +762,23 @@ const Reports = () => {
                               <td className="px-3 sm:px-4 py-2 sm:py-3 hidden sm:table-cell font-mono text-muted-foreground">
                                 {reading.customerId?.accountNumber || "N/A"}
                               </td>
-                              <td className="px-3 sm:px-4 py-2 sm:py-3">
+                              <td className="px-3 sm:px-4 py-2 sm:py-3 text-foreground">
                                 {reading.killowatRead}
                               </td>
-                              <td className="px-3 sm:px-4 py-2 sm:py-3 hidden md:table-cell">
+                              <td className="px-3 sm:px-4 py-2 sm:py-3 hidden md:table-cell text-foreground">
                                 {reading.monthlyUsage}
                               </td>
                               <td className="px-3 sm:px-4 py-2 sm:py-3">
                                 <span
                                   className={cn(
-                                    "px-2 py-1 rounded-full text-xs border",
+                                    "px-2 py-1 rounded-full text-xs border font-medium",
                                     getStatusClasses(reading.paymentStatus)
                                   )}
                                 >
                                   {reading.paymentStatus}
                                 </span>
                               </td>
-                              <td className="px-3 sm:px-4 py-2 sm:py-3 hidden lg:table-cell font-medium">
+                              <td className="px-3 sm:px-4 py-2 sm:py-3 hidden lg:table-cell font-medium text-foreground">
                                 ${reading.fee?.toLocaleString() ?? "N/A"}
                               </td>
                               <td className="px-3 sm:px-4 py-2 sm:py-3 hidden xl:table-cell text-muted-foreground">
@@ -794,44 +799,44 @@ const Reports = () => {
 
             {/* Revenue Report Table */}
             {reportData.reportType === "revenue" &&
-              data.payments &&
-              data.payments.length > 0 && (
-                <div className="rounded-lg border overflow-hidden">
+              data.data.payments &&
+              data.data.payments.length > 0 && (
+                <div className="rounded-lg border border-border overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs sm:text-sm">
                       <thead className="bg-muted">
                         <tr>
-                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium">
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium text-foreground">
                             Customer
                           </th>
-                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium">
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium text-foreground">
                             Amount
                           </th>
-                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden sm:table-cell">
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium text-foreground hidden sm:table-cell">
                             Date
                           </th>
-                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium hidden md:table-cell">
+                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-left font-medium text-foreground hidden md:table-cell">
                             Method
                           </th>
                         </tr>
                       </thead>
                       <tbody>
-                        {data.payments.map((payment: any, idx: number) => (
+                        {data.data.payments.map((payment: any, idx: number) => (
                           <tr
                             key={payment.id || idx}
-                            className="border-t border-border hover:bg-muted/50"
+                            className="border-t border-border hover:bg-muted/50 transition-colors"
                           >
-                            <td className="px-3 sm:px-4 py-2 sm:py-3 font-medium">
+                            <td className="px-3 sm:px-4 py-2 sm:py-3 font-medium text-foreground">
                               {payment.customer}
                             </td>
-                            <td className="px-3 sm:px-4 py-2 sm:py-3 font-medium text-green-600">
-                              ${payment.amount.toLocaleString()}
+                            <td className="px-3 sm:px-4 py-2 sm:py-3 font-medium text-success">
+                              {payment.amount.toLocaleString()}birr
                             </td>
                             <td className="px-3 sm:px-4 py-2 sm:py-3 hidden sm:table-cell text-muted-foreground">
                               {payment.date}
                             </td>
                             <td className="px-3 sm:px-4 py-2 sm:py-3 hidden md:table-cell">
-                              <span className="px-2 py-1 rounded-full text-xs bg-muted">
+                              <span className="px-2 py-1 rounded-full text-xs bg-muted text-muted-foreground">
                                 {payment.method}
                               </span>
                             </td>
@@ -851,9 +856,9 @@ const Reports = () => {
   return (
     <div className="min-h-screen bg-background p-3 sm:p-4 md:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
-        <div className="flex flex-col gap-3 sm:gap-4">
+        <div className="flex flex-col gap-3 sm:gap-4 animate-slide-up">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
               Generate Reports
             </h1>
             <p className="text-sm sm:text-base text-muted-foreground mt-1">
@@ -872,7 +877,6 @@ const Reports = () => {
                 <span className="hidden sm:inline">Preview</span>
               </Button>
               <Button
-                variant="default"
                 onClick={() => setShowExportModal(true)}
                 className="gap-2 text-sm"
                 size="sm"
@@ -893,14 +897,14 @@ const Reports = () => {
           )}
         </div>
 
-        <Card>
+        <Card className="animate-fade-in">
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2">
               <div className="p-2 rounded-lg bg-primary/10">
                 <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
               </div>
               <div>
-                <CardTitle className="text-lg sm:text-xl">
+                <CardTitle className="text-lg sm:text-xl text-foreground">
                   Report Configuration
                 </CardTitle>
                 <CardDescription className="text-xs sm:text-sm">
@@ -917,7 +921,7 @@ const Reports = () => {
                 const setDateValue = idx === 0 ? setStartDate : setEndDate;
                 return (
                   <div className="space-y-1.5 sm:space-y-2" key={label}>
-                    <Label className="text-sm font-medium">{label} *</Label>
+                    <Label className="text-sm font-medium text-foreground">{label} *</Label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
@@ -952,7 +956,7 @@ const Reports = () => {
 
             {/* Report Type */}
             <div className="space-y-1.5 sm:space-y-2">
-              <Label className="text-sm font-medium">Report Type *</Label>
+              <Label className="text-sm font-medium text-foreground">Report Type *</Label>
               <Select
                 value={reportType}
                 onValueChange={(val) => {
@@ -989,7 +993,7 @@ const Reports = () => {
             {/* Optional Filters */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="space-y-1.5 sm:space-y-2">
-                <Label className="text-sm font-medium">
+                <Label className="text-sm font-medium text-foreground">
                   Department (Optional)
                 </Label>
                 <Select value={department} onValueChange={setDepartment}>
@@ -1007,7 +1011,7 @@ const Reports = () => {
                 </Select>
               </div>
               <div className="space-y-1.5 sm:space-y-2">
-                <Label className="text-sm font-medium">
+                <Label className="text-sm font-medium text-foreground">
                   User Group (Optional)
                 </Label>
                 <Select value={userGroup} onValueChange={setUserGroup}>
@@ -1045,11 +1049,11 @@ const Reports = () => {
 
         {/* Quick Summary after generation */}
         {reportData && (
-          <Card className="border-primary/20">
+          <Card className="border-primary/20 animate-slide-up">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 {getReportIcon(reportData.reportType)}
-                <CardTitle className="text-base sm:text-lg">
+                <CardTitle className="text-base sm:text-lg text-foreground">
                   {formatReportType(reportData.reportType)}
                 </CardTitle>
               </div>
@@ -1067,7 +1071,7 @@ const Reports = () => {
             <DialogHeader className="flex-shrink-0">
               <div className="flex items-center gap-2">
                 {getReportIcon(reportData?.reportType || "")}
-                <DialogTitle className="text-base sm:text-lg">
+                <DialogTitle className="text-base sm:text-lg text-foreground">
                   {reportData
                     ? formatReportType(reportData.reportType)
                     : "Report Preview"}
@@ -1125,7 +1129,7 @@ const Reports = () => {
         <Dialog open={showExportModal} onOpenChange={setShowExportModal}>
           <DialogContent className="max-w-[95vw] sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Export Report</DialogTitle>
+              <DialogTitle className="text-foreground">Export Report</DialogTitle>
               <DialogDescription>
                 Choose the format for exporting your report.
               </DialogDescription>
@@ -1137,17 +1141,17 @@ const Reports = () => {
                 disabled={isExporting}
                 className="h-20 sm:h-24 flex flex-col gap-2 hover:border-primary hover:bg-primary/5 transition-colors"
               >
-                <FileText className="h-6 w-6 sm:h-8 sm:w-8 text-red-500" />
-                <span className="text-xs sm:text-sm">Export as PDF</span>
+                <FileText className="h-6 w-6 sm:h-8 sm:w-8 text-destructive" />
+                <span className="text-xs sm:text-sm text-foreground">Export as PDF</span>
               </Button>
               <Button
                 variant="outline"
                 onClick={() => handleExport("excel")}
                 disabled={isExporting}
-                className="h-20 sm:h-24 flex flex-col gap-2 hover:border-green-500 hover:bg-green-50 transition-colors"
+                className="h-20 sm:h-24 flex flex-col gap-2 hover:border-success hover:bg-success/5 transition-colors"
               >
-                <FileSpreadsheet className="h-6 w-6 sm:h-8 sm:w-8 text-green-600" />
-                <span className="text-xs sm:text-sm">Export as Excel</span>
+                <FileSpreadsheet className="h-6 w-6 sm:h-8 sm:w-8 text-success" />
+                <span className="text-xs sm:text-sm text-foreground">Export as Excel</span>
               </Button>
             </div>
             <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-between items-center gap-2">
