@@ -4,7 +4,7 @@ import {
   customerLogin,
   myComplains,
   myMeterReadings,
-  myMonthlyUsageAnlysis,
+ myMonthlyUsageAnalysis,
   searchMyComplain,
   submitReading,
   writeComplain,
@@ -29,7 +29,7 @@ customerRouter.get("/my-complain", verifyToken, myComplains);
 customerRouter.get(
   "/my-monthly-usage-analysis",
   verifyToken,
-  myMonthlyUsageAnlysis
+myMonthlyUsageAnalysis
 );
 customerRouter.get(
   "/check-schedule",
