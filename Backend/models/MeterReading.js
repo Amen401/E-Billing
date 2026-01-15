@@ -2,10 +2,11 @@ import mongoose, { Schema } from "mongoose";
 
 const meterReadingSchema = mongoose.Schema(
   {
-    txRef: {
-      type: String,
-      unique: true,
-    },
+    txRef: { 
+    type: String, 
+    unique: true, 
+    sparse: true
+},
 
     photo: {
       secure_url: {
