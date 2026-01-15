@@ -376,6 +376,7 @@ export const myMonthlyUsageAnlysis = async (req, res) => {
   try {
     const customerId = req.authUser._id?.toString() || req.authUser.id;
 
+    // Fetch history and prediction in parallel to save time
     const [lastReadings, nextMonthUsage] = await Promise.allSettled([
       merterReading
         .find({ customerId })
@@ -421,9 +422,7 @@ export const getmeterbyId = async (req, res) => {
   }
 };
 
-const tempTxRef = `PENDING-${Date.now()}-${Math.random()
-  .toString(36)
-  .substr(2, 9)}`;
+const generateTxRef = () => crypto.randomBytes(16).toString("hex");
 
 export const payBill = async (req, res) => {
   try {
@@ -432,7 +431,7 @@ export const payBill = async (req, res) => {
     const reading = await merterReading.findById(rId).populate("paymentMonth");
     if (!reading) return res.status(404).json({ message: "Reading not found" });
 
-    const txRef = tempTxRef;
+    const txRef = generateTxRef();
     reading.txRef = txRef;
     reading.paymentStatus = "Pending";
     await reading.save();
