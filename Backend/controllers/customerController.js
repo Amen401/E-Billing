@@ -317,6 +317,9 @@ export const submitReading = async (req, res) => {
     } else {
       paymentChunks.push(round2(total));
     }
+    const finalStatus = (anomalyResult?.anomalyStatus && anomalyResult.anomalyStatus !== "Unknown") 
+  ? anomalyResult.anomalyStatus 
+  : "Normal";
     const tempTxRef = `PENDING-${Date.now()}-${Math.random()
       .toString(36)
       .substr(2, 9)}`;
@@ -333,7 +336,7 @@ export const submitReading = async (req, res) => {
       vatRate,
       highConsumptionCharge,
       energyCharge,
-      anomalyStatus: anomalyResult?.anomalyStatus || "Normal",
+        anomalyStatus: finalStatus,
       paymentStatus: "Pending",
       fee: Math.round(totalFee * 100) / 100,
       paymentChunks,
