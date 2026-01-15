@@ -86,29 +86,35 @@ const Consumption: React.FC = () => {
   console.log("reading", readings);
   const prediction = data?.prediction?.prediction;
 
-  const graphData: ChartPoint[] = useMemo(() => {
-    const historicalData: ChartPoint[] = readings
-      .map((r) => ({
-        month: r.paymentMonth?.yearAndMonth ?? "Unknown",
-        consumption: Number(r.monthlyUsage) || 0,
-      }))
+ const graphData: ChartPoint[] = useMemo(() => {
+  const historicalData: ChartPoint[] = readings
+    .map((r) => ({
+      month: r.paymentMonth?.yearAndMonth ?? "Unknown",
+      consumption: Number(r.monthlyUsage) || 0,
+    }))
+    .filter((r) => r.month !== "Unknown");
 
-      .filter((r) => r.month !== "Unknown");
-
-    if (prediction) {
+  // 1. Check if prediction exists
+  // 2. Check if the date property exists (try both common names)
+  if (prediction) {
+    const nextDate = prediction.next_month_date || prediction.next_month;
+    
+    if (nextDate && typeof nextDate === 'string') {
       historicalData.push({
-        month: prediction.next_month_date.substring(0, 7),
-        consumption: Number(prediction.predicted_monthlyUsage) || 0,
+        // Safe substring call
+        month: nextDate.substring(0, 7), 
+        consumption: Number(prediction.predicted_monthlyUsage || prediction.predicted_usage) || 0,
       });
     }
+  }
 
-    return historicalData.sort((a, b) => {
-      return (
-        new Date(a.month + "-01").getTime() -
-        new Date(b.month + "-01").getTime()
-      );
-    });
-  }, [readings, prediction]);
+  return historicalData.sort((a, b) => {
+    return (
+      new Date(a.month + "-01").getTime() -
+      new Date(b.month + "-01").getTime()
+    );
+  });
+}, [readings, prediction]);
   console.log("graphData:", graphData, "isLoading:", loadingMonthly);
 
   const detailedData: BillRow[] = (billsDataRaw || []).map((b: any) => ({

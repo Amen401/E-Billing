@@ -367,30 +367,20 @@ export const submitReading = async (req, res) => {
       .json({ message: "Internal server error during reading submission" });
   }
 };
-export const myMonthlyUsageAnalysis = async (req, res) => {
+export const myMonthlyUsageAnlysis = async (req, res) => {
   try {
     const customerId = req.authUser._id?.toString() || req.authUser.id;
 
-    const lastReadings = await merterReading
-      .find({ customerId })
-      .sort({ dateOfSubmission: -1 })
-      .limit(6);
-
-    let predictionData = null;
-    let predictionError = null;
-
-    try {
-      predictionData = await handlePredictionRequest(req);
-    } catch (err) {
-      console.error("Prediction Engine Error:", err.message);
-      predictionError = err.message;
-    }
+   
+    const [lastReadings, nextMonthUsage] = await Promise.allSettled([
+      merterReading.find({ customerId }).sort({ createdAt: -1 }).limit(6).populate("paymentMonth"),
+      handlePredictionRequest(req)
+    ]);
 
     return res.status(200).json({
-      success: true,
-      readings: lastReadings,
-      prediction: predictionData,
-      predictionError: predictionError ? "Insufficient data for accurate forecast" : null
+      readings: lastReadings.status === "fulfilled" ? lastReadings.value : [],
+      prediction: nextMonthUsage.status === "fulfilled" ? nextMonthUsage.value : null,
+      predictionError: nextMonthUsage.status === "rejected" ? nextMonthUsage.reason.message : null
     });
 
   } catch (error) {
