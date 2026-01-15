@@ -92,10 +92,9 @@ export const updateTariff = async (req, res) => {
   }
 };
 
-
 export const addCustomer = async (req, res) => {
   try {
-    const { regForm,} = req.body;
+    const { regForm } = req.body;
     const existingCustomer = await Customer.findOne({
       meterReaderSN: regForm.meterReaderSN,
     });
@@ -443,14 +442,20 @@ export const createSchedule = async (req, res) => {
     if (isAnyOpenSchedule) {
       return res
         .status(400)
-        .json({ message: "There is already an open schedule on this month", isAnyOpenSchedule });
+        .json({
+          message: "There is already an open schedule on this month",
+          isAnyOpenSchedule,
+        });
     }
 
     const existsForMonth = await paymentSchedule.findOne({ yearAndMonth });
     if (existsForMonth) {
       return res
         .status(400)
-        .json({ message: "A schedule already exists for this month", existsForMonth });
+        .json({
+          message: "A schedule already exists for this month",
+          existsForMonth,
+        });
     }
 
     const newSchedule = new paymentSchedule(req.body);
@@ -467,7 +472,6 @@ export const createSchedule = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-
 
 export const closePaymentSchedule = async (req, res) => {
   try {
@@ -812,13 +816,13 @@ export const getOfficerStats = async (req, res) => {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
-    const readingsToday = await officerAT.countDocuments({
-      date: { $gte: startOfDay.toISOString() },
+    const meterReadingsToday = await merterReading.countDocuments({
+      createdAt: { $gte: startOfDay },
     });
 
     res.status(200).json({
       customersRegistered: totalCustomers,
-      readingsToday,
+      meterReadingsToday,
       reportsGenerated,
       pendingComplaints,
     });
@@ -866,7 +870,7 @@ export const generateReport = async (req, res) => {
 
     res.json({
       reportType,
-      generatedBy:req.authUser?.username || req.authUser?.name  || "Unknown",
+      generatedBy: req.authUser?.username || req.authUser?.name || "Unknown",
       generatedAt: new Date(),
       filters: { startDate, endDate, department, userGroup },
       data: report,
@@ -876,8 +880,6 @@ export const generateReport = async (req, res) => {
     res.status(500).json({ message: "Failed to generate report" });
   }
 };
-
-
 
 const meterReadingsReport = async (start, end) => {
   const readings = await merterReading
@@ -890,7 +892,6 @@ const meterReadingsReport = async (start, end) => {
     readings,
   };
 };
-
 
 export const revenueReport = async (start, end, generatedBy = "System") => {
   const startDate = new Date(start);
@@ -913,7 +914,10 @@ export const revenueReport = async (start, end, generatedBy = "System") => {
     if (isPaid) totalRevenue += fee;
 
     if (r.customerId && r.customerId._id) {
-      uniqueCustomers.set(r.customerId._id.toString(), r.customerId.depositBirr || 0);
+      uniqueCustomers.set(
+        r.customerId._id.toString(),
+        r.customerId.depositBirr || 0
+      );
     }
 
     return {
@@ -951,8 +955,6 @@ export const revenueReport = async (start, end, generatedBy = "System") => {
     },
   };
 };
-
-
 
 const complaintsReport = async (start, end) => {
   try {
