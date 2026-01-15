@@ -1,80 +1,72 @@
 import { spawn } from "child_process";
-import dotenv from "dotenv";
 import { MongoClient } from "mongodb";
-import fs from "fs";
+import fs from "fs/promises";
+import path from "path";
+import crypto from "crypto";
 
-
-dotenv.config();
-
-const PYTHON_SCRIPT = `${process.cwd()}/Python/Monthly_Pred.py`;
 const MONGO_URI = process.env.URL;
 const DB_NAME = process.env.DB_NAME;
 const COLLECTION = "Predictions";
 
 export async function handlePredictionRequest(req) {
+  // Use path.resolve to handle OS-specific slashes (Windows vs Linux)
+  const scriptPath = path.resolve(process.cwd(), "Python", "Monthly_Pred.py");
   const customerId = req.authUser._id?.toString() || req.authUser.id;
-  console.log("id", customerId);
+
+  // Create unique temp file to avoid race conditions
+  const uniqueId = crypto.randomBytes(4).toString("hex");
+  const tempOutputFile = path.resolve(process.cwd(), `temp_forecast_${customerId}_${uniqueId}.json`);
 
   const pythonArgs = [
-    PYTHON_SCRIPT,
-    "--mongo",
-    process.env.URL, 
-    "--db",
-    DB_NAME,
-    "--coll",
-    "meterreadings", 
-    "--customer",
-    customerId,
-    "--out",
-    "forecast.json",
+    scriptPath,
+    "--mongo", MONGO_URI,
+    "--db", DB_NAME,
+    "--coll", "meterreadings",
+    "--customer", customerId,
+    "--out", tempOutputFile,
   ];
 
-  const pythonProcess = spawn("python", pythonArgs, { windowsHide: true });
-
-  pythonProcess.stdout.on("data", (data) => console.log(data.toString()));
-  pythonProcess.stderr.on("data", (data) => console.error(data.toString()));
-
-  console.log("Running Python with args:", pythonArgs.join(" "));
-
   return new Promise((resolve, reject) => {
+    // Note: use 'python' or 'python3' depending on your environment
     const pythonProcess = spawn("python", pythonArgs, { windowsHide: true });
 
-    let scriptOut = "";
     let scriptErr = "";
 
-    pythonProcess.stderr.on("data", (d) => (scriptErr += d.toString()));
-    pythonProcess.stdout.on("data", (d) => {
-      scriptOut += d.toString();
+    pythonProcess.stderr.on("data", (data) => {
+      scriptErr += data.toString();
     });
 
     pythonProcess.on("close", async (code) => {
       try {
-        if (code !== 0) return reject(scriptErr || "Python script failed.");
+        if (code !== 0) {
+          throw new Error(`Python Script Failed (Code ${code}): ${scriptErr}`);
+        }
 
-        const jsonData = JSON.parse(fs.readFileSync("forecast.json", "utf-8"));
+        // Verify file exists before reading
+        await fs.access(tempOutputFile);
+        const data = await fs.readFile(tempOutputFile, "utf-8");
+        const jsonData = JSON.parse(data);
 
-        // Update MongoDB with the prediction
+        // Update Database
         const client = new MongoClient(MONGO_URI);
         await client.connect();
         const db = client.db(DB_NAME);
-        await db
-          .collection(COLLECTION)
-          .updateOne(
-            { customerId: jsonData.customerId },
-            { $set: jsonData },
-            { upsert: true }
-          );
+        
+        await db.collection(COLLECTION).updateOne(
+          { customerId: jsonData.customerId },
+          { $set: { ...jsonData, lastCalculated: new Date() } },
+          { upsert: true }
+        );
         await client.close();
 
+        // Cleanup
+        await fs.unlink(tempOutputFile);
         resolve(jsonData);
       } catch (err) {
+        // Attempt cleanup of temp file if it exists
+        try { await fs.unlink(tempOutputFile); } catch (e) {}
         reject(err);
       }
     });
   });
 }
-
-
-
-
-
