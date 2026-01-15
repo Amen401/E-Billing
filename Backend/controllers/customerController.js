@@ -367,22 +367,34 @@ export const submitReading = async (req, res) => {
       .json({ message: "Internal server error during reading submission" });
   }
 };
-
-export const myMonthlyUsageAnlysis = async (req, res) => {
+export const myMonthlyUsageAnalysis = async (req, res) => {
   try {
+    const customerId = req.authUser._id?.toString() || req.authUser.id;
+
     const lastReadings = await merterReading
-      .find({ customerId: req.authUser.id })
-      .sort({ createdAt: -1 })
-      .limit(6)
-      .populate("paymentMonth");
-    const nextMonthUsage = await handlePredictionRequest(req, res);
+      .find({ customerId })
+      .sort({ dateOfSubmission: -1 })
+      .limit(6);
+
+    let predictionData = null;
+    let predictionError = null;
+
+    try {
+      predictionData = await handlePredictionRequest(req);
+    } catch (err) {
+      console.error("Prediction Engine Error:", err.message);
+      predictionError = err.message;
+    }
 
     return res.status(200).json({
+      success: true,
       readings: lastReadings,
-      prediction: nextMonthUsage,
+      prediction: predictionData,
+      predictionError: predictionError ? "Insufficient data for accurate forecast" : null
     });
+
   } catch (error) {
-    console.log(error);
+    console.error("Controller Error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

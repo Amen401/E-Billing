@@ -9,13 +9,11 @@ const DB_NAME = process.env.DB_NAME;
 const COLLECTION = "Predictions";
 
 export async function handlePredictionRequest(req) {
-  // Use path.resolve to handle OS-specific slashes (Windows vs Linux)
-  const scriptPath = path.resolve(process.cwd(), "Python", "Monthly_Pred.py");
+  const scriptPath = path.join(process.cwd(), "Python", "Monthly_Pred.py");
   const customerId = req.authUser._id?.toString() || req.authUser.id;
-
-  // Create unique temp file to avoid race conditions
+  
   const uniqueId = crypto.randomBytes(4).toString("hex");
-  const tempOutputFile = path.resolve(process.cwd(), `temp_forecast_${customerId}_${uniqueId}.json`);
+  const tempOutputFile = path.join(process.cwd(), `temp_forecast_${uniqueId}.json`);
 
   const pythonArgs = [
     scriptPath,
@@ -27,44 +25,49 @@ export async function handlePredictionRequest(req) {
   ];
 
   return new Promise((resolve, reject) => {
-    // Note: use 'python' or 'python3' depending on your environment
-    const pythonProcess = spawn("python", pythonArgs, { windowsHide: true });
+    // Determine python command (python3 usually for linux, python for windows)
+    const pythonCmd = process.platform === "win32" ? "python" : "python3";
+    const pythonProcess = spawn(pythonCmd, pythonArgs, { windowsHide: true });
 
     let scriptErr = "";
+    
+    // Safety Timeout: Kill script if it takes longer than 30 seconds
+    const timeout = setTimeout(() => {
+      pythonProcess.kill();
+      reject(new Error("Prediction timed out after 30 seconds"));
+    }, 30000);
 
     pythonProcess.stderr.on("data", (data) => {
       scriptErr += data.toString();
     });
 
     pythonProcess.on("close", async (code) => {
+      clearTimeout(timeout);
       try {
         if (code !== 0) {
-          throw new Error(`Python Script Failed (Code ${code}): ${scriptErr}`);
+          throw new Error(scriptErr || "Python script exited with error");
         }
 
-        // Verify file exists before reading
-        await fs.access(tempOutputFile);
         const data = await fs.readFile(tempOutputFile, "utf-8");
         const jsonData = JSON.parse(data);
 
-        // Update Database
+        // Update MongoDB
         const client = new MongoClient(MONGO_URI);
         await client.connect();
         const db = client.db(DB_NAME);
         
         await db.collection(COLLECTION).updateOne(
           { customerId: jsonData.customerId },
-          { $set: { ...jsonData, lastCalculated: new Date() } },
+          { $set: { ...jsonData, lastUpdated: new Date() } },
           { upsert: true }
         );
         await client.close();
 
-        // Cleanup
         await fs.unlink(tempOutputFile);
         resolve(jsonData);
       } catch (err) {
-        // Attempt cleanup of temp file if it exists
-        try { await fs.unlink(tempOutputFile); } catch (e) {}
+        // Cleanup temp file if it exists
+        try { await fs.access(tempOutputFile); await fs.unlink(tempOutputFile); } catch (e) {}
         reject(err);
       }
     });
