@@ -146,7 +146,7 @@ export const checkPaymentSchedule = async (req, res) => {
       customerId: req.authUser.id,
       createdAt: { $gt: searchDate },
     });
-console.log(lastPayment, searchDate, missedPayments);
+    console.log(lastPayment, searchDate, missedPayments);
     const isAnyMissedMonth = missedPayments.length > 0;
 
     const openedPaymentSchedule = await paymentSchedule.findOne({
@@ -210,10 +210,12 @@ export const submitReading = async (req, res) => {
       .findOne({ customerId })
       .sort({ createdAt: -1 })
       .exec();
-    const previousRead = lastReading ? lastReading.killowatRead : findAccount.killowat;
+    const previousRead = lastReading
+      ? lastReading.killowatRead
+      : findAccount.killowat;
     const monthlyUsage = Number((currentRead - previousRead).toFixed(1));
 
-    console.log(monthlyUsage, currentRead, previousRead)
+    console.log(monthlyUsage, currentRead, previousRead);
 
     if (monthlyUsage < 0) {
       return res.status(400).json({
@@ -315,8 +317,11 @@ export const submitReading = async (req, res) => {
     } else {
       paymentChunks.push(round2(total));
     }
-
+    const tempTxRef = `PENDING-${Date.now()}-${Math.random()
+      .toString(36)
+      .substr(2, 9)}`;
     const newMeterReading = new merterReading({
+      txRef: tempTxRef,
       photo: {
         secure_url: uploadPhoto.secure_url,
         public_id: uploadPhoto.public_id,
@@ -371,18 +376,24 @@ export const myMonthlyUsageAnlysis = async (req, res) => {
   try {
     const customerId = req.authUser._id?.toString() || req.authUser.id;
 
-   
     const [lastReadings, nextMonthUsage] = await Promise.allSettled([
-      merterReading.find({ customerId }).sort({ createdAt: -1 }).limit(6).populate("paymentMonth"),
-      handlePredictionRequest(req)
+      merterReading
+        .find({ customerId })
+        .sort({ createdAt: -1 })
+        .limit(6)
+        .populate("paymentMonth"),
+      handlePredictionRequest(req),
     ]);
 
     return res.status(200).json({
       readings: lastReadings.status === "fulfilled" ? lastReadings.value : [],
-      prediction: nextMonthUsage.status === "fulfilled" ? nextMonthUsage.value : null,
-      predictionError: nextMonthUsage.status === "rejected" ? nextMonthUsage.reason.message : null
+      prediction:
+        nextMonthUsage.status === "fulfilled" ? nextMonthUsage.value : null,
+      predictionError:
+        nextMonthUsage.status === "rejected"
+          ? nextMonthUsage.reason.message
+          : null,
     });
-
   } catch (error) {
     console.error("Controller Error:", error);
     return res.status(500).json({ message: "Internal server error" });
@@ -410,7 +421,9 @@ export const getmeterbyId = async (req, res) => {
   }
 };
 
-const generateTxRef = () => crypto.randomBytes(16).toString("hex");
+const tempTxRef = `PENDING-${Date.now()}-${Math.random()
+  .toString(36)
+  .substr(2, 9)}`;
 
 export const payBill = async (req, res) => {
   try {
@@ -419,7 +432,7 @@ export const payBill = async (req, res) => {
     const reading = await merterReading.findById(rId).populate("paymentMonth");
     if (!reading) return res.status(404).json({ message: "Reading not found" });
 
-    const txRef = generateTxRef();
+    const txRef = tempTxRef;
     reading.txRef = txRef;
     reading.paymentStatus = "Pending";
     await reading.save();
