@@ -65,7 +65,7 @@ const OfficerDashboard = () => {
         },
         {
           title: "Readings Today",
-          value: data.readingsToday,
+          value: data.meterReadingsToday,
           icon: Gauge,
           color: "text-secondary",
         },
