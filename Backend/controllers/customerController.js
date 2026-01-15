@@ -333,7 +333,7 @@ export const submitReading = async (req, res) => {
       vatRate,
       highConsumptionCharge,
       energyCharge,
-      anomalyStatus: anomalyResult?.anomalyStatus || "Unknown",
+      anomalyStatus: anomalyResult?.anomalyStatus || "Normal",
       paymentStatus: "Pending",
       fee: Math.round(totalFee * 100) / 100,
       paymentChunks,
